@@ -1,12 +1,10 @@
-
-import { migrate } from 'drizzle-orm/pglite/migrator';
-import { db } from './db';
-import api from './routes/api';
-
-import { initializeDatabase } from './init';
+import { migrate } from "drizzle-orm/pglite/migrator";
+import { db } from "./db";
+import api from "./routes/api";
+import { initializeDatabase } from "./init";
 
 async function main() {
-  await migrate(db, { migrationsFolder: './drizzle' });
+  await migrate(db, { migrationsFolder: "./drizzle" });
   await initializeDatabase();
 
   const server = Bun.serve({

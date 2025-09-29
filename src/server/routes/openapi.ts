@@ -1,4 +1,3 @@
-
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
 import { z } from 'zod';
@@ -36,8 +35,9 @@ const route = createRoute({
 app.openapi(route, (c) => {
     // This is a dummy handler for documentation purposes.
     // The actual logic is in src/index.ts
-    return c.jsonT({
+    return c.json({
         response: 'This is a dummy response. Use the real endpoint to interact with the chat bot.',
+        conversationId: crypto.randomUUID(),
     });
 });
 
