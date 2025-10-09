@@ -3,9 +3,9 @@ import { users, aiModelApis, chatModels } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { getDefaultUser } from './utils';
 
-const defaultOpenAIModels = ['gpt-4.1-mini', 'gpt-4.1', 'o3', 'o4-mini'];
-const defaultGeminiModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
-const defaultAnthropicModels = ['claude-sonnet-4-0', 'claude-3-5-haiku-latest'];
+const defaultGeminiModels = ['gemini-2.5-flash', 'gemini-2.5-pro'];
+const defaultOpenAIModels = ['gpt-5-2025-08-07', 'gpt-5-mini-2025-08-07'];
+const defaultAnthropicModels = ['claude-sonnet-4-5-20250929', 'claude-3-5-haiku-latest'];
 const defaultGroqModels = ['openai/gpt-oss-120b', 'moonshotai/kimi-k2-instruct-0905'];
 
 async function setupChatModelProvider(providerName: string, modelType: 'openai' | 'google' | 'anthropic', apiKey: string, defaultModels: string[], visionEnabled: boolean, apiBaseUrl?: string) {
