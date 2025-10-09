@@ -12,7 +12,26 @@ function getDefaultUser() {
 }
 
 function getDbName() {
-    return process.env.POSTGRES_DB || './local.db';
+    const defaultDbPath = `${process.cwd()}/panini.db`;
+    return process.env.POSTGRES_DB || defaultDbPath;
 }
 
-export { getDefaultUser, getDbName };
+// Import PGlite WASM files to embed in binary
+import wasmFile from '../../node_modules/@electric-sql/pglite/dist/pglite.wasm' with { type: 'file' };
+import dataFile from '../../node_modules/@electric-sql/pglite/dist/pglite.data' with { type: 'file' };
+
+async function getPGliteConfig() {
+    const wasmModule = await WebAssembly.compile(await Bun.file(wasmFile).arrayBuffer());
+    const fsBundle = Bun.file(dataFile);
+
+    return {
+        wasmModule,
+        fsBundle,
+    };
+}
+
+function getMigrationsFolder() {
+    return `${process.cwd()}/drizzle`;
+}
+
+export { getDefaultUser, getDbName, getPGliteConfig, getMigrationsFolder };
