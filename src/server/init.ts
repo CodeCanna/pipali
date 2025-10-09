@@ -6,6 +6,7 @@ import { getDefaultUser } from './utils';
 const defaultOpenAIModels = ['gpt-4.1-mini', 'gpt-4.1', 'o3', 'o4-mini'];
 const defaultGeminiModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
 const defaultAnthropicModels = ['claude-sonnet-4-0', 'claude-3-5-haiku-latest'];
+const defaultGroqModels = ['openai/gpt-oss-120b', 'moonshotai/kimi-k2-instruct-0905'];
 
 async function setupChatModelProvider(providerName: string, modelType: 'openai' | 'google' | 'anthropic', apiKey: string, defaultModels: string[], visionEnabled: boolean, apiBaseUrl?: string) {
     const [existingProvider] = await db.select().from(aiModelApis).where(eq(aiModelApis.name, providerName));
@@ -52,7 +53,10 @@ export async function initializeDatabase() {
     const existingChatModels = await db.select().from(chatModels).limit(1);
 
     if (existingChatModels.length === 0) {
-        if (process.env.OPENAI_API_KEY) {
+        if (process.env.OPENAI_API_KEY && process.env.OPENAI_BASE_URL == 'https://api.groq.com/openai/v1') {
+            await setupChatModelProvider('Groq', 'openai', process.env.OPENAI_API_KEY, defaultGroqModels, true, process.env.OPENAI_BASE_URL);
+        }
+        else if (process.env.OPENAI_API_KEY) {
             await setupChatModelProvider('OpenAI', 'openai', process.env.OPENAI_API_KEY, defaultOpenAIModels, true, process.env.OPENAI_BASE_URL);
         }
         if (process.env.GEMINI_API_KEY) {
