@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { ChatOpenAI } from '@langchain/openai';
-import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import { db } from '../db';
 import { Conversation } from '../db/schema';
 import { eq } from 'drizzle-orm';
@@ -11,9 +10,7 @@ import openapi from './openapi';
 
 import { type ChatMessage } from '../db/schema';
 import { getDefaultUser } from '../utils';
-import type { ChatMessageModel } from '../processor/conversation/conversation';
-import { generateChatmlMessagesWithContext } from '../processor/conversation/utils';
-import { sendMessageToModel } from '../processor/conversation';
+import { research } from '../processor/director';
 
 const api = new Hono();
 
@@ -53,20 +50,44 @@ api.post('/chat', zValidator('json', schema), async (c) => {
         }
     }
 
-    const response = await sendMessageToModel(
-        message,
-        undefined,
-        undefined,
-        undefined,
-        history,
-    );
+    // Use research agent to handle the query
+    const researchIterations = [];
+    let finalResponse = '';
 
-    const aiMessage = response?.message as string;
+    for await (const iteration of research({
+        query: message,
+        chatHistory: history,
+        maxIterations: 5,
+        currentDate: new Date().toISOString().split('T')[0],
+        dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+    })) {
+        if (iteration.warning) {
+            console.warn('Research warning:', iteration.warning);
+            continue;
+        }
+
+        if (iteration.query && typeof iteration.query !== 'string' && iteration.query.name === 'text') {
+            // Final response from text tool
+            finalResponse = iteration.query.args.response || '';
+            break;
+        }
+
+        researchIterations.push(iteration);
+    }
+
+    // If no final response was generated, create one from the last iteration
+    if (!finalResponse && researchIterations.length > 0) {
+        const lastIteration = researchIterations[researchIterations.length - 1];
+        finalResponse = lastIteration?.summarizedResult || 'Research completed but no final response generated.';
+    } else if (!finalResponse) {
+        finalResponse = 'Failed to generate response.';
+    }
+
     const turnId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
     const userMessageToLog: ChatMessage = { by: 'user', message, created: createdAt, turnId };
-    const aiMessageToLog: ChatMessage = { by: 'assistant', message: aiMessage, created: createdAt, turnId };
+    const aiMessageToLog: ChatMessage = { by: 'assistant', message: finalResponse, created: createdAt, turnId };
 
     if (conversation) {
         const updatedLog = { chat: [...(conversation.conversationLog?.chat || []), userMessageToLog, aiMessageToLog] };
@@ -80,7 +101,7 @@ api.post('/chat', zValidator('json', schema), async (c) => {
         conversation = newConversation[0];
     }
 
-    return c.json({ response: aiMessage, conversationId: conversation?.id });
+    return c.json({ response: finalResponse, conversationId: conversation?.id, iterations: researchIterations.length });
 });
 
 // Mount the OpenAPI documentation

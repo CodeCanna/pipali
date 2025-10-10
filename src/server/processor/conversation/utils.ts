@@ -1,4 +1,4 @@
-import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages';
+import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { type ChatMessage } from '../../db/schema';
 import type { ChatMessageModel } from './conversation';
 
@@ -21,6 +21,10 @@ export function generateChatmlMessagesWithContext(
     fastMode?: boolean,
 ): ChatMessageModel[] {
     const messages: ChatMessageModel[] = [];
+
+    if (systemMessage) {
+        messages.push(new SystemMessage(systemMessage));
+    }
 
     for (const msg of history || []) {
         if (msg.by === 'user') {
@@ -72,5 +76,6 @@ export function generateChatmlMessagesWithContext(
     if (!!query) {
         messages.push(new HumanMessage(query));
     }
+
     return messages;
 }
