@@ -3,14 +3,17 @@
 export interface ToolCall {
     name: string;
     args: Record<string, any>;
-    id: string | null;
+    id: string;
+}
+
+export interface ToolResult {
+    toolCall: ToolCall;
+    result: string;
 }
 
 export interface ResearchIteration {
-    query: ToolCall | string | null;
-    context?: any[];
-    summarizedResult?: string;
+    toolCalls: ToolCall[];
+    toolResults?: ToolResult[];
     warning?: string;
-    raw_response?: any[];
     thought?: string;
 }

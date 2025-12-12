@@ -68,9 +68,12 @@ api.post('/chat', zValidator('json', schema), async (c) => {
         dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
         user: user,
     })) {
-        // Log iteration
-        if (iteration.query && typeof iteration.query !== 'string') {
-            console.log(`[API] 🔧 Tool: ${iteration.query.name}`, iteration.query.args ? JSON.stringify(iteration.query.args).slice(0, 100) : '');
+        // Log tool calls
+        for (const tc of iteration.toolCalls) {
+            console.log(`[API] 🔧 Tool: ${tc.name}`, tc.args ? JSON.stringify(tc.args).slice(0, 100) : '');
+        }
+        if (iteration.toolCalls.length > 1) {
+            console.log(`[API] ⚡ Executing ${iteration.toolCalls.length} tools in parallel`);
         }
 
         if (iteration.warning) {
@@ -78,9 +81,10 @@ api.post('/chat', zValidator('json', schema), async (c) => {
             continue;
         }
 
-        if (iteration.query && typeof iteration.query !== 'string' && iteration.query.name === 'text') {
-            // Final response from text tool
-            finalResponse = iteration.query.args.response || '';
+        // Check for text tool (final response)
+        const textTool = iteration.toolCalls.find(tc => tc.name === 'text');
+        if (textTool) {
+            finalResponse = textTool.args.response || '';
             break;
         }
 
@@ -93,10 +97,11 @@ api.post('/chat', zValidator('json', schema), async (c) => {
     console.log(`[API] Conversation ID: ${conversation?.id}`);
     console.log(`${'='.repeat(60)}\n`);
 
-    // If no final response was generated, create one from the last iteration
+    // If no final response was generated, create one from the last iteration's tool results
     if (!finalResponse && researchIterations.length > 0) {
         const lastIteration = researchIterations[researchIterations.length - 1];
-        finalResponse = lastIteration?.summarizedResult || 'Research completed but no final response generated.';
+        const lastResults = lastIteration?.toolResults?.map(tr => tr.result).join('\n\n');
+        finalResponse = lastResults || 'Research completed but no final response generated.';
     } else if (!finalResponse) {
         finalResponse = 'Failed to generate response.';
     }

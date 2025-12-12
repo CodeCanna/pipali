@@ -68,25 +68,29 @@ export const websocketHandler = {
                 maxIterations: 5,
                 currentDate: new Date().toISOString().split('T')[0],
                 dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-                user: user, // Pass user for model selection
+                user: user,
             })) {
-                // Log iteration
-                if (iteration.query && typeof iteration.query !== 'string') {
-                    console.log(`[WS] 🔧 Tool: ${iteration.query.name}`, iteration.query.args ? JSON.stringify(iteration.query.args).slice(0, 100) : '');
+                // Log tool calls
+                for (const tc of iteration.toolCalls) {
+                    console.log(`[WS] 🔧 Tool: ${tc.name}`, tc.args ? JSON.stringify(tc.args).slice(0, 100) : '');
+                }
+                if (iteration.toolCalls.length > 1) {
+                    console.log(`[WS] ⚡ Executing ${iteration.toolCalls.length} tools in parallel`);
                 }
                 if (iteration.warning) {
                     console.warn(`[WS] ⚠️ Warning: ${iteration.warning}`);
                 }
 
-                // Send iteration event
-                ws.send(JSON.stringify({
-                    type: 'iteration',
-                    data: iteration
-                }));
-
-                if (iteration.query && typeof iteration.query !== 'string' && iteration.query.name === 'text') {
-                    finalResponse = iteration.query.args.response || '';
+                // Check for text tool (final response)
+                const textTool = iteration.toolCalls.find(tc => tc.name === 'text');
+                if (textTool) {
+                    finalResponse = textTool.args.response || '';
+                } else {
+                    // Send iteration update to client.
+                    // Exclude final response as it is rendered via 'complete' message
+                    ws.send(JSON.stringify({ type: 'iteration', data: iteration }));
                 }
+
                 researchIterations.push(iteration);
             }
         } catch (error) {
@@ -95,10 +99,11 @@ export const websocketHandler = {
              return;
         }
 
-        // If no final response was generated, create one from the last iteration
+        // If no final response was generated, create one from the last iteration's tool results
         if (!finalResponse && researchIterations.length > 0) {
             const lastIteration = researchIterations[researchIterations.length - 1];
-            finalResponse = lastIteration?.summarizedResult || 'Research completed but no final response generated.';
+            const lastResults = lastIteration?.toolResults?.map(tr => tr.result).join('\n\n');
+            finalResponse = lastResults || 'Research completed but no final response generated.';
         } else if (!finalResponse) {
             finalResponse = 'Failed to generate response.';
         }

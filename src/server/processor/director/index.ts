@@ -1,7 +1,7 @@
 import { type ChatMessage, type User } from '../../db/schema';
 import type { ToolDefinition } from '../conversation/conversation';
 import { sendMessageToModel } from '../conversation/index';
-import type { ResearchIteration, ToolCall } from './types';
+import type { ResearchIteration, ToolCall, ToolResult } from './types';
 import { listFiles, type ListFilesArgs } from '../actor/list_files';
 import { readFile, type ReadFileArgs } from '../actor/read_file';
 import { grepFiles, type GrepFilesArgs } from '../actor/grep_files';
@@ -145,35 +145,35 @@ async function pickNextTool(
 
     // Add previous iterations as tool calls and results
     for (const iteration of previousIterations) {
-        if (!iteration.query || typeof iteration.query === 'string') {
-            // If query is not a tool call, add as user message
-            iterationHistory.push({
-                by: 'user',
-                message: iteration.summarizedResult || iteration.warning || 'Please specify what you want to do next.'
-            });
+        if (iteration.toolCalls.length === 0) {
             continue;
         }
 
-        // Add tool call from assistant
+        // Add tool calls from assistant
         iterationHistory.push({
             by: 'assistant',
-            message: iteration.raw_response || [iteration.query],
+            message: iteration.toolCalls.map(tc => ({
+                type: 'tool_call',
+                id: tc.id,
+                name: tc.name,
+                args: tc.args
+            })),
             intent: { type: 'tool_call' }
         });
 
-        // Add tool result as user message in structured format
-        iterationHistory.push({
-            by: 'user',
-            message: [
-                {
+        // Add tool results
+        if (iteration.toolResults) {
+            iterationHistory.push({
+                by: 'user',
+                message: iteration.toolResults.map(tr => ({
                     type: 'tool_result',
-                    id: iteration.query.id,
-                    name: iteration.query.name,
-                    content: iteration.summarizedResult
-                }
-            ],
-            intent: { type: 'tool_result' }
-        });
+                    id: tr.toolCall.id,
+                    name: tr.toolCall.name,
+                    content: tr.result
+                })),
+                intent: { type: 'tool_result' }
+            });
+        }
     }
 
     // Combine with conversation history
@@ -200,50 +200,51 @@ async function pickNextTool(
             throw new Error('No response from model');
         }
 
-        // Parse response as tool call
-        let toolCall: ToolCall;
+        // Parse tool calls from response
+        let toolCalls: ToolCall[];
         if (response.raw && Array.isArray(response.raw) && response.raw.length > 0) {
-            let toolCalls = response.raw as ToolCall[];
-            toolCall = toolCalls[0] || { name: 'text', args: { response: response.message }, id: null };
+            toolCalls = response.raw as ToolCall[];
         } else {
-            toolCall = { name: 'text', args: { response: response.message }, id: null };
+            // No tool calls - model wants to respond directly
+            toolCalls = [{ name: 'text', args: { response: response.message }, id: crypto.randomUUID() }];
         }
 
         // Check for repeated tool calls
-        const previousToolQueries = new Set(
-            previousIterations
-                .filter(i => i.query && typeof i.query !== 'string')
-                .map(i => {
-                    const q = i.query as ToolCall;
-                    return `${q.name}:${JSON.stringify(q.args)}`;
-                })
+        const previousToolKeys = new Set(
+            previousIterations.flatMap(i =>
+                i.toolCalls.map(tc => `${tc.name}:${JSON.stringify(tc.args)}`)
+            )
         );
 
-        const currentKey = `${toolCall.name}:${JSON.stringify(toolCall.args)}`;
-        if (previousToolQueries.has(currentKey)) {
+        const newToolCalls = toolCalls.filter(tc => {
+            const key = `${tc.name}:${JSON.stringify(tc.args)}`;
+            return !previousToolKeys.has(key);
+        });
+
+        // All tool calls are repeated
+        if (newToolCalls.length === 0 && toolCalls.length > 0) {
             return {
-                query: toolCall,
-                warning: `Repeated tool call detected. You've already called ${toolCall.name} with args: ${JSON.stringify(toolCall.args)}. Try something different.`,
+                toolCalls,
+                warning: `Repeated tool calls detected. You've already called these tools with the same arguments. Try something different.`,
                 thought: response.message,
             };
         }
 
         return {
-            query: toolCall,
-            raw_response: response.raw,
+            toolCalls: newToolCalls.length > 0 ? newToolCalls : toolCalls,
             thought: response.message,
         };
     } catch (error) {
         console.error('Failed to pick next tool:', error);
         return {
-            query: null,
+            toolCalls: [],
             warning: `Failed to infer information sources to refer: ${error instanceof Error ? error.message : String(error)}`,
         };
     }
 }
 
 /**
- * Execute a tool call and return the result
+ * Execute a single tool call and return the result
  */
 async function executeTool(toolCall: ToolCall): Promise<string> {
     try {
@@ -273,52 +274,45 @@ async function executeTool(toolCall: ToolCall): Promise<string> {
 }
 
 /**
+ * Execute multiple tool calls in parallel and return their results
+ */
+async function executeToolsInParallel(toolCalls: ToolCall[]): Promise<ToolResult[]> {
+    const results = await Promise.all(
+        toolCalls.map(async (toolCall) => {
+            const result = await executeTool(toolCall);
+            return { toolCall, result };
+        })
+    );
+    return results;
+}
+
+/**
  * Main research function - iterates through tool calls until completion
  */
 export async function* research(config: ResearchConfig): AsyncGenerator<ResearchIteration> {
     const { query, maxIterations = 5 } = config;
     const previousIterations: ResearchIteration[] = [];
-    let currentIteration = 0;
 
-    while (currentIteration < maxIterations) {
-        // Pick next tool
+    for (let i = 0; i < maxIterations; i++) {
         const iteration = await pickNextTool(query, previousIterations, config);
-        yield iteration;
 
-        // Check for warnings or completion
-        if (iteration.warning) {
-            console.warn('Research iteration warning:', iteration.warning);
-            break;
-        }
-
-        if (!iteration.query || typeof iteration.query === 'string' || iteration.query.id === null) {
-            break;
-        }
-
-        // Check if we're done (text tool selected)
-        if (iteration.query.name === 'text') {
-            iteration.summarizedResult = iteration.query.args.response || '';
-            previousIterations.push(iteration);
+        // Check for warnings or no tool calls
+        if (iteration.warning || iteration.toolCalls.length === 0) {
             yield iteration;
             break;
         }
 
-        // Execute the tool
-        const result = await executeTool(iteration.query);
-        iteration.summarizedResult = result;
-        iteration.context = [{ compiled: result }];
+        // Check if done (text tool = final response)
+        const textTool = iteration.toolCalls.find(tc => tc.name === 'text');
+        if (textTool) {
+            iteration.toolResults = [{ toolCall: textTool, result: textTool.args.response || '' }];
+            yield iteration;
+            break;
+        }
 
+        // Execute all tools in parallel
+        iteration.toolResults = await executeToolsInParallel(iteration.toolCalls);
         previousIterations.push(iteration);
         yield iteration;
-
-        currentIteration++;
-    }
-
-    // If we hit max iterations, return a final message
-    if (currentIteration >= maxIterations) {
-        yield {
-            query: null,
-            warning: `Reached maximum iterations (${maxIterations}). Stopping research.`,
-        };
     }
 }
