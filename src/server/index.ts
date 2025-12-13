@@ -1,5 +1,6 @@
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { sql } from "drizzle-orm";
+import { parseArgs } from "util";
 import { db } from "./db";
 import app from "./routes";
 import api from "./routes/api";
@@ -10,6 +11,56 @@ import {
     IS_COMPILED_BINARY,
     EMBEDDED_MIGRATIONS,
 } from "./embedded-assets";
+
+// Parse CLI arguments
+function getServerConfig() {
+    const { values } = parseArgs({
+        args: Bun.argv.slice(2),
+        options: {
+            host: {
+                type: "string",
+                short: "h",
+                default: process.env.PANINI_HOST || "127.0.0.1",
+            },
+            port: {
+                type: "string",
+                short: "p",
+                default: process.env.PANINI_PORT || "6464",
+            },
+            help: {
+                type: "boolean",
+                default: false,
+            },
+        },
+        strict: true,
+        allowPositionals: false,
+    });
+
+    if (values.help) {
+        console.log(`
+Panini - Personal AI Assistant
+
+Usage: panini [options]
+
+Options:
+  -h, --host <host>    Host to bind to (default: 127.0.0.1, env: PANINI_HOST)
+  -p, --port <port>    Port to listen on (default: 6464, env: PANINI_PORT)
+      --help           Show this help message
+
+Examples:
+  panini                        # Start on 127.0.0.1:6464
+  panini -p 8080                # Start on 127.0.0.1:8080
+  panini --host 0.0.0.0         # Start on all interfaces
+  panini -h 0.0.0.0 -p 8080     # Start on 0.0.0.0:8080
+`);
+        process.exit(0);
+    }
+
+    return {
+        host: values.host as string,
+        port: parseInt(values.port as string, 10),
+    };
+}
 
 async function runEmbeddedMigrations() {
     console.log("Running embedded migrations...");
@@ -61,6 +112,9 @@ async function runEmbeddedMigrations() {
 }
 
 async function main() {
+    // Parse CLI arguments
+    const config = getServerConfig();
+
     // Run migrations - either embedded or from disk
     if (IS_COMPILED_BINARY) {
         await runEmbeddedMigrations();
@@ -110,11 +164,12 @@ async function main() {
         return res;
     },
     websocket: websocketHandler,
-    port: 3000,
+    hostname: config.host,
+    port: config.port,
     development: !IS_COMPILED_BINARY,
   });
 
-  console.log(`Server listening on http://localhost:${server.port}`);
+  console.log(`Server listening on http://${config.host}:${server.port}`);
 }
 
 main();
