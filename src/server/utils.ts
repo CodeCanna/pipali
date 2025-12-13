@@ -11,7 +11,9 @@ function getDefaultUser() {
     };
 }
 
-function getMigrationsFolder() {
+function getMigrationsFolder(): string {
+    // The migration folder from disk is only used in development mode.
+    // In compiled mode, migrations are embedded, so this function is not used.
     return `${process.cwd()}/drizzle`;
 }
 
