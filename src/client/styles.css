@@ -579,8 +579,11 @@ body {
     background: var(--bg-tertiary);
     padding: 8px 10px;
     border-radius: var(--radius-sm);
-    overflow: hidden;
-    text-overflow: ellipsis;
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 180px;
+    overflow: auto;
 }
 
 /* Input Area */

@@ -676,10 +676,10 @@ const ThoughtsSection = ({ thoughts }: { thoughts: Thought[] }) => {
                                             )}
                                         </div>
                                         {thought.toolResult && (
-                                            <div className="thought-result">
+                                            <pre className="thought-result">
                                                 {thought.toolResult.slice(0, 200)}
                                                 {thought.toolResult.length > 200 && '...'}
-                                            </div>
+                                            </pre>
                                         )}
                                     </div>
                                 </div>
