@@ -1,6 +1,7 @@
 import path from 'path';
 import os from 'os';
 import { resolveCaseInsensitivePath } from './actor.utils';
+import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 
 export interface ReadFileArgs {
     path: string;
@@ -19,12 +20,23 @@ export interface FileContentResult {
 // Supported image formats
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
+// Supported PDF format
+const PDF_EXTENSION = '.pdf';
+
 /**
  * Check if a file path is an image based on extension
  */
 function isImageFile(filePath: string): boolean {
     const ext = path.extname(filePath).toLowerCase();
     return IMAGE_EXTENSIONS.includes(ext);
+}
+
+/**
+ * Check if a file path is a PDF based on extension
+ */
+function isPdfFile(filePath: string): boolean {
+    const ext = path.extname(filePath).toLowerCase();
+    return ext === PDF_EXTENSION;
 }
 
 /**
@@ -119,6 +131,71 @@ export async function readFile(args: ReadFileArgs): Promise<FileContentResult> {
                     file: filePath,
                     uri: filePath,
                     compiled: `Error reading image file ${filePath}: ${imageError instanceof Error ? imageError.message : String(imageError)}`,
+                };
+            }
+        }
+
+        // Check if file is a PDF
+        if (isPdfFile(resolvedPath)) {
+            try {
+                console.log(`[PDF] Reading: ${resolvedPath}`);
+                const loader = new PDFLoader(resolvedPath, {
+                    splitPages: false, // Load entire PDF as single document
+                });
+                const docs = await loader.load();
+
+                if (docs.length === 0) {
+                    return {
+                        query,
+                        file: filePath,
+                        uri: filePath,
+                        compiled: `PDF file '${filePath}' contains no readable text content.`,
+                    };
+                }
+
+                // Combine all document content
+                const pdfText = docs.map(doc => doc.pageContent).join('\n\n');
+                const pageCount = (docs[0]?.metadata as any)?.pdf?.totalPages || docs.length;
+                console.log(`[PDF] Extracted ${pdfText.length} characters from ${pageCount} page(s)`);
+
+                // Apply line range filtering if specified
+                const lines = pdfText.split('\n');
+                const startIdx = (start_line || 1) - 1;
+                const endIdx = end_line || lines.length;
+
+                if (startIdx < 0 || startIdx >= lines.length) {
+                    return {
+                        query,
+                        file: filePath,
+                        uri: filePath,
+                        compiled: `Invalid start_line: ${start_line}. PDF has ${lines.length} lines.`,
+                    };
+                }
+
+                let actualEndIdx = Math.min(endIdx, lines.length);
+                let truncationMessage = '';
+
+                if (actualEndIdx - startIdx > 50) {
+                    truncationMessage = '\n\n[Truncated after 50 lines! Use narrower line range to view complete section.]';
+                    actualEndIdx = startIdx + 50;
+                }
+
+                const selectedLines = lines.slice(startIdx, actualEndIdx);
+                const filteredText = `[PDF: ${pageCount} page(s)]\n\n` + selectedLines.join('\n') + truncationMessage;
+
+                return {
+                    query,
+                    file: filePath,
+                    uri: filePath,
+                    compiled: filteredText,
+                };
+            } catch (pdfError) {
+                console.error(`[PDF] Error reading ${filePath}:`, pdfError);
+                return {
+                    query,
+                    file: filePath,
+                    uri: filePath,
+                    compiled: `Error reading PDF file ${filePath}: ${pdfError instanceof Error ? pdfError.message : String(pdfError)}`,
                 };
             }
         }
