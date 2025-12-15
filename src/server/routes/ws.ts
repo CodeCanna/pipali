@@ -3,8 +3,7 @@ import { research } from "../processor/director";
 import { db, getDefaultChatModel } from "../db";
 import { Conversation, User, type ChatMessage } from "../db/schema";
 import { eq } from "drizzle-orm";
-import { getDefaultUser } from "../utils";
-import type { ResearchIteration } from "../processor/director/types";
+import { getDefaultUser, maxIterations } from "../utils";
 import { atifConversationService } from "../processor/conversation/atif/atif.service";
 import { type ATIFToolCall, type ATIFObservationResult } from "../processor/conversation/atif/atif.types";
 import { convertATIFToChatMessages } from "../processor/conversation/atif/atif.utils";
@@ -93,7 +92,7 @@ export const websocketHandler = {
             for await (const iteration of research({
                 query: userQuery,
                 chatHistory: history,
-                maxIterations: 15,
+                maxIterations: maxIterations,
                 currentDate: new Date().toISOString().split('T')[0],
                 dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
                 user: user,

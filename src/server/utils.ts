@@ -1,3 +1,5 @@
+const maxIterations = parseInt(process.env.PANINI_RESEARCH_ITERATIONS || '15', 10);
+
 function getDefaultUser() {
     if (process.env.PANINI_ADMIN_EMAIL && process.env.PANINI_ADMIN_PASSWORD) {
         return {
@@ -17,4 +19,4 @@ function getMigrationsFolder(): string {
     return `${process.cwd()}/drizzle`;
 }
 
-export { getDefaultUser, getMigrationsFolder };
+export { getDefaultUser, getMigrationsFolder, maxIterations };

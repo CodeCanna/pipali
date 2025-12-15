@@ -7,7 +7,7 @@ const defaultGeminiModels = ['gemini-3-pro-preview', 'gemini-2.5-flash'];
 const defaultOpenAIModels = ['gpt-5.2', 'gpt-5.2-chat-latest'];
 const defaultAnthropicModels = ['claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'];
 const defaultGroqModels = ['openai/gpt-oss-120b', 'moonshotai/kimi-k2-instruct-0905'];
-const defaultCerebrasModels = ['zai-glm-4.6']
+const defaultCerebrasModels = ['zai-glm-4.6'];
 
 async function setupChatModelProvider(providerName: string, modelType: 'openai' | 'google' | 'anthropic', apiKey: string, defaultModels: string[], visionEnabled: boolean, apiBaseUrl?: string) {
     const [existingProvider] = await db.select().from(AiModelApi).where(eq(AiModelApi.name, providerName));

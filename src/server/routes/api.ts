@@ -8,7 +8,7 @@ import { AiModelApi, ChatModel, User, UserChatModel } from '../db/schema';
 import openapi from './openapi';
 
 import { type ChatMessage } from '../db/schema';
-import { getDefaultUser } from '../utils';
+import { getDefaultUser, maxIterations } from '../utils';
 import { research } from '../processor/director';
 import { atifConversationService } from '../processor/conversation/atif/atif.service';
 import { type ATIFToolCall, type ATIFObservationResult } from '../processor/conversation/atif/atif.types';
@@ -89,7 +89,7 @@ api.post('/chat', zValidator('json', schema), async (c) => {
     for await (const iteration of research({
         query: message,
         chatHistory: history,
-        maxIterations: 15,
+        maxIterations: maxIterations,
         currentDate: new Date().toISOString().split('T')[0],
         dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
         user: user,
