@@ -217,9 +217,6 @@ export const Conversation = pgTable('conversation', {
     id: uuid('id').defaultRandom().notNull().primaryKey(),
     userId: integer('user_id').notNull().references(() => User.id, { onDelete: 'cascade' }),
     trajectory: jsonb('trajectory').$type<ATIFTrajectory>().notNull(),
-    slug: text('slug'),
     title: text('title'),
-    agentId: integer('agent_id').references(() => agents.id, { onDelete: 'set null' }),
-    fileFilters: jsonb('file_filters').default([]),
     ...dbBaseModel,
 });

@@ -28,9 +28,7 @@ export interface ConversationWithTrajectory {
   id: string;
   userId: number;
   trajectory: ATIFTrajectory;
-  slug?: string | null;
   title?: string | null;
-  agentId?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,7 +46,6 @@ export class ATIFConversationService {
     agentVersion: string = '1.0.0',
     modelName: string = 'unknown',
     title?: string,
-    agentId?: number
   ): Promise<ConversationWithTrajectory> {
     const sessionId = uuidv4();
 
@@ -59,34 +56,23 @@ export class ATIFConversationService {
       modelName
     );
 
-    // Generate a unique slug
-    const tempId = uuidv4();
-    const slug = tempId.substring(0, 8);
-
     // Build insert data object with required fields
     const insertData: {
       userId: number;
       trajectory: ATIFTrajectory;
-      slug: string;
       title?: string;
-      agentId?: number;
     } = {
       userId: user.id,
       trajectory: trajectory,
-      slug: slug,
     };
 
     // Add optional fields only if provided
     if (title) {
       insertData.title = title;
     }
-    if (agentId) {
-      insertData.agentId = agentId;
-    }
 
     console.log('[ATIF Service] Creating conversation:', {
       userId: insertData.userId,
-      slug: insertData.slug,
       hasTrajectory: !!insertData.trajectory,
       trajectoryValid: validateATIFTrajectory(insertData.trajectory).valid,
     });
@@ -205,13 +191,13 @@ export class ATIFConversationService {
       throw new Error(`Invalid ATIF trajectory: ${validation.errors.join(', ')}`);
     }
 
+    title = title || `Imported: ${trajectory.session_id}`;
     const conversationId = uuidv4();
     const [newConversation] = await db.insert(Conversation).values({
       id: conversationId,
       userId,
       trajectory,
-      title: title || `Imported: ${trajectory.session_id}`,
-      slug: conversationId.substring(0, 8),
+      title: title,
     }).returning();
 
     if (!newConversation) {
