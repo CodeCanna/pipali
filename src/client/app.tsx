@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowUp, Sparkles, ChevronDown, Circle, Loader2, Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Check, MoreVertical, Download } from "lucide-react";
+import { ArrowUp, Sparkles, ChevronDown, Circle, Loader2, Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Check, MoreVertical, Download, Pause, Play } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 // Types
@@ -25,7 +25,7 @@ type Thought = {
 };
 
 type WebSocketMessage = {
-    type: 'iteration' | 'complete' | 'error';
+    type: 'iteration' | 'complete' | 'error' | 'research' | 'pause';
     data?: any;
     error?: string;
 };
@@ -52,6 +52,7 @@ const App = () => {
     const [input, setInput] = useState("");
     const [isConnected, setIsConnected] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
     const [conversationId, setConversationId] = useState<string | undefined>(undefined);
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
     const [models, setModels] = useState<ChatModelInfo[]>([]);
@@ -260,18 +261,31 @@ const App = () => {
             let currentAgentMessage: Message | null = null;
             let thoughts: Thought[] = [];
 
+            // Helper to finalize and push current agent state
+            const finalizeCurrentAgent = () => {
+                if (currentAgentMessage) {
+                    if (thoughts.length > 0) {
+                        currentAgentMessage.thoughts = thoughts;
+                    }
+                    historyMessages.push(currentAgentMessage);
+                } else if (thoughts.length > 0) {
+                    // We have thoughts but no agent message - create one for the thoughts
+                    historyMessages.push({
+                        role: 'assistant',
+                        content: '',
+                        thoughts: thoughts,
+                        id: crypto.randomUUID(),
+                    });
+                }
+                thoughts = [];
+                currentAgentMessage = null;
+            };
+
             // Collate ATIF trajectory steps into turn-based format
             for (const msg of data.history) {
                 if (msg.source === 'user') {
-                    // Reset current agent message and thoughts
-                    if (currentAgentMessage) {
-                        if (thoughts.length > 0) {
-                            currentAgentMessage.thoughts = thoughts;
-                        }
-                        historyMessages.push(currentAgentMessage);
-                        thoughts = [];
-                        currentAgentMessage = null;
-                    }
+                    // Finalize any pending agent message/thoughts before user message
+                    finalizeCurrentAgent();
 
                     // Add user message
                     historyMessages.push({
@@ -285,25 +299,7 @@ const App = () => {
                     let toolResultsMap: Map<string, string> = new Map();
                     const hasMessage = msg.message && msg.message.trim() !== '';
 
-                    if (hasMessage) {
-                        // Finalize current agent message if exists
-                        if (currentAgentMessage) {
-                            if (thoughts.length > 0) {
-                                currentAgentMessage.thoughts = thoughts;
-                            }
-                            historyMessages.push(currentAgentMessage);
-                            thoughts = [];
-                        }
-
-                        // Create new agent message
-                        currentAgentMessage = {
-                            role: 'assistant',
-                            content: msg.message,
-                            id: msg.step_id,
-                        };
-                    }
-
-                    // Add reasoning and tool calls to thoughts
+                    // Add reasoning and tool calls to thoughts first
                     if (msg.reasoning_content) {
                         thoughts.push({
                             type: 'thought',
@@ -332,16 +328,20 @@ const App = () => {
                             });
                         }
                     }
+
+                    // If this agent step has a final message, create the agent message
+                    if (hasMessage) {
+                        currentAgentMessage = {
+                            role: 'assistant',
+                            content: msg.message,
+                            id: msg.step_id,
+                        };
+                    }
                 }
             }
 
-            // Finalize any remaining agent message
-            if (currentAgentMessage) {
-                if (thoughts.length > 0) {
-                    currentAgentMessage.thoughts = thoughts;
-                }
-                historyMessages.push(currentAgentMessage);
-            }
+            // Finalize any remaining agent message/thoughts
+            finalizeCurrentAgent();
 
             setMessages(historyMessages);
         } catch (e) {
@@ -473,11 +473,23 @@ const App = () => {
         if (message.type === 'error') {
             console.error("Server error:", message.error);
             setIsProcessing(false);
+            setIsPaused(false);
             setMessages(prev => [...prev, {
                 id: crypto.randomUUID(),
                 role: 'assistant',
                 content: `Error: ${message.error}`,
             }]);
+            return;
+        }
+
+        if (message.type === 'research') {
+            setIsProcessing(true);
+            setIsPaused(false);
+            return;
+        }
+
+        if (message.type === 'pause') {
+            setIsPaused(true);
             return;
         }
 
@@ -531,6 +543,7 @@ const App = () => {
             const { data } = message;
             setConversationId(data.conversationId);
             setIsProcessing(false);
+            setIsPaused(false);
 
             setMessages(prev => {
                 const lastMsg = prev[prev.length - 1];
@@ -549,9 +562,89 @@ const App = () => {
         }
     };
 
+    const pauseResearch = () => {
+        if (!isConnected || !isProcessing || isPaused) return;
+        wsRef.current?.send(JSON.stringify({ type: 'pause' }));
+    };
+
+    const resumeResearch = (withMessage?: string) => {
+        if (!isConnected || !isPaused) return;
+        wsRef.current?.send(JSON.stringify({ type: 'resume', message: withMessage }));
+    };
+
     const sendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!input.trim() || !isConnected || isProcessing) return;
+        if (!input.trim() || !isConnected) return;
+
+        // If paused and user sends a message, resume with that message
+        if (isPaused) {
+            const resumeMsg = input.trim();
+            setInput("");
+
+            // Add user message and a new streaming assistant message to collect thoughts
+            // Also finalize the previous streaming assistant message
+            const userMsg: Message = {
+                id: crypto.randomUUID(),
+                role: 'user',
+                content: resumeMsg
+            };
+            const assistantMsg: Message = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: '',
+                thoughts: [],
+                isStreaming: true
+            };
+            setMessages(prev => {
+                // Finalize any previous streaming message
+                const updated = prev.map(msg =>
+                    msg.isStreaming ? { ...msg, isStreaming: false } : msg
+                );
+                return [...updated, userMsg, assistantMsg];
+            });
+
+            resumeResearch(resumeMsg);
+            scheduleTextareaFocus();
+            return;
+        }
+
+        // If processing (not paused) and user sends a message, pause and resume with that message
+        if (isProcessing) {
+            const interruptMsg = input.trim();
+            setInput("");
+
+            // Pause first, then add messages and resume
+            wsRef.current?.send(JSON.stringify({ type: 'pause' }));
+
+            // Add user message and a new streaming assistant message
+            const userMsg: Message = {
+                id: crypto.randomUUID(),
+                role: 'user',
+                content: interruptMsg
+            };
+            const assistantMsg: Message = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: '',
+                thoughts: [],
+                isStreaming: true
+            };
+            setMessages(prev => {
+                // Finalize any previous streaming message
+                const updated = prev.map(msg =>
+                    msg.isStreaming ? { ...msg, isStreaming: false } : msg
+                );
+                return [...updated, userMsg, assistantMsg];
+            });
+
+            // Small delay to let pause complete, then resume with the message
+            setTimeout(() => {
+                wsRef.current?.send(JSON.stringify({ type: 'resume', message: interruptMsg }));
+            }, 100);
+
+            scheduleTextareaFocus();
+            return;
+        }
 
         const userMsg: Message = {
             id: crypto.randomUUID(),
@@ -584,12 +677,29 @@ const App = () => {
             e.preventDefault();
             sendMessage();
         }
+        // Note: Escape key is handled by global listener in useEffect
     };
 
     // Auto-scroll
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    // Global Escape key listener for pausing research
+    useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isProcessing && !isPaused && isConnected) {
+                e.preventDefault();
+                e.stopPropagation();
+                wsRef.current?.send(JSON.stringify({ type: 'pause' }));
+                // Re-focus textarea after Escape
+                textareaRef.current?.focus();
+            }
+        };
+
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [isProcessing, isPaused, isConnected]);
 
     return (
         <div className="app-wrapper">
@@ -758,24 +868,73 @@ const App = () => {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Ask anything..."
+                                placeholder={isPaused ? "Type to resume with a message, or click play..." : isProcessing ? "Type to interrupt with a message..." : "Ask anything..."}
                                 rows={1}
-                                disabled={!isConnected || isProcessing}
+                                disabled={!isConnected}
                             />
-                            <button
-                                type="submit"
-                                disabled={!input.trim() || !isConnected || isProcessing}
-                                className="send-button"
-                            >
-                                {isProcessing ? (
-                                    <Loader2 size={18} className="spinning" />
+                            <div className="input-buttons">
+                                {/* Single action button: Send / Pause / Play */}
+                                {isProcessing && !isPaused ? (
+                                    // When processing: show send if there's input, otherwise pause
+                                    input.trim() ? (
+                                        <button
+                                            type="submit"
+                                            disabled={!isConnected}
+                                            className="action-button send"
+                                            title="Send message (interrupts current task)"
+                                        >
+                                            <ArrowUp size={18} />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={pauseResearch}
+                                            className="action-button pause"
+                                            title="Pause research (Esc)"
+                                        >
+                                            <Pause size={18} />
+                                        </button>
+                                    )
+                                ) : isPaused ? (
+                                    // When paused: show send if there's input, otherwise play
+                                    input.trim() ? (
+                                        <button
+                                            type="submit"
+                                            disabled={!isConnected}
+                                            className="action-button send"
+                                            title="Resume with message"
+                                        >
+                                            <ArrowUp size={18} />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => resumeResearch()}
+                                            className="action-button play"
+                                            title="Resume research"
+                                        >
+                                            <Play size={18} />
+                                        </button>
+                                    )
                                 ) : (
-                                    <ArrowUp size={18} />
+                                    // Send button when idle
+                                    <button
+                                        type="submit"
+                                        disabled={!input.trim() || !isConnected}
+                                        className="action-button send"
+                                    >
+                                        <ArrowUp size={18} />
+                                    </button>
                                 )}
-                            </button>
+                            </div>
                         </form>
                         <p className="input-hint">
-                            Press Enter to send, Shift + Enter for new line
+                            {isPaused
+                                ? "Research paused. Send a message or click play to resume."
+                                : isProcessing
+                                    ? "Type to interrupt, or press Esc to pause"
+                                    : "Press Enter to send, Shift + Enter for new line"
+                            }
                         </p>
                     </div>
                 </footer>

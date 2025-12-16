@@ -16,6 +16,7 @@
     --accent: #171717;
     --accent-subtle: #404040;
     --success: #22c55e;
+    --warning: #f59e0b;
     --error: #ef4444;
     --radius-sm: 6px;
     --radius-md: 10px;
@@ -699,29 +700,58 @@ body {
     opacity: 0.6;
 }
 
-.send-button {
+.input-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-button {
     flex-shrink: 0;
     width: 36px;
     height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--accent);
-    color: white;
     border: none;
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition);
 }
 
-.send-button:hover:not(:disabled) {
+.action-button.send {
+    background: var(--accent);
+    color: white;
+}
+
+.action-button.send:hover:not(:disabled) {
     background: var(--accent-subtle);
     transform: translateY(-1px);
 }
 
-.send-button:disabled {
+.action-button.send:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+.action-button.pause {
+    background: var(--warning);
+    color: white;
+}
+
+.action-button.pause:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.action-button.play {
+    background: var(--success);
+    color: white;
+}
+
+.action-button.play:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
 }
 
 .spinning {

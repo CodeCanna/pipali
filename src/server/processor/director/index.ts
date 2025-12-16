@@ -10,7 +10,6 @@ import type { ATIFObservationResult, ATIFStep, ATIFToolCall, ATIFTrajectory } fr
 import { addStepToTrajectory } from '../conversation/atif/atif.utils';
 
 interface ResearchConfig {
-    query: string;
     chatHistory: ATIFTrajectory;
     maxIterations: number;
     currentDate?: string;
@@ -19,6 +18,8 @@ interface ResearchConfig {
     username?: string;
     personality?: string;
     user?: typeof User.$inferSelect;
+    // For pause support
+    abortSignal?: AbortSignal;
 }
 
 // Tool definitions for the research agent
@@ -220,7 +221,7 @@ async function pickNextTool(
 /**
  * Execute a single tool call and return the result
  */
-async function executeTool(toolCall: ATIFToolCall): Promise<string | Array<{ type: string; [key: string]: any }>> {
+async function executeTool(toolCall: ATIFToolCall): Promise<string | Array<{ type: string;[key: string]: any }>> {
     try {
         switch (toolCall.function_name) {
             case 'list_files': {
@@ -254,20 +255,31 @@ async function executeToolsInParallel(toolCalls: ATIFToolCall[]): Promise<ATIFOb
     const results: ATIFObservationResult[] = await Promise.all(
         toolCalls.map(async (toolCall) => {
             const result = await executeTool(toolCall);
-            return {source_call_id: toolCall.tool_call_id, content: result};
+            return { source_call_id: toolCall.tool_call_id, content: result };
         })
     );
     return results;
 }
 
+// Custom error for pause signal
+export class ResearchPausedError extends Error {
+    constructor() {
+        super('Research paused');
+        this.name = 'ResearchPausedError';
+    }
+}
+
 /**
  * Main research function - iterates through tool calls until completion
+ * Supports pause via abortSignal. Resume is handled by reloading chat history from DB.
  */
 export async function* research(config: ResearchConfig): AsyncGenerator<ResearchIteration> {
-    // Initialize chat history with user query
-    addStepToTrajectory(config.chatHistory, 'user', config.query);
-
     for (let i = 0; i < config.maxIterations; i++) {
+        // Check if paused before starting new iteration
+        if (config.abortSignal?.aborted) {
+            throw new ResearchPausedError();
+        }
+
         const iteration = await pickNextTool(config);
 
         // Check for warnings or no tool calls
@@ -282,6 +294,11 @@ export async function* research(config: ResearchConfig): AsyncGenerator<Research
             iteration.toolResults = [{ source_call_id: textTool.tool_call_id, content: textTool.arguments.response || '' }];
             yield iteration;
             break;
+        }
+
+        // Check if paused before executing tools
+        if (config.abortSignal?.aborted) {
+            throw new ResearchPausedError();
         }
 
         // Execute all tools in parallel

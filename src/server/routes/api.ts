@@ -78,7 +78,6 @@ api.post('/chat', zValidator('json', schema), async (c) => {
     let iterationCount = 0;
 
     for await (const iteration of research({
-        query: message,
         chatHistory: conversation.trajectory,
         maxIterations: maxIterations,
         currentDate: new Date().toISOString().split('T')[0],
