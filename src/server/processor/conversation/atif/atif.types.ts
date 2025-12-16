@@ -155,8 +155,9 @@ export interface ATIFObservationResult {
 
   /**
    * Content/output from the tool call
+   * Diff from ATIF spec: Support both string and list of outputs for multimodal responses
    */
-  content: string;
+  content: string | Array<{ type: string; [key: string]: string }>;
 }
 
 /**
