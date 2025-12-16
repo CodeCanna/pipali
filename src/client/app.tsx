@@ -254,71 +254,96 @@ const App = () => {
     const fetchHistory = async (id: string) => {
         try {
             const res = await fetch(`/api/chat/${id}/history`);
-            if (res.ok) {
-                const data = await res.json();
-                const historyMessages: Message[] = data.history.map((msg: any) => {
-                    // Parse trainOfThought into Thought[] format
-                    const thoughts: Thought[] = [];
-                    let toolResultsMap: Map<string, string> = new Map();
+            if (!res.ok) return;
+            const data = await res.json();
+            const historyMessages: Message[] = [];
+            let currentAgentMessage: Message | null = null;
+            let thoughts: Thought[] = [];
 
-                    if (msg.trainOfThought && Array.isArray(msg.trainOfThought)) {
-                        // First pass: collect tool results
-                        for (const tot of msg.trainOfThought) {
-                            if (tot.type === 'tool_result') {
-                                try {
-                                    const toolResults = JSON.parse(tot.data);
-                                    if (Array.isArray(toolResults)) {
-                                        for (const result of toolResults) {
-                                            if (result.toolCall && result.toolCall.id && result.result) {
-                                                toolResultsMap.set(result.toolCall.id, result.result);
-                                            }
-                                        }
-                                    }
-                                } catch {
-                                    // Skip malformed tool result data
-                                }
-                            }
+            // Collate ATIF trajectory steps into turn-based format
+            for (const msg of data.history) {
+                if (msg.source === 'user') {
+                    // Reset current agent message and thoughts
+                    if (currentAgentMessage) {
+                        if (thoughts.length > 0) {
+                            currentAgentMessage.thoughts = thoughts;
                         }
-
-                        // Second pass: build thoughts with matched results
-                        for (const tot of msg.trainOfThought) {
-                            if (tot.type === 'reasoning') {
-                                thoughts.push({
-                                    id: crypto.randomUUID(),
-                                    type: 'thought',
-                                    content: tot.data,
-                                });
-                            } else if (tot.type === 'tool_call') {
-                                try {
-                                    const toolCalls = JSON.parse(tot.data);
-                                    if (Array.isArray(toolCalls)) {
-                                        for (const toolCall of toolCalls) {
-                                            thoughts.push({
-                                                id: toolCall.id || crypto.randomUUID(),
-                                                type: 'tool_call',
-                                                content: '',
-                                                toolName: toolCall.name,
-                                                toolArgs: toolCall.args,
-                                                toolResult: toolResultsMap.get(toolCall.id),
-                                            });
-                                        }
-                                    }
-                                } catch {
-                                    // Skip malformed tool call data
-                                }
-                            }
-                        }
+                        historyMessages.push(currentAgentMessage);
+                        thoughts = [];
+                        currentAgentMessage = null;
                     }
 
-                    return {
-                        id: msg.turnId || crypto.randomUUID(),
-                        role: msg.by,
+                    // Add user message
+                    historyMessages.push({
+                        role: 'user',
                         content: typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message),
-                        thoughts,
-                    };
-                });
-                setMessages(historyMessages);
+                        id: msg.step_id,
+                    });
+                }
+
+                if (msg.source === 'agent') {
+                    let toolResultsMap: Map<string, string> = new Map();
+                    const hasMessage = msg.message && msg.message.trim() !== '';
+
+                    if (hasMessage) {
+                        // Finalize current agent message if exists
+                        if (currentAgentMessage) {
+                            if (thoughts.length > 0) {
+                                currentAgentMessage.thoughts = thoughts;
+                            }
+                            historyMessages.push(currentAgentMessage);
+                            thoughts = [];
+                        }
+
+                        // Create new agent message
+                        currentAgentMessage = {
+                            role: 'assistant',
+                            content: msg.message,
+                            id: msg.step_id,
+                        };
+                    }
+
+                    // Add reasoning and tool calls to thoughts
+                    if (msg.reasoning_content) {
+                        thoughts.push({
+                            type: 'thought',
+                            content: msg.reasoning_content,
+                            id: crypto.randomUUID(),
+                        });
+                    }
+
+                    if (msg.observation && msg.observation.results) {
+                        // First pass: collect tool results
+                        toolResultsMap = new Map(
+                            msg.observation.results
+                            .filter((res: any) => res.source_call_id && res.content)
+                            .map((res: any) => [res.source_call_id, res.content])
+                        );
+
+                        // Second pass: build thoughts with matched results
+                        for (const tc of msg.tool_calls) {
+                            thoughts.push({
+                                type: 'tool_call',
+                                toolName: tc.function_name,
+                                toolArgs: tc.arguments,
+                                toolResult: toolResultsMap.get(tc.tool_call_id),
+                                content: '',
+                                id: tc.tool_call_id,
+                            });
+                        }
+                    }
+                }
             }
+
+            // Finalize any remaining agent message
+            if (currentAgentMessage) {
+                if (thoughts.length > 0) {
+                    currentAgentMessage.thoughts = thoughts;
+                }
+                historyMessages.push(currentAgentMessage);
+            }
+
+            setMessages(historyMessages);
         } catch (e) {
             console.error("Failed to fetch history", e);
         }

@@ -10,8 +10,6 @@ import openapi from './openapi';
 import { getDefaultUser, maxIterations } from '../utils';
 import { research } from '../processor/director';
 import { atifConversationService } from '../processor/conversation/atif/atif.service';
-import { type ATIFToolCall, type ATIFObservationResult } from '../processor/conversation/atif/atif.types';
-import { convertATIFToChatMessages } from '../processor/conversation/atif/atif.utils';
 
 const api = new Hono().basePath('/api');
 
@@ -155,8 +153,8 @@ api.get('/chat/:conversationId/history', async (c) => {
         return c.json({ error: 'Conversation not found' }, 404);
     }
 
-    // Convert ATIF trajectory to frontend-compatible format
-    const history = convertATIFToChatMessages(conversation.trajectory);
+    // Pass chat history to frontend
+    const history = conversation.trajectory.steps;
 
     return c.json({ history });
 });
