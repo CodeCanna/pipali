@@ -1,4 +1,4 @@
-import type { ToolDefinition, ChatMessageModel } from "../conversation";
+import type { ToolDefinition, ChatMessage } from "../conversation";
 import type { ToolDefinition as LcToolDefinition } from '@langchain/core/language_models/base';
 import { HumanMessage, ToolMessage } from '@langchain/core/messages';
 
@@ -29,8 +29,8 @@ export function toOpenaiTools(tools?: ToolDefinition[]): LcToolDefinition[] {
  * - Provider-agnostic: { type: 'image', source_type: 'base64', mime_type, data }
  * - OpenAI-native: { type: 'image_url', image_url: { url: 'data:...' } }
  */
-export function formatMessagesForOpenAI(messages: ChatMessageModel[]): ChatMessageModel[] {
-    const formatted: ChatMessageModel[] = [];
+export function formatMessagesForOpenAI(messages: ChatMessage[]): ChatMessage[] {
+    const formatted: ChatMessage[] = [];
 
     for (let i = 0; i < messages.length; i++) {
         const msg = messages[i];

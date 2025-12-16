@@ -1,9 +1,9 @@
 import { ChatOpenAI } from '@langchain/openai';
-import type { ChatMessageModel, ResponseWithThought, ToolDefinition } from '../conversation';
+import type { ChatMessage, ResponseWithThought, ToolDefinition } from '../conversation';
 import { toOpenaiTools, formatMessagesForOpenAI } from './utils';
 
 export async function sendMessageToGpt(
-    messages: ChatMessageModel[],
+    messages: ChatMessage[],
     model: string,
     apiKey?: string,
     apiBaseUrl?: string | null,

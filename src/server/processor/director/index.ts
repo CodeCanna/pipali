@@ -1,4 +1,4 @@
-import { type ChatMessage, type User } from '../../db/schema';
+import { type User } from '../../db/schema';
 import type { ToolDefinition } from '../conversation/conversation';
 import { sendMessageToModel } from '../conversation/index';
 import type { ResearchIteration, ToolCall, ToolResult } from './types';
@@ -6,10 +6,12 @@ import { listFiles, type ListFilesArgs } from '../actor/list_files';
 import { readFile, type ReadFileArgs } from '../actor/read_file';
 import { grepFiles, type GrepFilesArgs } from '../actor/grep_files';
 import * as prompts from './prompts';
+import type { ATIFObservationResult, ATIFStep, ATIFToolCall, ATIFTrajectory } from '../conversation/atif/atif.types';
+import { addStepToTrajectory } from '../conversation/atif/atif.utils';
 
 interface ResearchConfig {
     query: string;
-    chatHistory: ChatMessage[];
+    chatHistory: ATIFTrajectory;
     maxIterations: number;
     currentDate?: string;
     dayOfWeek?: string;
@@ -116,12 +118,12 @@ const tools: ToolDefinition[] = [
  * Pick the next tool to use based on the current query and previous iterations
  */
 async function pickNextTool(
-    query: string,
-    previousIterations: ResearchIteration[],
     config: ResearchConfig
 ): Promise<ResearchIteration> {
     const { currentDate, dayOfWeek, location, username, personality } = config;
-    const isLast = previousIterations.length == config.maxIterations - 1;
+    const lastUserIndex = config.chatHistory.steps.findLastIndex(s => s.source === 'user') || 0;
+    const isLast = config.chatHistory.steps.length - lastUserIndex == config.maxIterations - 1;
+    const previousIterations = config.chatHistory.steps.slice(lastUserIndex + 1);
     const toolChoice = isLast ? 'none' : 'auto';
 
     // Build tool options string
@@ -145,48 +147,8 @@ async function pickNextTool(
         max_iterations: String(config.maxIterations)
     });
 
-    // Construct iteration history from previous iterations
-    const iterationHistory: ChatMessage[] = [];
-
     // Add initial query if this is the first iteration
-    iterationHistory.push({ by: 'user', message: query });
-
-    // Add previous iterations as tool calls and results
-    for (const iteration of previousIterations) {
-        if (iteration.toolCalls.length === 0) {
-            continue;
-        }
-
-        // Add tool calls from assistant
-        iterationHistory.push({
-            by: 'assistant',
-            message: iteration.toolCalls.map(tc => ({
-                type: 'tool_call',
-                id: tc.id,
-                name: tc.name,
-                args: tc.args
-            })),
-            intent: { type: 'tool_call' }
-        });
-
-        // Add tool results
-        if (iteration.toolResults) {
-            iterationHistory.push({
-                by: 'user',
-                message: iteration.toolResults.map(tr => ({
-                    type: 'tool_result',
-                    id: tr.toolCall.id,
-                    name: tr.toolCall.name,
-                    content: tr.result
-                })),
-                intent: { type: 'tool_result' }
-            });
-        }
-    }
-
-    // Combine with conversation history
-    const messages = [...config.chatHistory, ...iterationHistory];
-
+    const messages: ATIFTrajectory = config.chatHistory;
     try {
         // Send message to model to pick next tool
         const response = await sendMessageToModel(
@@ -200,7 +162,6 @@ async function pickNextTool(
             toolChoice,
             true,      // deepThought
             false,     // fastMode
-            undefined, // agentChatModel
             config.user // user - for user's selected model
         );
 
@@ -210,23 +171,27 @@ async function pickNextTool(
         }
 
         // Parse tool calls from response
-        let toolCalls: ToolCall[];
+        let toolCalls: ATIFToolCall[];
         if (response.raw && Array.isArray(response.raw) && response.raw.length > 0) {
-            toolCalls = response.raw as ToolCall[];
+            toolCalls = response.raw.map(tc => ({
+                function_name: tc.name,
+                arguments: tc.args,
+                tool_call_id: tc.id,
+            })) as ATIFToolCall[];
         } else {
             // No tool calls - model wants to respond directly
-            toolCalls = [{ name: 'text', args: { response: response.message }, id: crypto.randomUUID() }];
+            toolCalls = [{ function_name: 'text', arguments: { response: response.message }, tool_call_id: crypto.randomUUID() }] as ATIFToolCall[];
         }
 
         // Check for repeated tool calls
         const previousToolKeys = new Set(
             previousIterations.flatMap(i =>
-                i.toolCalls.map(tc => `${tc.name}:${JSON.stringify(tc.args)}`)
+                i.tool_calls?.map(tc => `${tc.function_name}:${JSON.stringify(tc.arguments)}`)
             )
         );
 
         const newToolCalls = toolCalls.filter(tc => {
-            const key = `${tc.name}:${JSON.stringify(tc.args)}`;
+            const key = `${tc.function_name}:${JSON.stringify(tc.arguments)}`;
             return !previousToolKeys.has(key);
         });
 
@@ -255,41 +220,41 @@ async function pickNextTool(
 /**
  * Execute a single tool call and return the result
  */
-async function executeTool(toolCall: ToolCall): Promise<string | Array<{ type: string; [key: string]: any }>> {
+async function executeTool(toolCall: ATIFToolCall): Promise<string | Array<{ type: string; [key: string]: any }>> {
     try {
-        switch (toolCall.name) {
+        switch (toolCall.function_name) {
             case 'list_files': {
-                const result = await listFiles(toolCall.args as ListFilesArgs);
+                const result = await listFiles(toolCall.arguments as ListFilesArgs);
                 return result.compiled;
             }
             case 'view_file': {
-                const result = await readFile(toolCall.args as ReadFileArgs);
+                const result = await readFile(toolCall.arguments as ReadFileArgs);
                 return result.compiled;
             }
             case 'regex_search_files': {
-                const result = await grepFiles(toolCall.args as GrepFilesArgs);
+                const result = await grepFiles(toolCall.arguments as GrepFilesArgs);
                 return result.compiled;
             }
             case 'text': {
                 // This is the final response
-                return toolCall.args.response || '';
+                return toolCall.arguments.response || '';
             }
             default:
-                return `Unknown tool: ${toolCall.name}`;
+                return `Unknown tool: ${toolCall.function_name}`;
         }
     } catch (error) {
-        return `Error executing tool ${toolCall.name}: ${error instanceof Error ? error.message : String(error)}`;
+        return `Error executing tool ${toolCall.function_name}: ${error instanceof Error ? error.message : String(error)}`;
     }
 }
 
 /**
  * Execute multiple tool calls in parallel and return their results
  */
-async function executeToolsInParallel(toolCalls: ToolCall[]): Promise<ToolResult[]> {
-    const results = await Promise.all(
+async function executeToolsInParallel(toolCalls: ATIFToolCall[]): Promise<ATIFObservationResult[]> {
+    const results: ATIFObservationResult[] = await Promise.all(
         toolCalls.map(async (toolCall) => {
             const result = await executeTool(toolCall);
-            return { toolCall, result };
+            return {source_call_id: toolCall.tool_call_id, content: result};
         })
     );
     return results;
@@ -299,11 +264,11 @@ async function executeToolsInParallel(toolCalls: ToolCall[]): Promise<ToolResult
  * Main research function - iterates through tool calls until completion
  */
 export async function* research(config: ResearchConfig): AsyncGenerator<ResearchIteration> {
-    const { query, maxIterations } = config;
-    const previousIterations: ResearchIteration[] = [];
+    // Initialize chat history with user query
+    addStepToTrajectory(config.chatHistory, 'user', config.query);
 
-    for (let i = 0; i < maxIterations; i++) {
-        const iteration = await pickNextTool(query, previousIterations, config);
+    for (let i = 0; i < config.maxIterations; i++) {
+        const iteration = await pickNextTool(config);
 
         // Check for warnings or no tool calls
         if (iteration.warning || iteration.toolCalls.length === 0) {
@@ -312,16 +277,16 @@ export async function* research(config: ResearchConfig): AsyncGenerator<Research
         }
 
         // Check if done (text tool = final response)
-        const textTool = iteration.toolCalls.find(tc => tc.name === 'text');
+        const textTool = iteration.toolCalls.find(tc => tc.function_name === 'text');
         if (textTool) {
-            iteration.toolResults = [{ toolCall: textTool, result: textTool.args.response || '' }];
+            iteration.toolResults = [{ source_call_id: textTool.tool_call_id, content: textTool.arguments.response || '' }];
             yield iteration;
             break;
         }
 
         // Execute all tools in parallel
         iteration.toolResults = await executeToolsInParallel(iteration.toolCalls);
-        previousIterations.push(iteration);
+        addStepToTrajectory(config.chatHistory, 'agent', '', iteration.toolCalls, { results: iteration.toolResults });
         yield iteration;
     }
 }

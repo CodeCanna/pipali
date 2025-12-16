@@ -7,7 +7,6 @@ import { eq, desc } from 'drizzle-orm';
 import { AiModelApi, ChatModel, User, UserChatModel } from '../db/schema';
 import openapi from './openapi';
 
-import { type ChatMessage } from '../db/schema';
 import { getDefaultUser, maxIterations } from '../utils';
 import { research } from '../processor/director';
 import { atifConversationService } from '../processor/conversation/atif/atif.service';
@@ -47,17 +46,11 @@ api.post('/chat', zValidator('json', schema), async (c) => {
         return c.json({ error: 'No chat model configured. Please configure an AI provider.' }, 500);
     }
 
-    let conversation;
-    let history: ChatMessage[] = [];
-
     // Get or create conversation BEFORE starting research
+    let conversation;
     if (conversationId) {
         const results = await db.select().from(Conversation).where(eq(Conversation.id, conversationId));
         conversation = results[0];
-        if (conversation && conversation.trajectory) {
-            // Extract message history from ATIF trajectory for research function
-            history = convertATIFToChatMessages(conversation.trajectory);
-        }
     } else {
         // Create new conversation at the start
         const modelName = chatModelWithApi?.chatModel.name || 'unknown';
@@ -88,7 +81,7 @@ api.post('/chat', zValidator('json', schema), async (c) => {
 
     for await (const iteration of research({
         query: message,
-        chatHistory: history,
+        chatHistory: conversation.trajectory,
         maxIterations: maxIterations,
         currentDate: new Date().toISOString().split('T')[0],
         dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
@@ -98,7 +91,7 @@ api.post('/chat', zValidator('json', schema), async (c) => {
 
         // Log tool calls
         for (const tc of iteration.toolCalls) {
-            console.log(`[API] 🔧 Tool: ${tc.name}`, tc.args ? JSON.stringify(tc.args).slice(0, 100) : '');
+            console.log(`[API] 🔧 Tool: ${tc.function_name}`, tc.arguments ? JSON.stringify(tc.arguments).slice(0, 100) : '');
         }
         if (iteration.toolCalls.length > 1) {
             console.log(`[API] ⚡ Executing ${iteration.toolCalls.length} tools in parallel`);
@@ -109,34 +102,15 @@ api.post('/chat', zValidator('json', schema), async (c) => {
             continue;
         }
 
-        // Check for text tool (final response)
-        const textTool = iteration.toolCalls.find(tc => tc.name === 'text');
-        if (textTool) {
-            finalResponse = textTool.args.response || '';
-            // Don't add the text tool as a step, we'll add it as the final response
-            break;
-        }
-
         // Add the entire iteration as a single step in the trajectory
         if (iteration.toolCalls.length > 0 && iteration.toolResults) {
-            const toolCalls: ATIFToolCall[] = iteration.toolCalls.map(tc => ({
-                tool_call_id: tc.id,
-                function_name: tc.name,
-                arguments: tc.args || {},
-            }));
-
-            const observationResults: ATIFObservationResult[] = iteration.toolResults.map(tr => ({
-                source_call_id: tr.toolCall.id,
-                content: typeof tr.result === 'string' ? tr.result : JSON.stringify(tr.result),
-            }));
-
             await atifConversationService.addStep(
                 conversation.id,
                 'agent',
                 '', // No message for tool execution steps
                 undefined,
-                toolCalls,
-                { results: observationResults },
+                iteration.toolCalls,
+                { results: iteration.toolResults },
                 iteration.thought // Add reasoning as part of the same step
             );
         } else {

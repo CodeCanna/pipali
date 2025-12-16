@@ -1,12 +1,11 @@
 import type { ServerWebSocket } from "bun";
 import { research } from "../processor/director";
 import { db, getDefaultChatModel } from "../db";
-import { Conversation, User, type ChatMessage } from "../db/schema";
+import { Conversation, User } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { getDefaultUser, maxIterations } from "../utils";
 import { atifConversationService } from "../processor/conversation/atif/atif.service";
 import { type ATIFToolCall, type ATIFObservationResult } from "../processor/conversation/atif/atif.types";
-import { convertATIFToChatMessages } from "../processor/conversation/atif/atif.utils";
 
 export type WebSocketData = {
     conversationId?: string;
@@ -48,17 +47,11 @@ export const websocketHandler = {
             console.warn(`[WS] ⚠️ No chat model configured`);
         }
 
-        let conversation;
-        let history: ChatMessage[] = [];
-
         // Get or create conversation BEFORE starting research
+        let conversation;
         if (conversationId) {
             const results = await db.select().from(Conversation).where(eq(Conversation.id, conversationId));
             conversation = results[0];
-            if (conversation && conversation.trajectory) {
-                // Extract message history from ATIF trajectory for research function
-                history = convertATIFToChatMessages(conversation.trajectory);
-            }
         } else {
             // Create new conversation at the start
             const modelName = chatModelWithApi?.chatModel.name || 'unknown';
@@ -91,7 +84,7 @@ export const websocketHandler = {
         try {
             for await (const iteration of research({
                 query: userQuery,
-                chatHistory: history,
+                chatHistory: conversation.trajectory,
                 maxIterations: maxIterations,
                 currentDate: new Date().toISOString().split('T')[0],
                 dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
@@ -101,7 +94,7 @@ export const websocketHandler = {
 
                 // Log tool calls
                 for (const tc of iteration.toolCalls) {
-                    console.log(`[WS] 🔧 Tool: ${tc.name}`, tc.args ? JSON.stringify(tc.args).slice(0, 100) : '');
+                    console.log(`[WS] 🔧 Tool: ${tc.function_name}`, tc.arguments ? JSON.stringify(tc.arguments).slice(0, 100) : '');
                 }
                 if (iteration.toolCalls.length > 1) {
                     console.log(`[WS] ⚡ Executing ${iteration.toolCalls.length} tools in parallel`);
@@ -111,30 +104,19 @@ export const websocketHandler = {
                 }
 
                 // Check for text tool (final response)
-                const textTool = iteration.toolCalls.find(tc => tc.name === 'text');
+                const textTool = iteration.toolCalls.find(tc => tc.function_name === 'text');
                 if (textTool) {
-                    finalResponse = textTool.args.response || '';
+                    finalResponse = textTool.arguments.response || '';
                     // Don't add the text tool as a step, we'll add it as the final response
                 // Add the entire iteration as a single step in the trajectory
                 } else if (iteration.toolCalls.length > 0 && iteration.toolResults) {
-                    const toolCalls: ATIFToolCall[] = iteration.toolCalls.map(tc => ({
-                        tool_call_id: tc.id,
-                        function_name: tc.name,
-                        arguments: tc.args || {},
-                    }));
-
-                    const observationResults: ATIFObservationResult[] = iteration.toolResults.map(tr => ({
-                        source_call_id: tr.toolCall.id,
-                        content: typeof tr.result === 'string' ? tr.result : JSON.stringify(tr.result),
-                    }));
-
                     await atifConversationService.addStep(
                         conversation.id,
                         'agent',
                         '', // No message for tool execution steps
                         undefined,
-                        toolCalls,
-                        { results: observationResults },
+                        iteration.toolCalls,
+                        { results: iteration.toolResults },
                         iteration.thought // Add reasoning as part of the same step
                     );
 

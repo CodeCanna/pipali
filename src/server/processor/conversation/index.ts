@@ -1,8 +1,9 @@
 import { getDefaultChatModel } from '../../db';
-import { type ChatMessage, ChatModel, User, type ChatModelWithApi } from '../../db/schema';
-import { type ToolDefinition, type ChatMessageModel } from './conversation';
+import { ChatModel, User, type ChatModelWithApi } from '../../db/schema';
+import { type ToolDefinition, type ChatMessage } from './conversation';
 import { generateChatmlMessagesWithContext } from './utils';
 import { sendMessageToGpt } from './openai';
+import type { ATIFTrajectory } from './atif/atif.types';
 
 export async function sendMessageToModel(
     // Context
@@ -10,19 +11,16 @@ export async function sendMessageToModel(
     queryFiles?: string[],
     queryImages?: string[],
     context?: string,
-    history?: ChatMessage[],
+    history?: ATIFTrajectory,
     systemMessage?: string,
     // Model Config
     tools?: ToolDefinition[],
     toolChoice: string = 'auto',
     deepThought: boolean = false,
     fastMode: boolean = false,
-    agentChatModel?: typeof ChatModel.$inferSelect,
     user?: typeof User.$inferSelect,
 ) {
-    console.log(`[Model] 📤 Resolving model... (user: ${user?.id || 'none'}, agent: ${agentChatModel?.name || 'none'})`);
-
-    const chatModelWithApi: ChatModelWithApi | undefined = await getDefaultChatModel(user, agentChatModel);
+    const chatModelWithApi: ChatModelWithApi | undefined = await getDefaultChatModel(user);
 
     if (!chatModelWithApi) {
         console.error(`[Model] ❌ No chat model configured`);
@@ -32,12 +30,12 @@ export async function sendMessageToModel(
     console.log(`[Model] 🤖 Using: ${chatModelWithApi.chatModel.name} (${chatModelWithApi.chatModel.modelType})`);
     console.log(`[Model] Provider: ${chatModelWithApi.aiModelApi?.name || 'Unknown'}`);
 
-    const messages: ChatMessageModel[] = generateChatmlMessagesWithContext(
+    const messages: ChatMessage[] = generateChatmlMessagesWithContext(
         query,
         queryFiles,
         queryImages,
         context,
-        history,
+        history?.steps,
         systemMessage,
         chatModelWithApi.chatModel,
         deepThought,

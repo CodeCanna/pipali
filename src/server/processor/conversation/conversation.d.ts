@@ -1,11 +1,12 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
+import type { ToolCall } from '@langchain/core/messages/tool';
 
-export type ChatMessageModel = HumanMessage | AIMessage | ToolMessage | SystemMessage;
+export type ChatMessage = HumanMessage | AIMessage | ToolMessage | SystemMessage;
 
 export interface ResponseWithThought {
     message?: string;
     thought?: string;
-    raw?: any[];
+    raw?: ToolCall[];
 };
 
 export interface ToolDefinition {

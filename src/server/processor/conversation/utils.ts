@@ -1,74 +1,49 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
-import { type ChatMessage } from '../../db/schema';
-import type { ChatMessageModel } from './conversation';
-
-type ToolCall = {
-    name: string;
-    args: Record<string, any>;
-    id?: string;
-    type?: "tool_call";
-};
+import type { ToolCall } from '@langchain/core/messages/tool';
+import type { ChatMessage } from './conversation';
+import type { ATIFStep, ATIFToolCall } from './atif/atif.types';
 
 export function generateChatmlMessagesWithContext(
     query: string,
     queryFiles?: string[],
     queryImages?: string[],
     context?: string,
-    history?: ChatMessage[],
+    history?: ATIFStep[],
     systemMessage?: string,
     chatModel?: { name: string; visionEnabled: boolean },
     deepThought?: boolean,
     fastMode?: boolean,
-): ChatMessageModel[] {
-    const messages: ChatMessageModel[] = [];
+): ChatMessage[] {
+    const messages: ChatMessage[] = [];
 
     if (systemMessage) {
         messages.push(new SystemMessage(systemMessage));
     }
 
     for (const msg of history || []) {
-        if (msg.by === 'user') {
-            if (typeof msg.message === 'string') {
-                messages.push(new HumanMessage(msg.message as string));
-            } else if (Array.isArray(msg.message) && msg.intent?.type === 'tool_result') {
-                // Handle tool results
-                msg.message
-                .filter((item: any) => item.type === 'tool_result' && !!item.id)
-                .forEach((item: any) => {
+        if (msg.source === 'user') {
+            messages.push(new HumanMessage(msg.message || ''));
+        } else if (msg.source === 'agent') {
+            messages.push(new AIMessage({
+                content: msg.message || '',
+                tool_calls: msg.tool_calls?.map((item: ATIFToolCall) => ({
+                    args: item.arguments,
+                    id: item.tool_call_id,
+                    name: item.function_name
+                } as ToolCall)),
+                additional_kwargs: {
+                    reasoning_content: msg.reasoning_content,
+                }
+            }));
+
+            if (msg.observation?.results && msg.observation.results.length > 0) {
+                // Each observation result becomes a separate ToolMessage
+                for (const result of msg.observation.results) {
                     messages.push(new ToolMessage({
-                        content: item.content,
-                        tool_call_id: item.id,
-                        name: item.name
+                        tool_call_id: result.source_call_id,
+                        content: result.content,
                     }));
-                });
-            } else if (Array.isArray(msg.message)) {
-                // If no intent, treat as normal message array
-                messages.push(new HumanMessage({
-                    content: msg.message
-                }));
-            }
-        } else if (msg.by === 'assistant') {
-            if (typeof msg.message === 'string') {
-                messages.push(new AIMessage(msg.message as string));
-            } else if (Array.isArray(msg.message) && msg.intent?.type === 'tool_call') {
-                // Handle tool calls
-                const toolCalls: ToolCall[] = msg.message
-                .filter((tc: any) => tc.type === 'tool_call' && !!tc.id)
-                .map((tc: any) => ({
-                    name: tc.name,
-                    args: tc.args,
-                    id: tc.id,
-                    type: 'tool_call' as const
-                }));
-                messages.push(new AIMessage({
-                    content: '',
-                    tool_calls: toolCalls
-                }));
-            } else if (Array.isArray(msg.message)) {
-                // If no intent, treat as normal message array
-                messages.push(new AIMessage({
-                    content: msg.message
-                }));
+                }
             }
         }
     }
