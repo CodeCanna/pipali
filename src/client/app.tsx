@@ -25,9 +25,43 @@ type Thought = {
 };
 
 type WebSocketMessage = {
-    type: 'iteration' | 'complete' | 'error' | 'research' | 'pause';
+    type: 'iteration' | 'complete' | 'error' | 'research' | 'pause' | 'confirmation_request';
     data?: any;
     error?: string;
+};
+
+// Confirmation types (mirroring server types for frontend)
+type ConfirmationOption = {
+    id: string;
+    label: string;
+    description?: string;
+    style?: 'primary' | 'secondary' | 'danger' | 'warning';
+    persistPreference?: boolean;
+};
+
+type DiffInfo = {
+    filePath: string;
+    oldText?: string;
+    newText?: string;
+    isNewFile?: boolean;
+};
+
+type ConfirmationRequest = {
+    requestId: string;
+    inputType: 'choice' | 'multi_select' | 'number_range' | 'text_input';
+    title: string;
+    message: string;
+    operation: string;
+    context?: {
+        toolName: string;
+        toolArgs: Record<string, unknown>;
+        affectedFiles?: string[];
+        riskLevel?: 'low' | 'medium' | 'high';
+    };
+    diff?: DiffInfo;
+    options: ConfirmationOption[];
+    defaultOptionId?: string;
+    timeoutMs?: number;
 };
 
 type ConversationSummary = {
@@ -61,6 +95,7 @@ const App = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
     const [exportingConversationId, setExportingConversationId] = useState<string | null>(null);
+    const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationRequest | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -493,6 +528,13 @@ const App = () => {
             return;
         }
 
+        if (message.type === 'confirmation_request') {
+            const confirmationData = message.data as ConfirmationRequest;
+            console.log("Confirmation request received:", confirmationData);
+            setPendingConfirmation(confirmationData);
+            return;
+        }
+
         if (message.type === 'iteration') {
             const { data } = message;
             setMessages(prev => {
@@ -570,6 +612,23 @@ const App = () => {
     const resumeResearch = (withMessage?: string) => {
         if (!isConnected || !isPaused) return;
         wsRef.current?.send(JSON.stringify({ type: 'resume', message: withMessage }));
+    };
+
+    const sendConfirmationResponse = (optionId: string) => {
+        if (!pendingConfirmation || !isConnected) return;
+
+        const response = {
+            type: 'confirmation_response',
+            data: {
+                requestId: pendingConfirmation.requestId,
+                selectedOptionId: optionId,
+                timestamp: new Date().toISOString(),
+            }
+        };
+
+        console.log("Sending confirmation response:", response);
+        wsRef.current?.send(JSON.stringify(response));
+        setPendingConfirmation(null);
     };
 
     const sendMessage = async (e?: React.FormEvent) => {
@@ -861,6 +920,14 @@ const App = () => {
 
                 {/* Input Area */}
                 <footer className="input-area">
+                    {/* Confirmation Dialog - positioned above chat input */}
+                    {pendingConfirmation && (
+                        <ConfirmationDialog
+                            request={pendingConfirmation}
+                            onRespond={sendConfirmationResponse}
+                        />
+                    )}
+
                     <div className="input-container">
                         <form onSubmit={sendMessage} className="input-form">
                             <textarea
@@ -1086,6 +1153,180 @@ const formatToolArgs = (toolName: string, args: any): string => {
                 })
                 .join(', ');
     }
+};
+
+/**
+ * Diff View Component
+ * Shows inline diff of changes that will be made to a file
+ */
+const DiffView = ({ diff }: { diff: DiffInfo }) => {
+    // For edit operations, show inline diff with file path
+    if (diff.oldText !== undefined && diff.newText !== undefined) {
+        const oldLines = diff.oldText.split('\n');
+        const newLines = diff.newText.split('\n');
+
+        return (
+            <div className="diff-container">
+                <div className="diff-file-header">
+                    <span className="diff-file-path">{diff.filePath}</span>
+                </div>
+                <div className="diff-inline">
+                    {oldLines.map((line, idx) => (
+                        <div key={`old-${idx}`} className="diff-line removed">
+                            <span className="diff-line-indicator">−</span>
+                            <span className="diff-line-content">{line || ' '}</span>
+                        </div>
+                    ))}
+                    {newLines.map((line, idx) => (
+                        <div key={`new-${idx}`} className="diff-line added">
+                            <span className="diff-line-indicator">+</span>
+                            <span className="diff-line-content">{line || ' '}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // For write operations, show the content (truncated if too long)
+    if (diff.newText !== undefined) {
+        const lines = diff.newText.split('\n');
+        const maxLines = 20;
+        const truncated = lines.length > maxLines;
+        const displayLines = truncated ? lines.slice(0, maxLines) : lines;
+
+        return (
+            <div className="diff-container">
+                <div className="diff-file-header">
+                    <span className="diff-file-path">{diff.filePath}</span>
+                    <span className="diff-meta">
+                        {diff.isNewFile ? '(new file)' : '(overwrite)'} • {lines.length} lines
+                    </span>
+                </div>
+                <div className="diff-inline">
+                    {displayLines.map((line, idx) => (
+                        <div key={idx} className="diff-line added">
+                            <span className="diff-line-indicator">+</span>
+                            <span className="diff-line-content">{line || ' '}</span>
+                        </div>
+                    ))}
+                </div>
+                {truncated && (
+                    <div className="diff-meta">
+                        ... {lines.length - maxLines} more lines
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    return null;
+};
+
+/**
+ * Confirmation Dialog Component
+ * Displays a modal dialog for user confirmation of dangerous operations
+ * Positioned above the chat input with keyboard shortcuts (1, 2, 3)
+ */
+const ConfirmationDialog = ({
+    request,
+    onRespond,
+}: {
+    request: ConfirmationRequest;
+    onRespond: (optionId: string) => void;
+}) => {
+    // Handle keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Number keys 1, 2, 3 for quick selection
+            const keyNum = parseInt(e.key);
+            if (keyNum >= 1 && keyNum <= request.options.length) {
+                e.preventDefault();
+                const option = request.options[keyNum - 1];
+                if (option) {
+                    onRespond(option.id);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [request.options, onRespond]);
+
+    // Get button style class based on option style
+    const getButtonClass = (option: ConfirmationOption): string => {
+        const baseClass = 'confirmation-btn';
+        switch (option.style) {
+            case 'primary':
+                return `${baseClass} primary`;
+            case 'danger':
+                return `${baseClass} danger`;
+            case 'warning':
+                return `${baseClass} warning`;
+            default:
+                return `${baseClass} secondary`;
+        }
+    };
+
+    // Get risk level badge class
+    const getRiskBadgeClass = (level?: string): string => {
+        switch (level) {
+            case 'high':
+                return 'risk-badge high';
+            case 'medium':
+                return 'risk-badge medium';
+            case 'low':
+                return 'risk-badge low';
+            default:
+                return 'risk-badge';
+        }
+    };
+
+    return (
+        <div className="confirmation-container">
+            <div className="confirmation-dialog">
+                <div className="confirmation-header">
+                    <h3 className="confirmation-title">{request.title}</h3>
+                    {request.context?.riskLevel && (
+                        <span className={getRiskBadgeClass(request.context.riskLevel)}>
+                            {request.context.riskLevel} risk
+                        </span>
+                    )}
+                </div>
+
+                <div className="confirmation-body">
+                    {/* Diff view for showing changes */}
+                    {request.diff && <DiffView diff={request.diff} />}
+
+                    {/* File path if no diff */}
+                    {!request.diff && request.context?.affectedFiles && request.context.affectedFiles.length > 0 && (
+                        <div className="confirmation-files">
+                            <span className="files-label">Affected files:</span>
+                            <ul className="files-list">
+                                {request.context.affectedFiles.map((file, idx) => (
+                                    <li key={idx} className="file-item">{file}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+
+                <div className="confirmation-actions">
+                    {request.options.map((option, index) => (
+                        <button
+                            key={option.id}
+                            className={getButtonClass(option)}
+                            onClick={() => onRespond(option.id)}
+                            title={`${option.description} (Press ${index + 1})`}
+                        >
+                            <span className="btn-shortcut">{index + 1}</span>
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const root = createRoot(document.getElementById("root")!);

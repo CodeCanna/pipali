@@ -167,6 +167,11 @@ export async function editFile(
                     toolName: 'edit_file',
                     toolArgs: { file_path, old_string, new_string, replace_all },
                     additionalMessage: `This will replace ${occurrences} occurrence${occurrences > 1 ? 's' : ''} of the specified text.`,
+                    diff: {
+                        filePath: file_path,
+                        oldText: old_string,
+                        newText: new_string,
+                    },
                 }
             );
 

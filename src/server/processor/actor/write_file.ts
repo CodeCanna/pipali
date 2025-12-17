@@ -95,6 +95,11 @@ export async function writeFile(
                     toolName: 'write_file',
                     toolArgs: { file_path, content: `[${lineCount} lines, ${byteSize} bytes]` },
                     additionalMessage: `This will ${action} the file with ${lineCount} lines (${byteSize} bytes).`,
+                    diff: {
+                        filePath: file_path,
+                        newText: content,
+                        isNewFile: !exists,
+                    },
                 }
             );
 

@@ -840,3 +840,294 @@ body {
         max-width: 80px;
     }
 }
+
+/* ========================================
+   Confirmation Dialog Styles
+   ======================================== */
+
+.confirmation-container {
+    max-width: 800px;
+    margin: 0 auto 16px auto;
+    padding: 0 24px;
+    animation: slide-up 0.2s ease-out;
+}
+
+@keyframes slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.confirmation-dialog {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+    width: 100%;
+    overflow: hidden;
+}
+
+.confirmation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-secondary);
+}
+
+.confirmation-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.risk-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.risk-badge.low {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.risk-badge.medium {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.risk-badge.high {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.confirmation-body {
+    padding: 20px;
+}
+
+.confirmation-message {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.confirmation-message p {
+    margin: 0 0 12px 0;
+}
+
+.confirmation-message p:last-child {
+    margin-bottom: 0;
+}
+
+.confirmation-message strong {
+    color: var(--text-primary);
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.confirmation-files {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.files-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.files-list {
+    margin: 8px 0 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.file-item {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+    padding: 4px 0;
+    word-break: break-all;
+}
+
+.confirmation-actions {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-secondary);
+}
+
+.confirmation-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+}
+
+.confirmation-btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.confirmation-btn.primary:hover {
+    background: var(--accent-subtle);
+    border-color: var(--accent-subtle);
+}
+
+.confirmation-btn.secondary {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.confirmation-btn.secondary:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.confirmation-btn.danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.confirmation-btn.danger:hover {
+    background: #fecaca;
+}
+
+.confirmation-btn.warning {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.confirmation-btn.warning:hover {
+    background: #fde68a;
+}
+
+/* Keyboard shortcut badges */
+.btn-shortcut {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.confirmation-btn.primary .btn-shortcut {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.confirmation-btn.danger .btn-shortcut {
+    background: rgba(153, 27, 27, 0.15);
+}
+
+/* Diff display styles */
+.diff-container {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'SF Mono', 'Fira Code', 'Monaco', monospace;
+    font-size: 13px;
+}
+
+.diff-file-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.diff-file-path {
+    word-break: break-all;
+}
+
+.diff-inline {
+    padding: 0;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.diff-line {
+    display: flex;
+    padding: 2px 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.diff-line.removed {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.diff-line.added {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.diff-line-indicator {
+    flex-shrink: 0;
+    width: 20px;
+    font-weight: 600;
+    user-select: none;
+}
+
+.diff-line-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.diff-meta {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 480px) {
+    .confirmation-container {
+        padding: 0 16px;
+    }
+
+    .confirmation-actions {
+        flex-direction: column;
+    }
+
+    .confirmation-btn {
+        width: 100%;
+    }
+}

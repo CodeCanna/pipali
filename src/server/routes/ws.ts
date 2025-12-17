@@ -6,6 +6,14 @@ import { eq } from "drizzle-orm";
 import { getDefaultUser, maxIterations } from "../utils";
 import { atifConversationService } from "../processor/conversation/atif/atif.service";
 import { type ATIFToolCall, type ATIFObservationResult } from "../processor/conversation/atif/atif.types";
+import {
+    type ConfirmationRequest,
+    type ConfirmationResponse,
+    type ConfirmationPreferences,
+    type ConfirmationContext,
+    type ConfirmationCallback,
+    createEmptyPreferences,
+} from "../processor/confirmation";
 
 export type WebSocketData = {
     conversationId?: string;
@@ -17,6 +25,13 @@ type ResearchSession = {
     abortController: AbortController;
     conversationId: string;
     user: typeof User.$inferSelect;
+    // Confirmation support
+    confirmationPreferences: ConfirmationPreferences;
+    pendingConfirmation?: {
+        requestId: string;
+        resolve: (response: ConfirmationResponse) => void;
+        reject: (error: Error) => void;
+    };
 };
 
 // Map WebSocket connections to their active research sessions
@@ -26,7 +41,51 @@ const activeSessions = new WeakMap<ServerWebSocket<WebSocketData>, ResearchSessi
 type ClientMessage =
     | { type: 'message'; message: string; conversationId?: string }
     | { type: 'pause' }
-    | { type: 'resume'; message?: string }; // Optional message when resuming
+    | { type: 'resume'; message?: string }
+    | { type: 'confirmation_response'; data: ConfirmationResponse };
+
+/**
+ * Create a confirmation callback for a WebSocket session.
+ * This sends confirmation requests to the client and waits for responses.
+ */
+function createConfirmationCallback(
+    ws: ServerWebSocket<WebSocketData>,
+    session: ResearchSession
+): ConfirmationCallback {
+    return async (request: ConfirmationRequest): Promise<ConfirmationResponse> => {
+        return new Promise((resolve, reject) => {
+            // Store the pending confirmation
+            session.pendingConfirmation = {
+                requestId: request.requestId,
+                resolve,
+                reject,
+            };
+
+            // Send confirmation request to client
+            console.log(`[WS] 🔐 Requesting confirmation: ${request.title}`);
+            ws.send(JSON.stringify({
+                type: 'confirmation_request',
+                data: request,
+            }));
+
+            // Note: The response will be handled in the message handler
+            // which will call session.pendingConfirmation.resolve()
+        });
+    };
+}
+
+/**
+ * Create a confirmation context for the research session
+ */
+function createConfirmationContext(
+    ws: ServerWebSocket<WebSocketData>,
+    session: ResearchSession
+): ConfirmationContext {
+    return {
+        requestConfirmation: createConfirmationCallback(ws, session),
+        preferences: session.confirmationPreferences,
+    };
+}
 
 /**
  * Run the research loop for a conversation.
@@ -67,6 +126,9 @@ async function runResearch(
     let finalResponse = '';
     let iterationCount = 0;
 
+    // Create confirmation context for this research session
+    const confirmationContext = createConfirmationContext(ws, session);
+
     try {
         for await (const iteration of research({
             chatHistory: trajectory,
@@ -75,6 +137,7 @@ async function runResearch(
             dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
             user: user,
             abortSignal: session.abortController.signal,
+            confirmationContext: confirmationContext,
         })) {
             iterationCount++;
 
@@ -204,6 +267,26 @@ export const websocketHandler = {
             return;
         }
 
+        // Handle confirmation response
+        if (data.type === 'confirmation_response') {
+            const session = activeSessions.get(ws);
+            if (session?.pendingConfirmation) {
+                const { requestId, resolve } = session.pendingConfirmation;
+                const response = data.data;
+
+                if (response.requestId === requestId) {
+                    console.log(`[WS] 🔐 Confirmation response received: ${response.selectedOptionId}`);
+                    session.pendingConfirmation = undefined;
+                    resolve(response);
+                } else {
+                    console.warn(`[WS] ⚠️ Confirmation response requestId mismatch: expected ${requestId}, got ${response.requestId}`);
+                }
+            } else {
+                console.warn(`[WS] ⚠️ Received confirmation response but no pending confirmation`);
+            }
+            return;
+        }
+
         // Handle new message
         const { message: userQuery, conversationId } = data as { type: 'message'; message: string; conversationId?: string };
         console.log(`\n${'='.repeat(60)}`);
@@ -264,6 +347,7 @@ export const websocketHandler = {
             abortController: new AbortController(),
             conversationId: conversation.id,
             user,
+            confirmationPreferences: createEmptyPreferences(),
         };
         activeSessions.set(ws, session);
 

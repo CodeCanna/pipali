@@ -1,7 +1,7 @@
 import { type User } from '../../db/schema';
 import type { ToolDefinition } from '../conversation/conversation';
 import { sendMessageToModel } from '../conversation/index';
-import type { ResearchIteration, ToolCall, ToolResult } from './types';
+import type { ResearchIteration, ToolCall, ToolResult, ToolExecutionContext } from './types';
 import { listFiles, type ListFilesArgs } from '../actor/list_files';
 import { readFile, type ReadFileArgs } from '../actor/read_file';
 import { grepFiles, type GrepFilesArgs } from '../actor/grep_files';
@@ -10,6 +10,7 @@ import { writeFile, type WriteFileArgs } from '../actor/write_file';
 import * as prompts from './prompts';
 import type { ATIFObservationResult, ATIFStep, ATIFToolCall, ATIFTrajectory } from '../conversation/atif/atif.types';
 import { addStepToTrajectory } from '../conversation/atif/atif.utils';
+import type { ConfirmationContext } from '../confirmation';
 
 interface ResearchConfig {
     chatHistory: ATIFTrajectory;
@@ -22,6 +23,8 @@ interface ResearchConfig {
     user?: typeof User.$inferSelect;
     // For pause support
     abortSignal?: AbortSignal;
+    // For user confirmation on dangerous operations
+    confirmationContext?: ConfirmationContext;
 }
 
 // Tool definitions for the research agent
@@ -282,7 +285,10 @@ async function pickNextTool(
 /**
  * Execute a single tool call and return the result
  */
-async function executeTool(toolCall: ATIFToolCall): Promise<string | Array<{ type: string;[key: string]: any }>> {
+async function executeTool(
+    toolCall: ATIFToolCall,
+    context?: ToolExecutionContext
+): Promise<string | Array<{ type: string;[key: string]: any }>> {
     try {
         switch (toolCall.function_name) {
             case 'list_files': {
@@ -300,12 +306,14 @@ async function executeTool(toolCall: ATIFToolCall): Promise<string | Array<{ typ
             case 'edit_file': {
                 const result = await editFile(
                     toolCall.arguments as EditFileArgs,
+                    { confirmationContext: context?.confirmation }
                 );
                 return result.compiled;
             }
             case 'write_file': {
                 const result = await writeFile(
                     toolCall.arguments as WriteFileArgs,
+                    { confirmationContext: context?.confirmation }
                 );
                 return result.compiled;
             }
@@ -324,10 +332,13 @@ async function executeTool(toolCall: ATIFToolCall): Promise<string | Array<{ typ
 /**
  * Execute multiple tool calls in parallel and return their results
  */
-async function executeToolsInParallel(toolCalls: ATIFToolCall[]): Promise<ATIFObservationResult[]> {
+async function executeToolsInParallel(
+    toolCalls: ATIFToolCall[],
+    context?: ToolExecutionContext
+): Promise<ATIFObservationResult[]> {
     const results: ATIFObservationResult[] = await Promise.all(
         toolCalls.map(async (toolCall) => {
-            const result = await executeTool(toolCall);
+            const result = await executeTool(toolCall, context);
             return { source_call_id: toolCall.tool_call_id, content: result };
         })
     );
@@ -383,8 +394,11 @@ export async function* research(config: ResearchConfig): AsyncGenerator<Research
             throw new ResearchPausedError();
         }
 
-        // Execute all tools in parallel
-        iteration.toolResults = await executeToolsInParallel(iteration.toolCalls);
+        // Execute all tools in parallel with confirmation context
+        const executionContext: ToolExecutionContext = {
+            confirmation: config.confirmationContext,
+        };
+        iteration.toolResults = await executeToolsInParallel(iteration.toolCalls, executionContext);
         addStepToTrajectory(config.chatHistory, 'agent', '', iteration.toolCalls, { results: iteration.toolResults });
         yield iteration;
     }

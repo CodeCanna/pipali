@@ -1,6 +1,7 @@
 // Minimal types for research director
 
 import type { ATIFObservationResult, ATIFToolCall } from "../conversation/atif/atif.types";
+import type { ConfirmationContext } from "../confirmation";
 
 export interface ToolCall {
     name: string;
@@ -18,4 +19,17 @@ export interface ResearchIteration {
     toolResults?: ATIFObservationResult[];
     warning?: string;
     thought?: string;
+    /** Pending confirmation request that needs user response */
+    pendingConfirmation?: {
+        requestId: string;
+        toolCallId: string;
+    };
+}
+
+/**
+ * Context passed to tool execution for confirmation support
+ */
+export interface ToolExecutionContext {
+    /** Confirmation context for requesting user approval */
+    confirmation?: ConfirmationContext;
 }
