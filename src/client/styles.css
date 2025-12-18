@@ -1145,6 +1145,11 @@ body {
     background: rgba(23, 23, 23, 0.1);
 }
 
+/* KaTeX - hide HTML version, show only visual HTML */
+.katex-html {
+    display: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {

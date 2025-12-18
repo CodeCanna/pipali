@@ -32,6 +32,7 @@
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.44.7",
     "hono": "^4.11.1",
+    "katex": "^0.16.27",
     "langchain": "^0.3.36",
     "lucide-react": "^0.560.0",
     "mammoth": "^1.11.0",
@@ -41,7 +42,9 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5",
     "zod": "^4.2.1"
