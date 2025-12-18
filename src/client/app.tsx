@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { ArrowUp, Sparkles, ChevronDown, Circle, Loader2, Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Check, MoreVertical, Download, Pause, Play } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // Types
 type Message = {
@@ -1027,7 +1028,7 @@ const MessageItem = ({ message }: { message: Message }) => {
             {/* Message Content */}
             {message.content ? (
                 <div className="message-content">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                 </div>
             ) : message.isStreaming ? (
                 <div className="message-content streaming">

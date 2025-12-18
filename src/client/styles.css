@@ -512,6 +512,42 @@ body {
     margin: 6px 0;
 }
 
+.message-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+}
+
+.message-content th,
+.message-content td {
+    padding: 10px 12px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.message-content th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.message-content td {
+    background: var(--bg-secondary);
+}
+
+.message-content tr:hover td {
+    background: var(--bg-tertiary);
+}
+
+.message-content tbody tr:nth-child(even) td {
+    background: var(--bg-primary);
+}
+
+.message-content tbody tr:nth-child(even):hover td {
+    background: var(--bg-tertiary);
+}
+
 /* Streaming Animation */
 .streaming {
     display: flex;
