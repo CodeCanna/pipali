@@ -26,6 +26,7 @@ type Thought = {
     toolName?: string;
     toolArgs?: any;
     toolResult?: string;
+    isInternalThought?: boolean; // True for model's internal reasoning (rendered in italics)
 };
 
 type WebSocketMessage = {
@@ -339,11 +340,13 @@ const App = () => {
                     const hasMessage = msg.message && msg.message.trim() !== '';
 
                     // Add reasoning and tool calls to thoughts first
+                    // reasoning_content is the model's internal thinking, shown in italics
                     if (msg.reasoning_content) {
                         thoughts.push({
                             type: 'thought',
                             content: msg.reasoning_content,
                             id: crypto.randomUUID(),
+                            isInternalThought: true,
                         });
                     }
 
@@ -546,12 +549,21 @@ const App = () => {
                 if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isStreaming) {
                     const newThoughts: Thought[] = [];
 
-                    // Add thought/reasoning if present
-                    if (data.thought) {
+                    // Add reasoning to train of thought:
+                    // - If message is present during tool calls, show it as primary reasoning
+                    // - If final thoughts are present, show them as internal thoughts (italicized)
+                    if (data.message && data.toolCalls) {
+                        newThoughts.push({
+                            id: crypto.randomUUID(),
+                            type: 'thought',
+                            content: data.message,
+                        });
+                    } else if (data.thought) {
                         newThoughts.push({
                             id: crypto.randomUUID(),
                             type: 'thought',
                             content: data.thought,
+                            isInternalThought: true, // Mark as internal thought for italic styling
                         });
                     }
 
@@ -1050,6 +1062,17 @@ const ThoughtsSection = ({ thoughts }: { thoughts: Thought[] }) => {
     if (thoughts.length === 0) return null;
 
     const toolCallCount = thoughts.filter(t => t.type === 'tool_call').length;
+    const thoughtCount = thoughts.filter(t => t.type === 'thought').length;
+
+    // Build summary text
+    const getSummary = () => {
+        if (toolCallCount > 0) {
+            return `${toolCallCount} step${toolCallCount > 1 ? 's' : ''} taken`;
+        } else if (thoughtCount > 0) {
+            return 'Reasoning';
+        }
+        return '';
+    };
 
     return (
         <div className="thoughts-section">
@@ -1058,7 +1081,7 @@ const ThoughtsSection = ({ thoughts }: { thoughts: Thought[] }) => {
                 onClick={() => setIsExpanded(!isExpanded)}
             >
                 <span className="thoughts-summary">
-                    {toolCallCount > 0 && `${toolCallCount} step${toolCallCount > 1 ? 's' : ''} taken`}
+                    {getSummary()}
                 </span>
                 <ChevronDown
                     size={14}
@@ -1072,10 +1095,12 @@ const ThoughtsSection = ({ thoughts }: { thoughts: Thought[] }) => {
                     {thoughts.map((thought, idx) => {
                         if (thought.type === 'thought' && thought.content) {
                             return (
-                                <div key={thought.id} className="thought-item reasoning">
+                                <div key={thought.id} className={`thought-item reasoning ${thought.isInternalThought ? 'internal' : ''}`}>
                                     <div className="thought-step">💭</div>
                                     <div className="thought-content">
-                                        <div className="thought-reasoning">{thought.content}</div>
+                                        <div className={`thought-reasoning ${thought.isInternalThought ? 'italic' : ''}`}>
+                                            {thought.content}
+                                        </div>
                                     </div>
                                 </div>
                             );

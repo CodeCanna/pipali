@@ -19,6 +19,7 @@ export interface ResearchIteration {
     toolResults?: ATIFObservationResult[];
     warning?: string;
     thought?: string;
+    message?: string;
     /** Pending confirmation request that needs user response */
     pendingConfirmation?: {
         requestId: string;

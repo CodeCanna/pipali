@@ -5,7 +5,6 @@ import { Conversation, User } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { getDefaultUser, maxIterations } from "../utils";
 import { atifConversationService } from "../processor/conversation/atif/atif.service";
-import { type ATIFToolCall, type ATIFObservationResult } from "../processor/conversation/atif/atif.types";
 import {
     type ConfirmationRequest,
     type ConfirmationResponse,
@@ -124,6 +123,7 @@ async function runResearch(
     console.log(`[WS] History messages: ${trajectory.steps.length}`);
 
     let finalResponse = '';
+    let finalThought: string | undefined;
     let iterationCount = 0;
 
     // Create confirmation context for this research session
@@ -156,16 +156,31 @@ async function runResearch(
             const textTool = iteration.toolCalls.find(tc => tc.function_name === 'text');
             if (textTool) {
                 finalResponse = textTool.arguments.response || '';
+                // Capture the thought to save with the final response
+                finalThought = iteration.thought;
+                // If there's a thought/reasoning with the final response, send it as an iteration
+                // so it appears in the train of thought before the final message
+                if (iteration.thought || iteration.message) {
+                    ws.send(JSON.stringify({
+                        type: 'iteration',
+                        data: {
+                            thought: iteration.thought,
+                            message: iteration.message,
+                            toolCalls: [],
+                            toolResults: [],
+                        }
+                    }));
+                }
                 // Don't add the text tool as a step, we'll add it as the final response
             } else if (iteration.toolCalls.length > 0 && iteration.toolResults) {
                 await atifConversationService.addStep(
                     conversation.id,
                     'agent',
-                    '', // No message for tool execution steps
+                    iteration.message ?? '',
                     undefined,
                     iteration.toolCalls,
                     { results: iteration.toolResults },
-                    iteration.thought // Add reasoning as part of the same step
+                    iteration.thought,
                 );
 
                 // Send iteration update to client
@@ -191,11 +206,15 @@ async function runResearch(
         finalResponse = 'Failed to generate response.';
     }
 
-    // Add final response as the last agent step
+    // Add final response as the last agent step (with reasoning if present)
     await atifConversationService.addStep(
         conversation.id,
         'agent',
-        finalResponse
+        finalResponse,
+        undefined,
+        undefined,
+        undefined,
+        finalThought
     );
 
     console.log(`[WS] ✅ Research complete`);

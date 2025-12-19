@@ -295,13 +295,15 @@ async function pickNextTool(
             return {
                 toolCalls,
                 warning: `Repeated tool calls detected. You've already called these tools with the same arguments. Try something different.`,
-                thought: response.message,
+                thought: response.thought,
+                message: response.message,
             };
         }
 
         return {
             toolCalls: newToolCalls,
-            thought: response.message,
+            thought: response.thought,
+            message: response.message,
         };
     } catch (error) {
         console.error('Failed to pick next tool:', error);

@@ -667,8 +667,12 @@ body {
 .thought-reasoning {
     font-size: 13px;
     color: var(--text-secondary);
-    font-style: italic;
     margin-bottom: 6px;
+    white-space: pre-wrap;
+}
+
+.thought-reasoning.italic {
+    font-style: italic;
 }
 
 .thought-result {
