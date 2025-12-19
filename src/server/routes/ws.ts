@@ -353,6 +353,11 @@ export const websocketHandler = {
             return;
         }
 
+        // Send conversationId to client immediately (so client tracks it even if paused before completion)
+        if (!conversationId) {
+            ws.send(JSON.stringify({ type: 'conversation_created', conversationId: conversation.id }));
+        }
+
         // Add user message to conversation immediately
         await atifConversationService.addStep(
             conversation.id,

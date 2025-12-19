@@ -30,9 +30,10 @@ type Thought = {
 };
 
 type WebSocketMessage = {
-    type: 'iteration' | 'complete' | 'error' | 'research' | 'pause' | 'confirmation_request';
+    type: 'iteration' | 'complete' | 'error' | 'research' | 'pause' | 'confirmation_request' | 'conversation_created';
     data?: any;
     error?: string;
+    conversationId?: string;
 };
 
 // Confirmation types (mirroring server types for frontend)
@@ -453,6 +454,10 @@ const App = () => {
     const selectConversation = (id: string) => {
         setConversationId(id);
         setOpenConversationMenuId(null);
+        // Reset processing state to prevent old context from being used
+        setIsProcessing(false);
+        setIsPaused(false);
+        setPendingConfirmation(null);
     };
 
     const handleConversationKeyDown = (id: string, e: React.KeyboardEvent) => {
@@ -464,7 +469,10 @@ const App = () => {
 
     const startNewConversation = () => {
         setConversationId(undefined);
-        // Messages will be cleared by the useEffect when conversationId changes
+        // Reset processing state to prevent old context from being used
+        setIsProcessing(false);
+        setIsPaused(false);
+        setPendingConfirmation(null);
     };
 
     const deleteConversation = async (id: string, e: React.MouseEvent) => {
@@ -532,6 +540,13 @@ const App = () => {
 
         if (message.type === 'pause') {
             setIsPaused(true);
+            return;
+        }
+
+        if (message.type === 'conversation_created') {
+            setConversationId(message.conversationId);
+            // Refresh sidebar to show the new conversation
+            fetchConversations();
             return;
         }
 
