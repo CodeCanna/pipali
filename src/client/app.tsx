@@ -651,6 +651,9 @@ const App = () => {
         e?.preventDefault();
         if (!input.trim() || !isConnected) return;
 
+        // Clear any pending confirmation dialog when user sends a new message
+        setPendingConfirmation(null);
+
         // If paused and user sends a message, resume with that message
         if (isPaused) {
             const resumeMsg = input.trim();
