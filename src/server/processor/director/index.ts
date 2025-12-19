@@ -178,6 +178,11 @@ REQUIRED:
                     type: 'string',
                     description: 'The bash command to execute.',
                 },
+                operation_type: {
+                    type: 'string',
+                    enum: ['read-only', 'write-only', 'read-write'],
+                    description: 'Whether the command is read-only (no side effects, e.g., ls, cat, grep, find), write-only (creates new state without reading, e.g., mkdir, touch, echo > newfile), or read-write (reads and modifies state, e.g., sed -i, mv, rm, apt install).',
+                },
                 cwd: {
                     type: 'string',
                     description: 'Optional working directory for command execution (absolute path or relative to home). Defaults to home directory.',
@@ -189,7 +194,7 @@ REQUIRED:
                     maximum: 300000,
                 },
             },
-            required: ['justification', 'command'],
+            required: ['justification', 'command', 'operation_type'],
         },
     },
     {

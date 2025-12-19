@@ -1328,6 +1328,39 @@ body {
     color: #991b1b;
 }
 
+/* Badges container for operation type and risk level */
+.confirmation-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Operation type pill styles */
+.operation-type-pill {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: lowercase;
+    letter-spacing: 0.3px;
+    font-family: var(--font-mono);
+}
+
+.operation-type-pill.read-only {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.operation-type-pill.write-only {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.operation-type-pill.read-write {
+    background: #fce7f3;
+    color: #9d174d;
+}
+
 .confirmation-body {
     padding: 20px;
     max-height: 300px;

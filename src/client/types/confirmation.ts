@@ -26,6 +26,8 @@ export type ConfirmationRequest = {
         toolArgs: Record<string, unknown>;
         affectedFiles?: string[];
         riskLevel?: 'low' | 'medium' | 'high';
+        /** Operation sub-type for display (e.g., 'read-only', 'write-only', 'read-write' for bash commands) */
+        operationType?: string;
     };
     diff?: DiffInfo;
     options: ConfirmationOption[];

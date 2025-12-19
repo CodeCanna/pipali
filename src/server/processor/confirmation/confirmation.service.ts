@@ -43,6 +43,37 @@ export type ConfirmableOperation =
     | 'execute_command';
 
 /**
+ * Get risk level based on operation and optional sub-type
+ * For bash commands: read-only = low, write-only = medium, read-write = high
+ */
+function getRiskLevel(
+    operation: ConfirmableOperation,
+    operationSubType?: string
+): 'low' | 'medium' | 'high' {
+    // For execute_command, risk level depends on operation_type
+    if (operation === 'execute_command' && operationSubType) {
+        switch (operationSubType) {
+            case 'read-only':
+                return 'low';
+            case 'write-only':
+                return 'medium';
+            case 'read-write':
+                return 'high';
+        }
+    }
+
+    // Default risk levels for other operations
+    const defaultRiskLevels: Record<ConfirmableOperation, 'low' | 'medium' | 'high'> = {
+        edit_file: 'medium',
+        write_file: 'medium',
+        delete_file: 'high',
+        execute_command: 'high',
+    };
+
+    return defaultRiskLevels[operation];
+}
+
+/**
  * Create a new confirmation request for a file operation
  */
 export function createFileOperationConfirmation(
@@ -53,6 +84,7 @@ export function createFileOperationConfirmation(
         toolArgs: Record<string, unknown>;
         additionalMessage?: string;
         diff?: DiffInfo;
+        operationSubType?: string;
     }
 ): ConfirmationRequest {
     const titles: Record<ConfirmableOperation, string> = {
@@ -69,13 +101,6 @@ export function createFileOperationConfirmation(
         execute_command: `The agent wants to execute a command`,
     };
 
-    const riskLevels: Record<ConfirmableOperation, 'low' | 'medium' | 'high'> = {
-        edit_file: 'medium',
-        write_file: 'medium',
-        delete_file: 'high',
-        execute_command: 'high',
-    };
-
     return {
         requestId: crypto.randomUUID(),
         inputType: 'choice',
@@ -88,7 +113,8 @@ export function createFileOperationConfirmation(
             toolName: details.toolName,
             toolArgs: details.toolArgs,
             affectedFiles: [filePath],
-            riskLevel: riskLevels[operation],
+            riskLevel: getRiskLevel(operation, details.operationSubType),
+            operationType: details.operationSubType,
         },
         diff: details.diff,
         options: createStandardConfirmationOptions(),
@@ -99,12 +125,13 @@ export function createFileOperationConfirmation(
 
 /**
  * Check if an operation requires confirmation
+ * @param operationKey - Either a ConfirmableOperation or a composite key like "execute_command:read-only"
  */
 export function requiresConfirmation(
-    operation: ConfirmableOperation,
+    operationKey: string,
     preferences: ConfirmationPreferences
 ): boolean {
-    return !preferences.skipConfirmationFor.has(operation);
+    return !preferences.skipConfirmationFor.has(operationKey);
 }
 
 /**
@@ -144,10 +171,18 @@ export async function requestOperationConfirmation(
         toolArgs: Record<string, unknown>;
         additionalMessage?: string;
         diff?: DiffInfo;
+        /** Optional sub-type for finer-grained confirmation tracking (e.g., operation_type for bash_command) */
+        operationSubType?: string;
     }
 ): Promise<ConfirmationResult> {
-    // Check if user has opted to skip confirmations for this operation
-    if (!requiresConfirmation(operation, context.preferences)) {
+    // Build the confirmation key - includes sub-type if provided for finer-grained tracking
+    // e.g., "execute_command:read-only" vs "execute_command:read-write"
+    const confirmationKey = details.operationSubType
+        ? `${operation}:${details.operationSubType}`
+        : operation;
+
+    // Check if user has opted to skip confirmations for this operation (or operation+subtype combo)
+    if (!requiresConfirmation(confirmationKey, context.preferences)) {
         return {
             approved: true,
             selectedOption: CONFIRMATION_OPTIONS.YES_DONT_ASK,
@@ -165,8 +200,9 @@ export async function requestOperationConfirmation(
     const result = processConfirmationResponse(response);
 
     // Update preferences if user chose "don't ask again"
+    // Store with the full key (including sub-type) for granular control
     if (result.skipFutureConfirmations) {
-        context.preferences.skipConfirmationFor.add(operation);
+        context.preferences.skipConfirmationFor.add(confirmationKey);
     }
 
     return result;

@@ -68,6 +68,8 @@ export interface ConfirmationRequest {
         affectedFiles?: string[];
         /** Risk level indicator */
         riskLevel?: 'low' | 'medium' | 'high';
+        /** Operation sub-type for display (e.g., 'read-only', 'write-only', 'read-write' for bash commands) */
+        operationType?: string;
     };
     /** Diff information for showing what changes will be made */
     diff?: DiffInfo;

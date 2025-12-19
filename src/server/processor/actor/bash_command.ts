@@ -6,6 +6,14 @@ import {
 } from '../confirmation';
 
 /**
+ * Operation type indicating whether command modifies state
+ * - read-only: No side effects (e.g., ls, cat, grep, find)
+ * - write-only: Creates new state without reading (e.g., mkdir, touch, echo > newfile)
+ * - read-write: Reads and modifies state (e.g., sed -i, mv, rm, apt install)
+ */
+export type BashOperationType = 'read-only' | 'write-only' | 'read-write';
+
+/**
  * Arguments for the bash_command tool.
  */
 export interface BashCommandArgs {
@@ -13,6 +21,8 @@ export interface BashCommandArgs {
     justification: string;
     /** The bash command to execute */
     command: string;
+    /** Whether the command is read-only (no side effects) or read-write (modifies state) */
+    operation_type: BashOperationType;
     /** Optional working directory for command execution (defaults to home directory) */
     cwd?: string;
     /** Optional timeout in milliseconds (defaults to 30000ms / 30 seconds) */
@@ -115,6 +125,9 @@ export async function bashCommand(
     );
 
     // Request user confirmation - this is a high-risk operation
+    // Confirmation is tracked per operation_type (read-only, write-only, read-write)
+    // If user approves a read-only command with "don't ask again", future read-only commands won't ask
+    // but write-only or read-write commands will still require confirmation
     if (options?.confirmationContext) {
         const confirmResult = await requestOperationConfirmation(
             'execute_command',
@@ -126,8 +139,10 @@ export async function bashCommand(
                     command,
                     cwd: workingDir,
                     timeout: effectiveTimeout,
+                    operation_type: args.operation_type,
                 },
-                additionalMessage: `**Why:** ${justification}\n\n**Command:**\n${command}\n\n**Working directory:** ${workingDir}`,
+                additionalMessage: `**Why:** ${justification}\n\n**Command:**\n\`\`\`bash\n${command}\n\`\`\`\n\n**Working directory:** ${workingDir}`,
+                operationSubType: args.operation_type,
             }
         );
 

@@ -60,6 +60,20 @@ export function ConfirmationDialog({ request, onRespond }: ConfirmationDialogPro
         }
     };
 
+    // Get operation type pill class
+    const getOperationTypePillClass = (opType?: string): string => {
+        switch (opType) {
+            case 'read-only':
+                return 'operation-type-pill read-only';
+            case 'write-only':
+                return 'operation-type-pill write-only';
+            case 'read-write':
+                return 'operation-type-pill read-write';
+            default:
+                return 'operation-type-pill';
+        }
+    };
+
     const commandInfo = request.message ? parseCommandMessage(request.message) : null;
 
     return (
@@ -67,11 +81,18 @@ export function ConfirmationDialog({ request, onRespond }: ConfirmationDialogPro
             <div className="confirmation-dialog">
                 <div className="confirmation-header">
                     <h3 className="confirmation-title">{request.title}</h3>
-                    {request.context?.riskLevel && (
-                        <span className={getRiskBadgeClass(request.context.riskLevel)}>
-                            {request.context.riskLevel} risk
-                        </span>
-                    )}
+                    <div className="confirmation-badges">
+                        {request.context?.operationType && (
+                            <span className={getOperationTypePillClass(request.context.operationType)}>
+                                {request.context.operationType}
+                            </span>
+                        )}
+                        {request.context?.riskLevel && (
+                            <span className={getRiskBadgeClass(request.context.riskLevel)}>
+                                {request.context.riskLevel} risk
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 <div className="confirmation-body">
