@@ -1,6 +1,6 @@
 import { ChatOpenAI } from '@langchain/openai';
 import type { ChatMessage, ResponseWithThought, ToolDefinition } from '../conversation';
-import { toOpenaiTools, formatMessagesForOpenAI } from './utils';
+import { toOpenaiTools, formatMessagesForOpenAI, isOpenaiUrl, supportsResponsesApi } from './utils';
 
 export async function sendMessageToGpt(
     messages: ChatMessage[],
@@ -12,9 +12,15 @@ export async function sendMessageToGpt(
 ): Promise<ResponseWithThought> {
     const formattedMessages = formatMessagesForOpenAI(messages);
     const lcTools = toOpenaiTools(tools);
+    let modelKwargs: Record<string, any> = {};
+    if (isOpenaiUrl(apiBaseUrl)) {
+        modelKwargs['reasoning'] = { summary: "auto", effort: "high" };
+        modelKwargs['include'] = ["reasoning.encrypted_content"];
+    }
     const chat = new ChatOpenAI({
         apiKey: apiKey,
         model: model,
+        useResponsesApi: supportsResponsesApi(apiBaseUrl),
         configuration: {
             baseURL: apiBaseUrl,
         },
@@ -23,7 +29,13 @@ export async function sendMessageToGpt(
         tool_choice: toolChoice,
     });
 
-    const response = await chat.invoke(formattedMessages);
+    const response = await chat.invoke(formattedMessages, modelKwargs);
+    const reasoning: any = response.additional_kwargs?.reasoning;
+    const summary = typeof reasoning?.summary === "string"
+        ? reasoning.summary
+        : Array.isArray(reasoning?.summary)
+            ? reasoning.summary.map((s: any) => s.text ?? "").join("")
+            : undefined;
 
-    return { message: response.text, raw: response.tool_calls };
+    return { thought: summary, message: response.text, raw: response.tool_calls };
 }

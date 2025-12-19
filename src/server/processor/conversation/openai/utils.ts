@@ -14,6 +14,20 @@ export function toOpenaiTools(tools?: ToolDefinition[]): LcToolDefinition[] {
     }));
 }
 
+export function isOpenaiUrl(baseURL: string | null | undefined): boolean {
+    return !baseURL || baseURL.startsWith("https://api.openai.com");
+}
+
+export function supportsResponsesApi(baseURL: string | null | undefined): boolean {
+    if (
+        isOpenaiUrl(baseURL)
+        || (baseURL?.startsWith("https://api.groq.com"))
+    ) {
+        return true;
+    }
+    return false;
+}
+
 /**
  * Format messages for OpenAI API by converting ToolMessages with image content
  * into proper user messages with multimodal content.
