@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowUp, Sparkles, ChevronDown, Circle, Loader2, Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Check, MoreVertical, Download, Pause, Play } from "lucide-react";
+import { ArrowUp, Sparkles, ChevronDown, ChevronUp, Circle, Loader2, Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Check, MoreVertical, Download, Pause, Play, X, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -76,6 +76,17 @@ type ConversationSummary = {
     preview: string;
     createdAt: string;
     updatedAt: string;
+    isActive?: boolean;
+    latestReasoning?: string;
+};
+
+// Per-conversation state for tracking active tasks
+type ConversationState = {
+    isProcessing: boolean;
+    isPaused: boolean;
+    latestReasoning?: string;
+    // Store messages for this conversation to preserve streaming updates when switching
+    messages: Message[];
 };
 
 type ChatModelInfo = {
@@ -101,7 +112,10 @@ const App = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
     const [exportingConversationId, setExportingConversationId] = useState<string | null>(null);
-    const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationRequest | null>(null);
+    // Multiple pending confirmations - one per conversation
+    const [pendingConfirmations, setPendingConfirmations] = useState<Map<string, ConfirmationRequest>>(new Map());
+    // Per-conversation state for tracking active tasks across all conversations
+    const [conversationStates, setConversationStates] = useState<Map<string, ConversationState>>(new Map());
     const wsRef = useRef<WebSocket | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -223,12 +237,23 @@ const App = () => {
         }
 
         // Clear messages for conversation switches or new chat
-        setMessages([]);
-        if (conversationId) {
-            fetchHistory(conversationId);
-        }
-
-        prevConversationIdRef.current = conversationId;
+        // Note: selectConversation already sets messages from cache for active tasks,
+        // but this effect runs after, so we check if messages were just set
+        setMessages(_prev => {
+            // Check if we have cached messages for this conversation (from active/recent task)
+            const convState = conversationStates.get(conversationId || '');
+            if (convState?.messages && convState.messages.length > 0) {
+                // Use cached messages, don't fetch from server
+                prevConversationIdRef.current = conversationId;
+                return convState.messages;
+            }
+            // Fetch from server
+            if (conversationId) {
+                fetchHistory(conversationId);
+            }
+            prevConversationIdRef.current = conversationId;
+            return [];
+        });
     }, [conversationId]);
 
     // Auto-resize textarea
@@ -452,12 +477,35 @@ const App = () => {
     };
 
     const selectConversation = (id: string) => {
+        // Save current conversation's messages to state before switching
+        if (conversationId) {
+            const currentState = conversationStates.get(conversationId);
+            if (currentState?.isProcessing) {
+                // Save current messages to conversation state
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    const existing = next.get(conversationId);
+                    if (existing) {
+                        next.set(conversationId, { ...existing, messages });
+                    }
+                    return next;
+                });
+            }
+        }
+
         setConversationId(id);
         setOpenConversationMenuId(null);
-        // Reset processing state to prevent old context from being used
-        setIsProcessing(false);
-        setIsPaused(false);
-        setPendingConfirmation(null);
+
+        // Update local processing state based on the selected conversation's state
+        const convState = conversationStates.get(id);
+        setIsProcessing(convState?.isProcessing ?? false);
+        setIsPaused(convState?.isPaused ?? false);
+
+        // If switching to a conversation with active/cached messages, use those
+        if (convState?.messages && convState.messages.length > 0) {
+            setMessages(convState.messages);
+        }
+        // Otherwise, the useEffect will fetch history from the database
     };
 
     const handleConversationKeyDown = (id: string, e: React.KeyboardEvent) => {
@@ -469,10 +517,9 @@ const App = () => {
 
     const startNewConversation = () => {
         setConversationId(undefined);
-        // Reset processing state to prevent old context from being used
+        // Reset local processing state for new conversation
         setIsProcessing(false);
         setIsPaused(false);
-        setPendingConfirmation(null);
     };
 
     const deleteConversation = async (id: string, e: React.MouseEvent) => {
@@ -520,31 +567,113 @@ const App = () => {
     };
 
     const handleWebSocketMessage = (message: WebSocketMessage) => {
+        const msgConversationId = message.conversationId;
+
         if (message.type === 'error') {
             console.error("Server error:", message.error);
-            setIsProcessing(false);
-            setIsPaused(false);
-            setMessages(prev => [...prev, {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: `Error: ${message.error}`,
-            }]);
+            // Update state for the specific conversation or current if not specified
+            if (msgConversationId) {
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    next.delete(msgConversationId);
+                    return next;
+                });
+            }
+            // Only update local processing state if this is for current conversation
+            if (!msgConversationId || msgConversationId === conversationId) {
+                setIsProcessing(false);
+                setIsPaused(false);
+                setMessages(prev => [...prev, {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: `Error: ${message.error}`,
+                }]);
+            }
             return;
         }
 
         if (message.type === 'research') {
-            setIsProcessing(true);
-            setIsPaused(false);
+            // Update conversation state for the specific conversation
+            if (msgConversationId) {
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    const existing = next.get(msgConversationId);
+                    // Ensure we have a streaming assistant message to collect thoughts
+                    let msgs = existing?.messages || [];
+                    const lastMsg = msgs[msgs.length - 1];
+                    if (!lastMsg || !lastMsg.isStreaming) {
+                        // Add a streaming assistant message placeholder
+                        msgs = [...msgs, {
+                            id: crypto.randomUUID(),
+                            role: 'assistant' as const,
+                            content: '',
+                            isStreaming: true,
+                            thoughts: [],
+                        }];
+                    }
+                    next.set(msgConversationId, {
+                        isProcessing: true,
+                        isPaused: false,
+                        latestReasoning: existing?.latestReasoning,
+                        messages: msgs,
+                    });
+                    return next;
+                });
+            }
+            // Only update local state if this is for current conversation
+            if (!msgConversationId || msgConversationId === conversationId) {
+                setIsProcessing(true);
+                setIsPaused(false);
+            }
             return;
         }
 
         if (message.type === 'pause') {
-            setIsPaused(true);
+            // Update conversation state for the specific conversation
+            if (msgConversationId) {
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    const existing = next.get(msgConversationId);
+                    next.set(msgConversationId, {
+                        isProcessing: true,
+                        isPaused: true,
+                        latestReasoning: existing?.latestReasoning,
+                        messages: existing?.messages || [],
+                    });
+                    return next;
+                });
+            }
+            // Only update local state if this is for current conversation
+            if (!msgConversationId || msgConversationId === conversationId) {
+                setIsPaused(true);
+            }
             return;
         }
 
         if (message.type === 'conversation_created') {
-            setConversationId(message.conversationId);
+            const newConvId = message.conversationId;
+            setConversationId(newConvId);
+
+            // Sync current messages to the new conversation's state
+            // This is critical for new conversations - messages were added locally before we had an ID
+            if (newConvId) {
+                // Get current messages and sync to conversationStates
+                setMessages(currentMessages => {
+                    // Update conversationStates with current messages
+                    setConversationStates(prevStates => {
+                        const next = new Map(prevStates);
+                        next.set(newConvId, {
+                            isProcessing: true,
+                            isPaused: false,
+                            latestReasoning: undefined,
+                            messages: currentMessages,
+                        });
+                        return next;
+                    });
+                    return currentMessages;
+                });
+            }
+
             // Refresh sidebar to show the new conversation
             fetchConversations();
             return;
@@ -552,83 +681,185 @@ const App = () => {
 
         if (message.type === 'confirmation_request') {
             const confirmationData = message.data as ConfirmationRequest;
-            console.log("Confirmation request received:", confirmationData);
-            setPendingConfirmation(confirmationData);
+            console.log("Confirmation request received:", confirmationData, "for conversation:", msgConversationId);
+            if (msgConversationId) {
+                setPendingConfirmations(prev => {
+                    const next = new Map(prev);
+                    next.set(msgConversationId, confirmationData);
+                    return next;
+                });
+            }
             return;
         }
 
         if (message.type === 'iteration') {
             const { data } = message;
-            setMessages(prev => {
-                const lastMsg = prev[prev.length - 1];
+
+            // Helper to create new thoughts from iteration data
+            const createThoughts = (): Thought[] => {
+                const newThoughts: Thought[] = [];
+
+                // Add reasoning to train of thought:
+                // - If message is present during tool calls, show it as primary reasoning
+                // - If final thoughts are present, show them as internal thoughts (italicized)
+                if (data.message && data.toolCalls) {
+                    newThoughts.push({
+                        id: crypto.randomUUID(),
+                        type: 'thought',
+                        content: data.message,
+                    });
+                } else if (data.thought) {
+                    newThoughts.push({
+                        id: crypto.randomUUID(),
+                        type: 'thought',
+                        content: data.thought,
+                        isInternalThought: true, // Mark as internal thought for italic styling
+                    });
+                }
+
+                // Add tool calls with their results
+                if (data.toolCalls && Array.isArray(data.toolCalls)) {
+                    for (const toolCall of data.toolCalls) {
+                        // Find the matching result for this tool call
+                        const toolResult = data.toolResults?.find(
+                            (tr: any) => tr.source_call_id === toolCall.tool_call_id
+                        )?.content;
+                        const matchingToolContent = !!toolResult && typeof toolResult !== 'string' ? JSON.stringify(toolResult) : toolResult;
+
+                        newThoughts.push({
+                            id: toolCall.tool_call_id || crypto.randomUUID(),
+                            type: 'tool_call',
+                            content: '',
+                            toolName: toolCall.function_name,
+                            toolArgs: toolCall.arguments,
+                            toolResult: matchingToolContent,
+                        });
+                    }
+                }
+
+                return newThoughts;
+            };
+
+            // Helper to update messages with new thoughts
+            const updateMessagesWithThoughts = (msgs: Message[]): Message[] => {
+                const lastMsg = msgs[msgs.length - 1];
                 if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isStreaming) {
-                    const newThoughts: Thought[] = [];
-
-                    // Add reasoning to train of thought:
-                    // - If message is present during tool calls, show it as primary reasoning
-                    // - If final thoughts are present, show them as internal thoughts (italicized)
-                    if (data.message && data.toolCalls) {
-                        newThoughts.push({
-                            id: crypto.randomUUID(),
-                            type: 'thought',
-                            content: data.message,
-                        });
-                    } else if (data.thought) {
-                        newThoughts.push({
-                            id: crypto.randomUUID(),
-                            type: 'thought',
-                            content: data.thought,
-                            isInternalThought: true, // Mark as internal thought for italic styling
-                        });
-                    }
-
-                    // Add tool calls with their results
-                    if (data.toolCalls && Array.isArray(data.toolCalls)) {
-                        for (const toolCall of data.toolCalls) {
-                            // Find the matching result for this tool call
-                            const toolResult = data.toolResults?.find(
-                                (tr: any) => tr.source_call_id === toolCall.tool_call_id
-                            )?.content;
-                            const matchingToolContent = !!toolResult && typeof toolResult !== 'string' ? JSON.stringify(toolResult) : toolResult;
-
-                            newThoughts.push({
-                                id: toolCall.tool_call_id || crypto.randomUUID(),
-                                type: 'tool_call',
-                                content: '',
-                                toolName: toolCall.function_name,
-                                toolArgs: toolCall.arguments,
-                                toolResult: matchingToolContent,
-                            });
-                        }
-                    }
-
-                    return prev.map(msg =>
+                    const newThoughts = createThoughts();
+                    return msgs.map(msg =>
                         msg.id === lastMsg.id
                             ? { ...msg, thoughts: [...(msg.thoughts || []), ...newThoughts] }
                             : msg
                     );
                 }
-                return prev;
-            });
+                return msgs;
+            };
+
+            // For current conversation: update local messages
+            // For all conversations with an ID: update conversationStates
+            // Also update local if conversationId is undefined (new conversation)
+            const isCurrentConversation = !msgConversationId || msgConversationId === conversationId || !conversationId;
+
+            if (isCurrentConversation) {
+                // Update local messages for current conversation
+                setMessages(prev => updateMessagesWithThoughts(prev));
+            }
+
+            // Update conversationStates for any conversation with an ID
+            const targetConvId = msgConversationId || conversationId;
+            if (targetConvId) {
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    const existing = next.get(targetConvId);
+                    const existingMessages = existing?.messages || [];
+
+                    // Derive latest reasoning using the same logic as createThoughts()
+                    // This ensures sidebar subtitle matches what's shown in train of thought
+                    let newReasoning: string | undefined;
+                    if (data.message && data.toolCalls?.length > 0) {
+                        // Message with tool calls = primary reasoning (matches train of thought display)
+                        newReasoning = data.message;
+                    } else if (data.thought) {
+                        // Internal thought (shown in italics in train of thought)
+                        newReasoning = data.thought;
+                    } else if (data.toolCalls?.length > 0) {
+                        // No reasoning text - format tool calls like train of thought does
+                        newReasoning = formatToolCallsForSidebar(data.toolCalls);
+                    }
+
+                    next.set(targetConvId, {
+                        isProcessing: true,
+                        isPaused: false,
+                        latestReasoning: newReasoning || existing?.latestReasoning,
+                        messages: updateMessagesWithThoughts(existingMessages),
+                    });
+                    return next;
+                });
+            }
         }
 
         if (message.type === 'complete') {
             const { data } = message;
-            setConversationId(data.conversationId);
-            setIsProcessing(false);
-            setIsPaused(false);
+            const completedConvId = msgConversationId || data.conversationId;
 
-            setMessages(prev => {
-                const lastMsg = prev[prev.length - 1];
+            // Helper to finalize messages with the response
+            // Finds the streaming assistant message and sets its content
+            // If no streaming message exists, creates a new assistant message
+            const finalizeMessages = (msgs: Message[]): Message[] => {
+                const lastMsg = msgs[msgs.length - 1];
                 if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isStreaming) {
-                    return prev.map(msg =>
+                    return msgs.map(msg =>
                         msg.id === lastMsg.id
                             ? { ...msg, content: data.response, isStreaming: false }
                             : msg
                     );
                 }
-                return prev;
-            });
+                // No streaming message found - add a new completed message
+                // This can happen if messages got out of sync
+                return [...msgs, {
+                    id: crypto.randomUUID(),
+                    role: 'assistant' as const,
+                    content: data.response,
+                    isStreaming: false,
+                }];
+            };
+
+            // Consider it current conversation if:
+            // 1. No completedConvId (shouldn't happen but safe fallback)
+            // 2. completedConvId matches current conversationId
+            // 3. conversationId is undefined (new conversation that hasn't had its ID set yet)
+            const isCurrentConversation = !completedConvId || completedConvId === conversationId || !conversationId;
+
+            if (isCurrentConversation) {
+                // Current conversation: update local messages
+                setConversationId(data.conversationId);
+                setIsProcessing(false);
+                setIsPaused(false);
+                setMessages(prev => finalizeMessages(prev));
+            }
+
+            // Update conversationStates for any completed conversation (current or background)
+            if (completedConvId) {
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    const existing = next.get(completedConvId);
+                    // Use existing messages from state, or empty array if none
+                    const existingMessages = existing?.messages || [];
+                    next.set(completedConvId, {
+                        isProcessing: false,
+                        isPaused: false,
+                        latestReasoning: existing?.latestReasoning,
+                        messages: finalizeMessages(existingMessages),
+                    });
+                    return next;
+                });
+
+                // Clear any pending confirmation for this conversation
+                setPendingConfirmations(prev => {
+                    const next = new Map(prev);
+                    next.delete(completedConvId);
+                    return next;
+                });
+            }
 
             // Refresh conversations list
             fetchConversations();
@@ -636,20 +867,23 @@ const App = () => {
     };
 
     const pauseResearch = () => {
-        if (!isConnected || !isProcessing || isPaused) return;
-        wsRef.current?.send(JSON.stringify({ type: 'pause' }));
+        if (!isConnected || !isProcessing || isPaused || !conversationId) return;
+        wsRef.current?.send(JSON.stringify({ type: 'pause', conversationId }));
     };
 
     const resumeResearch = (withMessage?: string) => {
-        if (!isConnected || !isPaused) return;
-        wsRef.current?.send(JSON.stringify({ type: 'resume', message: withMessage }));
+        if (!isConnected || !isPaused || !conversationId) return;
+        wsRef.current?.send(JSON.stringify({ type: 'resume', message: withMessage, conversationId }));
     };
 
-    const sendConfirmationResponse = (optionId: string) => {
+    // Send confirmation response for a specific conversation
+    const sendConfirmationResponse = (convId: string, optionId: string) => {
+        const pendingConfirmation = pendingConfirmations.get(convId);
         if (!pendingConfirmation || !isConnected) return;
 
         const response = {
             type: 'confirmation_response',
+            conversationId: convId,
             data: {
                 requestId: pendingConfirmation.requestId,
                 selectedOptionId: optionId,
@@ -659,15 +893,34 @@ const App = () => {
 
         console.log("Sending confirmation response:", response);
         wsRef.current?.send(JSON.stringify(response));
-        setPendingConfirmation(null);
+
+        // Remove from pending confirmations
+        setPendingConfirmations(prev => {
+            const next = new Map(prev);
+            next.delete(convId);
+            return next;
+        });
+    };
+
+    // Convenience function for current conversation
+    const sendCurrentConfirmationResponse = (optionId: string) => {
+        if (conversationId) {
+            sendConfirmationResponse(conversationId, optionId);
+        }
     };
 
     const sendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!input.trim() || !isConnected) return;
 
-        // Clear any pending confirmation dialog when user sends a new message
-        setPendingConfirmation(null);
+        // Clear any pending confirmation dialog for current conversation when user sends a new message
+        if (conversationId) {
+            setPendingConfirmations(prev => {
+                const next = new Map(prev);
+                next.delete(conversationId);
+                return next;
+            });
+        }
 
         // If paused and user sends a message, resume with that message
         if (isPaused) {
@@ -688,12 +941,32 @@ const App = () => {
                 thoughts: [],
                 isStreaming: true
             };
-            setMessages(prev => {
-                // Finalize any previous streaming message
+
+            // Calculate new messages
+            const calcNewMessages = (prev: Message[]) => {
                 const updated = prev.map(msg =>
                     msg.isStreaming ? { ...msg, isStreaming: false } : msg
                 );
                 return [...updated, userMsg, assistantMsg];
+            };
+
+            setMessages(prev => {
+                const newMsgs = calcNewMessages(prev);
+                // Sync to conversationStates
+                if (conversationId) {
+                    setConversationStates(prevStates => {
+                        const next = new Map(prevStates);
+                        const existing = next.get(conversationId);
+                        next.set(conversationId, {
+                            isProcessing: true,
+                            isPaused: false,
+                            latestReasoning: existing?.latestReasoning,
+                            messages: newMsgs,
+                        });
+                        return next;
+                    });
+                }
+                return newMsgs;
             });
 
             resumeResearch(resumeMsg);
@@ -702,12 +975,12 @@ const App = () => {
         }
 
         // If processing (not paused) and user sends a message, pause and resume with that message
-        if (isProcessing) {
+        if (isProcessing && conversationId) {
             const interruptMsg = input.trim();
             setInput("");
 
             // Pause first, then add messages and resume
-            wsRef.current?.send(JSON.stringify({ type: 'pause' }));
+            wsRef.current?.send(JSON.stringify({ type: 'pause', conversationId }));
 
             // Add user message and a new streaming assistant message
             const userMsg: Message = {
@@ -722,17 +995,35 @@ const App = () => {
                 thoughts: [],
                 isStreaming: true
             };
-            setMessages(prev => {
-                // Finalize any previous streaming message
+
+            // Calculate new messages
+            const calcNewMessages = (prev: Message[]) => {
                 const updated = prev.map(msg =>
                     msg.isStreaming ? { ...msg, isStreaming: false } : msg
                 );
                 return [...updated, userMsg, assistantMsg];
+            };
+
+            setMessages(prev => {
+                const newMsgs = calcNewMessages(prev);
+                // Sync to conversationStates
+                setConversationStates(prevStates => {
+                    const next = new Map(prevStates);
+                    const existing = next.get(conversationId);
+                    next.set(conversationId, {
+                        isProcessing: true,
+                        isPaused: false,
+                        latestReasoning: existing?.latestReasoning,
+                        messages: newMsgs,
+                    });
+                    return next;
+                });
+                return newMsgs;
             });
 
             // Small delay to let pause complete, then resume with the message
             setTimeout(() => {
-                wsRef.current?.send(JSON.stringify({ type: 'resume', message: interruptMsg }));
+                wsRef.current?.send(JSON.stringify({ type: 'resume', message: interruptMsg, conversationId }));
             }, 100);
 
             scheduleTextareaFocus();
@@ -753,8 +1044,24 @@ const App = () => {
             isStreaming: true
         };
 
-        setMessages(prev => [...prev, userMsg, assistantMsg]);
+        const newMessages = [...messages, userMsg, assistantMsg];
+        setMessages(newMessages);
         setIsProcessing(true);
+
+        // Sync to conversationStates so background iteration updates work
+        // We do this even if conversationId is undefined - it will be set when conversation_created arrives
+        if (conversationId) {
+            setConversationStates(prev => {
+                const next = new Map(prev);
+                next.set(conversationId, {
+                    isProcessing: true,
+                    isPaused: false,
+                    latestReasoning: undefined,
+                    messages: newMessages,
+                });
+                return next;
+            });
+        }
 
         wsRef.current?.send(JSON.stringify({
             message: input,
@@ -781,10 +1088,10 @@ const App = () => {
     // Global Escape key listener for pausing research
     useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && isProcessing && !isPaused && isConnected) {
+            if (e.key === 'Escape' && isProcessing && !isPaused && isConnected && conversationId) {
                 e.preventDefault();
                 e.stopPropagation();
-                wsRef.current?.send(JSON.stringify({ type: 'pause' }));
+                wsRef.current?.send(JSON.stringify({ type: 'pause', conversationId }));
                 // Re-focus textarea after Escape
                 textareaRef.current?.focus();
             }
@@ -792,7 +1099,7 @@ const App = () => {
 
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [isProcessing, isPaused, isConnected]);
+    }, [isProcessing, isPaused, isConnected, conversationId]);
 
     return (
         <div className="app-wrapper">
@@ -806,64 +1113,93 @@ const App = () => {
                 </div>
 
                 <div className="conversations-list">
-                    {conversations.map(conv => (
-                        <div
-                            key={conv.id}
-                            className={`conversation-item ${conversationId === conv.id ? 'active' : ''}`}
-                            onClick={() => selectConversation(conv.id)}
-                            onKeyDown={(e) => handleConversationKeyDown(conv.id, e)}
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`Open conversation: ${conv.title}`}
-                        >
-                            <MessageSquare size={16} />
-                            <span className="conversation-title">{conv.title}</span>
+                    {conversations.map(conv => {
+                        // Get live state from conversationStates, fallback to API data
+                        const liveState = conversationStates.get(conv.id);
+                        const isActive = liveState?.isProcessing ?? conv.isActive ?? false;
+                        const latestReasoning = liveState?.latestReasoning ?? conv.latestReasoning;
+                        const hasPendingConfirmation = pendingConfirmations.has(conv.id);
 
-                            <div className="conversation-menu-container">
-                                <button
-                                    className="menu-btn"
-                                    onClick={(e) => toggleConversationMenu(conv.id, e)}
-                                    aria-label="Conversation actions"
-                                >
-                                    <MoreVertical size={16} />
-                                </button>
-
-                                {openConversationMenuId === conv.id && (
-                                    <div className="conversation-menu" role="menu">
-                                        <button
-                                            className="conversation-menu-item"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setOpenConversationMenuId(null);
-                                                exportConversationAsATIF(conv.id);
-                                            }}
-                                            disabled={exportingConversationId === conv.id}
-                                            role="menuitem"
-                                        >
-                                            {exportingConversationId === conv.id ? (
-                                                <Loader2 size={14} className="spinning" />
-                                            ) : (
-                                                <Download size={14} />
-                                            )}
-                                            <span>Export</span>
-                                        </button>
-
-                                        <button
-                                            className="conversation-menu-item danger"
-                                            onClick={(e) => {
-                                                setOpenConversationMenuId(null);
-                                                deleteConversation(conv.id, e);
-                                            }}
-                                            role="menuitem"
-                                        >
-                                            <Trash2 size={14} />
-                                            <span>Delete</span>
-                                        </button>
-                                    </div>
+                        return (
+                            <div
+                                key={conv.id}
+                                className={`conversation-item ${conversationId === conv.id ? 'active' : ''} ${isActive ? 'has-active-task' : ''}`}
+                                onClick={() => selectConversation(conv.id)}
+                                onKeyDown={(e) => handleConversationKeyDown(conv.id, e)}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Open conversation: ${conv.title}`}
+                            >
+                                {/* Activity indicator */}
+                                {isActive ? (
+                                    <Loader2 size={16} className="spinning conversation-icon" />
+                                ) : hasPendingConfirmation ? (
+                                    <AlertCircle size={16} className="conversation-icon needs-attention" />
+                                ) : (
+                                    <MessageSquare size={16} className="conversation-icon" />
                                 )}
+
+                                <div className="conversation-info">
+                                    <span className="conversation-title">{conv.title}</span>
+                                    {/* Subtitle with train of thought */}
+                                    {isActive && latestReasoning && (
+                                        <span className="conversation-subtitle">
+                                            {(() => {
+                                                const firstLine = latestReasoning.split('\n')[0] ?? '';
+                                                return firstLine.length > 60
+                                                    ? firstLine.slice(0, 60) + '...'
+                                                    : firstLine;
+                                            })()}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="conversation-menu-container">
+                                    <button
+                                        className="menu-btn"
+                                        onClick={(e) => toggleConversationMenu(conv.id, e)}
+                                        aria-label="Conversation actions"
+                                    >
+                                        <MoreVertical size={16} />
+                                    </button>
+
+                                    {openConversationMenuId === conv.id && (
+                                        <div className="conversation-menu" role="menu">
+                                            <button
+                                                className="conversation-menu-item"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenConversationMenuId(null);
+                                                    exportConversationAsATIF(conv.id);
+                                                }}
+                                                disabled={exportingConversationId === conv.id}
+                                                role="menuitem"
+                                            >
+                                                {exportingConversationId === conv.id ? (
+                                                    <Loader2 size={14} className="spinning" />
+                                                ) : (
+                                                    <Download size={14} />
+                                                )}
+                                                <span>Export</span>
+                                            </button>
+
+                                            <button
+                                                className="conversation-menu-item danger"
+                                                onClick={(e) => {
+                                                    setOpenConversationMenuId(null);
+                                                    deleteConversation(conv.id, e);
+                                                }}
+                                                role="menuitem"
+                                            >
+                                                <Trash2 size={14} />
+                                                <span>Delete</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     {conversations.length === 0 && (
                         <div className="no-conversations">No conversations yet</div>
                     )}
@@ -954,11 +1290,11 @@ const App = () => {
 
                 {/* Input Area */}
                 <footer className="input-area">
-                    {/* Confirmation Dialog - positioned above chat input */}
-                    {pendingConfirmation && (
+                    {/* Confirmation Dialog - positioned above chat input for current conversation */}
+                    {conversationId && pendingConfirmations.has(conversationId) && (
                         <ConfirmationDialog
-                            request={pendingConfirmation}
-                            onRespond={sendConfirmationResponse}
+                            request={pendingConfirmations.get(conversationId)!}
+                            onRespond={sendCurrentConfirmationResponse}
                         />
                     )}
 
@@ -1039,6 +1375,211 @@ const App = () => {
                         </p>
                     </div>
                 </footer>
+            </div>
+
+            {/* Toast notifications for confirmations from other conversations */}
+            <ToastContainer
+                confirmations={pendingConfirmations}
+                conversations={conversations}
+                currentConversationId={conversationId}
+                onRespond={sendConfirmationResponse}
+                onDismiss={(convId) => {
+                    setPendingConfirmations(prev => {
+                        const next = new Map(prev);
+                        next.delete(convId);
+                        return next;
+                    });
+                }}
+            />
+        </div>
+    );
+};
+
+/**
+ * Toast container for confirmation notifications from background conversations
+ */
+const ToastContainer = ({
+    confirmations,
+    conversations,
+    currentConversationId,
+    onRespond,
+    onDismiss,
+}: {
+    confirmations: Map<string, ConfirmationRequest>;
+    conversations: ConversationSummary[];
+    currentConversationId?: string;
+    onRespond: (convId: string, optionId: string) => void;
+    onDismiss: (convId: string) => void;
+}) => {
+    // Filter out confirmations for current conversation (shown inline instead)
+    const toastConfirmations = Array.from(confirmations.entries())
+        .filter(([convId]) => convId !== currentConversationId);
+
+    if (toastConfirmations.length === 0) return null;
+
+    return (
+        <div className="toast-container">
+            {toastConfirmations.map(([convId, request]) => {
+                const conv = conversations.find(c => c.id === convId);
+                return (
+                    <ConfirmationToast
+                        key={request.requestId}
+                        convId={convId}
+                        convTitle={conv?.title || 'Background Task'}
+                        request={request}
+                        onRespond={onRespond}
+                        onDismiss={onDismiss}
+                    />
+                );
+            })}
+        </div>
+    );
+};
+
+/**
+ * Individual toast notification for a confirmation request
+ */
+const ConfirmationToast = ({
+    convId,
+    convTitle,
+    request,
+    onRespond,
+    onDismiss,
+}: {
+    convId: string;
+    convTitle: string;
+    request: ConfirmationRequest;
+    onRespond: (convId: string, optionId: string) => void;
+    onDismiss: (convId: string) => void;
+}) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    // Get button style class based on option style
+    const getButtonClass = (option: ConfirmationOption): string => {
+        switch (option.style) {
+            case 'primary':
+                return 'toast-btn primary';
+            case 'danger':
+                return 'toast-btn danger';
+            default:
+                return 'toast-btn secondary';
+        }
+    };
+
+    // Parse command execution message into structured sections (same as main dialog)
+    const parseCommandMessage = (message: string): { reason?: string; command?: string; workdir?: string } | null => {
+        if (!message.includes('**Why:**') && !message.includes('**Command:**')) {
+            return null;
+        }
+        const result: { reason?: string; command?: string; workdir?: string } = {};
+
+        // Extract reason (after **Why:** until **Command:**)
+        const whyMatch = message.match(/\*\*Why:\*\*\s*([\s\S]*?)(?=\*\*Command:\*\*|$)/);
+        if (whyMatch && whyMatch[1]) {
+            result.reason = whyMatch[1].trim();
+        }
+
+        // Extract command (after **Command:** until **Working directory:**)
+        const cmdMatch = message.match(/\*\*Command:\*\*\s*([\s\S]*?)(?=\*\*Working directory:\*\*|$)/);
+        if (cmdMatch && cmdMatch[1]) {
+            result.command = cmdMatch[1].trim();
+        }
+
+        // Extract working directory
+        const wdMatch = message.match(/\*\*Working directory:\*\*\s*([\s\S]*?)$/);
+        if (wdMatch && wdMatch[1]) {
+            result.workdir = wdMatch[1].trim();
+        }
+
+        return result;
+    };
+
+    const commandInfo = request.message ? parseCommandMessage(request.message) : null;
+
+    // Determine if we have expandable content
+    const hasExpandableContent = commandInfo?.command || request.diff || (request.message && request.message.length > 120);
+
+    // For non-command messages, show truncated preview
+    const messagePreview = !commandInfo && request.message
+        ? (request.message.length > 120 ? request.message.slice(0, 120) + '...' : request.message)
+        : !commandInfo && request.context?.toolName
+            ? `${request.context.toolName}: ${JSON.stringify(request.context.toolArgs || {}).slice(0, 80)}...`
+            : '';
+
+    return (
+        <div className="confirmation-toast">
+            <div className="toast-header">
+                <div className="toast-info">
+                    <span className="toast-conversation">{convTitle}</span>
+                    <span className="toast-title">{request.title}</span>
+                    {/* For command executions, show reason by default */}
+                    {commandInfo?.reason && (
+                        <span className="toast-preview">{commandInfo.reason}</span>
+                    )}
+                    {/* For non-command messages, show truncated preview */}
+                    {messagePreview && (
+                        <span className="toast-preview">{messagePreview}</span>
+                    )}
+                </div>
+                <div className="toast-controls">
+                    {/* Show expand button if there's more content */}
+                    {hasExpandableContent && (
+                        <button
+                            className="toast-expand-btn"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            title={isExpanded ? 'Collapse' : 'Expand'}
+                        >
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                    )}
+                    <button
+                        className="toast-close-btn"
+                        onClick={() => onDismiss(convId)}
+                        title="Dismiss"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+            </div>
+
+            {isExpanded && (
+                <div className="toast-body">
+                    {/* For command executions, show the command block */}
+                    {commandInfo?.command && (
+                        <div className="toast-command-section">
+                            <div className="toast-command-header">
+                                <span className="toast-command-label">Command</span>
+                                {commandInfo.workdir && (
+                                    <code className="toast-workdir">
+                                        in {commandInfo.workdir.replace(/^\/Users\/[^/]+/, '~')}
+                                    </code>
+                                )}
+                            </div>
+                            <pre className="toast-command-code">
+                                <code>{commandInfo.command}</code>
+                            </pre>
+                        </div>
+                    )}
+                    {/* For non-command messages, show full message when expanded */}
+                    {!commandInfo && request.message && request.message.length > 120 && (
+                        <div className="toast-message">{request.message}</div>
+                    )}
+                    {request.diff && <DiffView diff={request.diff} />}
+                </div>
+            )}
+
+            <div className="toast-actions">
+                {request.options.slice(0, 2).map((option, idx) => (
+                    <button
+                        key={option.id}
+                        className={getButtonClass(option)}
+                        onClick={() => onRespond(convId, option.id)}
+                        title={option.description}
+                    >
+                        <span className="btn-shortcut">{idx + 1}</span>
+                        {option.label}
+                    </button>
+                ))}
             </div>
         </div>
     );
@@ -1270,6 +1811,66 @@ const formatToolArgs = (toolName: string, args: any): string => {
                 })
                 .join(', ');
     }
+};
+
+/**
+ * Format tool calls for sidebar subtitle display
+ * Uses the same friendly names and formatting as the train of thought display
+ */
+const formatToolCallsForSidebar = (toolCalls: any[]): string => {
+    if (!toolCalls || toolCalls.length === 0) return '';
+
+    const friendlyNames: Record<string, string> = {
+        "view_file": "Read",
+        "list_files": "List",
+        "grep_files": "Search",
+        "edit_file": "Edit",
+        "write_file": "Write",
+        "bash_command": "Shell",
+        "read_file": "Read",
+        "text": "Respond",
+    };
+
+    // Format each tool call with friendly name and key argument
+    const formatted = toolCalls.map(tc => {
+        const toolName = tc.function_name || '';
+        const friendly = friendlyNames[toolName] || formatToolName(toolName);
+        const args = tc.arguments || {};
+
+        // Get a concise description of what's being done
+        let detail = '';
+        switch (toolName) {
+            case 'view_file':
+            case 'read_file':
+                detail = args.path ? ` ${getFileName(args.path)}` : '';
+                break;
+            case 'list_files':
+                detail = args.path ? ` ${args.path}` : '';
+                break;
+            case 'grep_files':
+                detail = args.pattern ? ` "${args.pattern}"` : '';
+                break;
+            case 'edit_file':
+            case 'write_file':
+                detail = args.file_path ? ` ${getFileName(args.file_path)}` : '';
+                break;
+            case 'bash_command':
+                detail = args.justification ? ` ${args.justification}` : '';
+                break;
+        }
+
+        return `${friendly}${detail}`;
+    });
+
+    // Join multiple tool calls
+    return formatted.join(', ');
+};
+
+/** Extract filename from path */
+const getFileName = (path: string): string => {
+    if (!path) return '';
+    const parts = path.split('/');
+    return parts[parts.length - 1] || path;
 };
 
 /**

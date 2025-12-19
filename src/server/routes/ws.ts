@@ -13,12 +13,18 @@ import {
     type ConfirmationCallback,
     createEmptyPreferences,
 } from "../processor/confirmation";
+import {
+    setSessionActive,
+    updateSessionReasoning,
+    setSessionPaused,
+    setSessionInactive,
+} from "../sessions";
 
 export type WebSocketData = {
     conversationId?: string;
 };
 
-// Session state for tracking active research per WebSocket connection
+// Session state for tracking active research per conversation
 type ResearchSession = {
     isPaused: boolean;
     abortController: AbortController;
@@ -33,15 +39,39 @@ type ResearchSession = {
     };
 };
 
-// Map WebSocket connections to their active research sessions
-const activeSessions = new WeakMap<ServerWebSocket<WebSocketData>, ResearchSession>();
+// Map WebSocket connections to their active research sessions (multiple per connection)
+type ConnectionSessions = Map<string, ResearchSession>; // Map<conversationId, ResearchSession>
+const activeConnections = new WeakMap<ServerWebSocket<WebSocketData>, ConnectionSessions>();
 
-// Message types from client
+// Message types from client - now with conversationId for routing
 type ClientMessage =
     | { type: 'message'; message: string; conversationId?: string }
-    | { type: 'pause' }
-    | { type: 'resume'; message?: string }
-    | { type: 'confirmation_response'; data: ConfirmationResponse };
+    | { type: 'pause'; conversationId: string }
+    | { type: 'resume'; message?: string; conversationId: string }
+    | { type: 'confirmation_response'; data: ConfirmationResponse; conversationId: string };
+
+/**
+ * Helper to send a message to the client with conversationId for routing
+ */
+function sendToClient(
+    ws: ServerWebSocket<WebSocketData>,
+    message: Record<string, unknown>,
+    conversationId: string
+): void {
+    ws.send(JSON.stringify({ ...message, conversationId }));
+}
+
+/**
+ * Get or create the sessions map for a WebSocket connection
+ */
+function getConnectionSessions(ws: ServerWebSocket<WebSocketData>): ConnectionSessions {
+    let sessions = activeConnections.get(ws);
+    if (!sessions) {
+        sessions = new Map();
+        activeConnections.set(ws, sessions);
+    }
+    return sessions;
+}
 
 /**
  * Create a confirmation callback for a WebSocket session.
@@ -60,12 +90,12 @@ function createConfirmationCallback(
                 reject,
             };
 
-            // Send confirmation request to client
-            console.log(`[WS] 🔐 Requesting confirmation: ${request.title}`);
-            ws.send(JSON.stringify({
+            // Send confirmation request to client with conversationId
+            console.log(`[WS] 🔐 Requesting confirmation: ${request.title} (conv: ${session.conversationId})`);
+            sendToClient(ws, {
                 type: 'confirmation_request',
                 data: request,
-            }));
+            }, session.conversationId);
 
             // Note: The response will be handled in the message handler
             // which will call session.pendingConfirmation.resolve()
@@ -96,15 +126,19 @@ async function runResearch(
 ): Promise<void> {
     const { user, conversationId } = session;
 
+    // Mark session as active in shared store
+    setSessionActive(conversationId);
+
     // Signal that research is starting/resuming
-    ws.send(JSON.stringify({ type: 'research' }));
+    sendToClient(ws, { type: 'research' }, conversationId);
 
     // Get conversation and its current history from DB
     const results = await db.select().from(Conversation).where(eq(Conversation.id, conversationId));
     const conversation = results[0];
 
     if (!conversation) {
-        ws.send(JSON.stringify({ type: 'error', error: 'Conversation not found' }));
+        sendToClient(ws, { type: 'error', error: 'Conversation not found' }, conversationId);
+        setSessionInactive(conversationId);
         return;
     }
 
@@ -112,13 +146,14 @@ async function runResearch(
     const trajectory = conversation.trajectory;
     const lastUserMessage = [...trajectory.steps].reverse().find(m => m.source === 'user' && typeof m.message === 'string');
     if (!lastUserMessage || typeof lastUserMessage.message !== 'string') {
-        ws.send(JSON.stringify({ type: 'error', error: 'No user message found' }));
+        sendToClient(ws, { type: 'error', error: 'No user message found' }, conversationId);
+        setSessionInactive(conversationId);
         return;
     }
     const userQuery = lastUserMessage.message;
 
     // Chat history is everything except the last user message (which becomes the query)
-    console.log(`[WS] 🔬 Starting research...`);
+    console.log(`[WS] 🔬 Starting research (conv: ${conversationId})...`);
     console.log(`[WS] Query: "${userQuery.slice(0, 100)}${userQuery.length > 100 ? '...' : ''}"`);
     console.log(`[WS] History messages: ${trajectory.steps.length}`);
 
@@ -141,6 +176,11 @@ async function runResearch(
         })) {
             iterationCount++;
 
+            // Update shared store with latest reasoning
+            if (iteration.thought) {
+                updateSessionReasoning(conversationId, iteration.thought);
+            }
+
             // Log tool calls
             for (const tc of iteration.toolCalls) {
                 console.log(`[WS] 🔧 Tool: ${tc.function_name}`, tc.arguments ? JSON.stringify(tc.arguments).slice(0, 100) : '');
@@ -161,7 +201,7 @@ async function runResearch(
                 // If there's a thought/reasoning with the final response, send it as an iteration
                 // so it appears in the train of thought before the final message
                 if (iteration.thought || iteration.message) {
-                    ws.send(JSON.stringify({
+                    sendToClient(ws, {
                         type: 'iteration',
                         data: {
                             thought: iteration.thought,
@@ -169,7 +209,7 @@ async function runResearch(
                             toolCalls: [],
                             toolResults: [],
                         }
-                    }));
+                    }, conversationId);
                 }
                 // Don't add the text tool as a step, we'll add it as the final response
             } else if (iteration.toolCalls.length > 0 && iteration.toolResults) {
@@ -184,7 +224,7 @@ async function runResearch(
                 );
 
                 // Send iteration update to client
-                ws.send(JSON.stringify({ type: 'iteration', data: iteration }));
+                sendToClient(ws, { type: 'iteration', data: iteration }, conversationId);
             } else {
                 console.warn(`[WS] ⚠️ No tool calls or results in iteration`);
             }
@@ -192,12 +232,17 @@ async function runResearch(
     } catch (error) {
         if (error instanceof ResearchPausedError) {
             // State is already saved to DB via addStep calls
-            console.log(`[WS] ⏸️ Research paused`);
+            console.log(`[WS] ⏸️ Research paused (conv: ${conversationId})`);
+            setSessionPaused(conversationId);
             return;
         }
         console.error(`[WS] ❌ Research error:`, error);
-        ws.send(JSON.stringify({ type: 'error', error: error instanceof Error ? error.message : String(error) }));
-        activeSessions.delete(ws);
+        sendToClient(ws, { type: 'error', error: error instanceof Error ? error.message : String(error) }, conversationId);
+
+        // Clean up session
+        const sessions = getConnectionSessions(ws);
+        sessions.delete(conversationId);
+        setSessionInactive(conversationId);
         return;
     }
 
@@ -217,22 +262,23 @@ async function runResearch(
         finalThought
     );
 
-    console.log(`[WS] ✅ Research complete`);
+    console.log(`[WS] ✅ Research complete (conv: ${conversationId})`);
     console.log(`[WS] Iterations: ${iterationCount}`);
     console.log(`[WS] Response length: ${finalResponse.length} chars`);
-    console.log(`[WS] Conversation ID: ${conversation?.id}`);
     console.log(`${'='.repeat(60)}\n`);
 
-    ws.send(JSON.stringify({
+    sendToClient(ws, {
         type: 'complete',
         data: {
             response: finalResponse,
             conversationId: conversation?.id
         }
-    }));
+    }, conversationId);
 
     // Clean up session
-    activeSessions.delete(ws);
+    const sessions = getConnectionSessions(ws);
+    sessions.delete(conversationId);
+    setSessionInactive(conversationId);
 }
 
 export const websocketHandler = {
@@ -253,23 +299,26 @@ export const websocketHandler = {
             return;
         }
 
+        const sessions = getConnectionSessions(ws);
+
         // Handle pause command
         if (data.type === 'pause') {
-            const session = activeSessions.get(ws);
+            const session = sessions.get(data.conversationId);
             if (session && !session.isPaused) {
-                console.log(`[WS] ⏸️ Pausing research`);
+                console.log(`[WS] ⏸️ Pausing research (conv: ${data.conversationId})`);
                 session.isPaused = true;
                 session.abortController.abort();
-                ws.send(JSON.stringify({ type: 'pause' }));
+                sendToClient(ws, { type: 'pause' }, data.conversationId);
+                setSessionPaused(data.conversationId);
             }
             return;
         }
 
         // Handle resume command
         if (data.type === 'resume') {
-            const session = activeSessions.get(ws);
+            const session = sessions.get(data.conversationId);
             if (session && session.isPaused) {
-                console.log(`[WS] ▶️ Resuming research${data.message ? ' with new message' : ''}`);
+                console.log(`[WS] ▶️ Resuming research${data.message ? ' with new message' : ''} (conv: ${data.conversationId})`);
 
                 // If user provided a message, add it to the conversation
                 if (data.message) {
@@ -288,20 +337,20 @@ export const websocketHandler = {
 
         // Handle confirmation response
         if (data.type === 'confirmation_response') {
-            const session = activeSessions.get(ws);
+            const session = sessions.get(data.conversationId);
             if (session?.pendingConfirmation) {
                 const { requestId, resolve } = session.pendingConfirmation;
                 const response = data.data;
 
                 if (response.requestId === requestId) {
-                    console.log(`[WS] 🔐 Confirmation response received: ${response.selectedOptionId}`);
+                    console.log(`[WS] 🔐 Confirmation response received: ${response.selectedOptionId} (conv: ${data.conversationId})`);
                     session.pendingConfirmation = undefined;
                     resolve(response);
                 } else {
                     console.warn(`[WS] ⚠️ Confirmation response requestId mismatch: expected ${requestId}, got ${response.requestId}`);
                 }
             } else {
-                console.warn(`[WS] ⚠️ Received confirmation response but no pending confirmation`);
+                console.warn(`[WS] ⚠️ Received confirmation response but no pending confirmation (conv: ${data.conversationId})`);
             }
             return;
         }
@@ -312,6 +361,16 @@ export const websocketHandler = {
         console.log(`[WS] 💬 New message received`);
         console.log(`[WS] Query: "${userQuery.slice(0, 100)}${userQuery.length > 100 ? '...' : ''}"`);
         console.log(`[WS] Conversation: ${conversationId || 'new'}`);
+
+        // Check if there's already an active session for this conversation
+        if (conversationId && sessions.has(conversationId)) {
+            console.warn(`[WS] ⚠️ Already processing conversation: ${conversationId}`);
+            sendToClient(ws, {
+                type: 'error',
+                error: 'A task is already running for this conversation. Please wait or pause it first.'
+            }, conversationId);
+            return;
+        }
 
         // Get the user
         const [user] = await db.select().from(User).where(eq(User.email, getDefaultUser().email));
@@ -355,7 +414,7 @@ export const websocketHandler = {
 
         // Send conversationId to client immediately (so client tracks it even if paused before completion)
         if (!conversationId) {
-            ws.send(JSON.stringify({ type: 'conversation_created', conversationId: conversation.id }));
+            sendToClient(ws, { type: 'conversation_created' }, conversation.id);
         }
 
         // Add user message to conversation immediately
@@ -373,21 +432,29 @@ export const websocketHandler = {
             user,
             confirmationPreferences: createEmptyPreferences(),
         };
-        activeSessions.set(ws, session);
+        sessions.set(conversation.id, session);
 
-        // Run research
-        await runResearch(ws, session);
+        // Run research (don't await - allow other messages to be processed)
+        runResearch(ws, session).catch(error => {
+            console.error(`[WS] ❌ Unhandled research error:`, error);
+            sessions.delete(conversation.id);
+            setSessionInactive(conversation.id);
+        });
     },
     open(_ws: ServerWebSocket<WebSocketData>) {
         console.log("[WS] 🔌 Client connected");
     },
     close(ws: ServerWebSocket<WebSocketData>) {
         console.log("[WS] 🔌 Client disconnected");
-        // Clean up session on disconnect
-        const session = activeSessions.get(ws);
-        if (session) {
-            session.abortController.abort();
-            activeSessions.delete(ws);
+        // Clean up all sessions on disconnect
+        const sessions = activeConnections.get(ws);
+        if (sessions) {
+            for (const [conversationId, session] of sessions) {
+                console.log(`[WS] 🧹 Cleaning up session for conversation: ${conversationId}`);
+                session.abortController.abort();
+                setSessionInactive(conversationId);
+            }
+            activeConnections.delete(ws);
         }
     }
 };

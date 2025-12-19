@@ -10,6 +10,7 @@ import openapi from './openapi';
 import { getDefaultUser, maxIterations } from '../utils';
 import { research } from '../processor/director';
 import { atifConversationService } from '../processor/conversation/atif/atif.service';
+import { getActiveStatus } from '../sessions';
 
 const api = new Hono().basePath('/api');
 
@@ -176,19 +177,38 @@ api.get('/conversations', async (c) => {
     .where(eq(Conversation.userId, adminUser.id))
     .orderBy(desc(Conversation.updatedAt));
 
-    // Map to include a preview from first message
+    // Map to include a preview, active status, and latest reasoning
     const result = conversations.map(conv => {
         // Find first user message in trajectory
         const firstUserStep = conv.trajectory?.steps?.find(s => s.source === 'user');
         const preview = firstUserStep?.message
             ? firstUserStep.message.slice(0, 100)
             : '';
+
+        // Check if conversation has an active session
+        const sessionStatus = getActiveStatus(conv.id);
+        const isActive = sessionStatus?.isActive ?? false;
+
+        // Get latest reasoning from active session or from trajectory
+        let latestReasoning = sessionStatus?.latestReasoning;
+        if (!latestReasoning) {
+            // Find latest agent step with reasoning from trajectory
+            const latestAgentWithReasoning = [...(conv.trajectory?.steps || [])]
+                .reverse()
+                .find(s => s.source === 'agent' && s.reasoning_content);
+            latestReasoning = latestAgentWithReasoning?.reasoning_content
+                ?.split('\n')[0]  // First line only
+                ?.slice(0, 80);   // Truncate
+        }
+
         return {
             id: conv.id,
             title: conv.title || preview || 'New conversation',
             preview,
             createdAt: conv.createdAt,
             updatedAt: conv.updatedAt,
+            isActive,
+            latestReasoning,
         };
     });
 
