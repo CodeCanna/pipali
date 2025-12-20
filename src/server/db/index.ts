@@ -6,8 +6,15 @@ import { AiModelApi, ChatModel, User, UserChatModel, type ChatModelWithApi } fro
 
 const dbName = getDbName();
 const config = await getPGliteConfig();
-const client = await PGlite.create(dbName, config);
+export const client = await PGlite.create(dbName, config);
 export const db = drizzle(client);
+
+/** Gracefully close the database connection */
+export async function closeDatabase(): Promise<void> {
+    console.log('[DB] Closing database connection...');
+    await client.close();
+    console.log('[DB] Database connection closed.');
+}
 
 export async function getDefaultChatModel(user?: typeof User.$inferSelect, fallbackChatModel?: typeof ChatModel.$inferSelect): Promise<ChatModelWithApi | undefined> {
     // Use default chat model if set

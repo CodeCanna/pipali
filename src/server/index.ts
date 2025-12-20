@@ -1,7 +1,7 @@
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { sql } from "drizzle-orm";
 import { parseArgs } from "util";
-import { db } from "./db";
+import { db, closeDatabase } from "./db";
 import app from "./routes";
 import api from "./routes/api";
 import { initializeDatabase } from "./init";
@@ -170,6 +170,18 @@ async function main() {
   });
 
   console.log(`Server listening on http://${config.host}:${server.port}`);
+
+  // Graceful shutdown handlers to prevent database corruption
+  const shutdown = async (signal: string) => {
+    console.log(`\n[Server] Received ${signal}, shutting down gracefully...`);
+    server.stop();
+    await closeDatabase();
+    console.log('[Server] Shutdown complete.');
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 main();
