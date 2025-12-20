@@ -1,5 +1,5 @@
 import { getDefaultChatModel } from '../../db';
-import { ChatModel, User, type ChatModelWithApi } from '../../db/schema';
+import { User, type ChatModelWithApi } from '../../db/schema';
 import { type ToolDefinition, type ChatMessage } from './conversation';
 import { generateChatmlMessagesWithContext } from './utils';
 import { sendMessageToGpt } from './openai';

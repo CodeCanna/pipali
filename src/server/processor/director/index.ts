@@ -8,6 +8,8 @@ import { grepFiles, type GrepFilesArgs } from '../actor/grep_files';
 import { editFile, type EditFileArgs } from '../actor/edit_file';
 import { writeFile, type WriteFileArgs } from '../actor/write_file';
 import { bashCommand, type BashCommandArgs } from '../actor/bash_command';
+import { webSearch, type WebSearchArgs } from '../actor/search_web';
+import { readWebpage, type ReadWebpageArgs } from '../actor/read_webpage';
 import * as prompts from './prompts';
 import type { ATIFObservationResult, ATIFToolCall, ATIFTrajectory } from '../conversation/atif/atif.types';
 import { addStepToTrajectory } from '../conversation/atif/atif.utils';
@@ -198,6 +200,48 @@ REQUIRED:
         },
     },
     {
+        name: 'search_web',
+        description: 'Search the internet for information. Use this to find current information, research topics, or discover relevant web pages. Returns search results with titles, links, and snippets.',
+        schema: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'The search query to find information about.',
+                },
+                max_results: {
+                    type: 'integer',
+                    description: 'Maximum number of results to return (1-20). Default is 10.',
+                    minimum: 1,
+                    maximum: 20,
+                },
+                country_code: {
+                    type: 'string',
+                    description: 'Two-letter country code for localized results (e.g., "US", "GB", "DE"). Default is "US".',
+                },
+            },
+            required: ['query'],
+        },
+    },
+    {
+        name: 'read_webpage',
+        description: 'Read and extract content from a specific webpage URL. Use this after search_web to read full content from interesting search results, or when given a specific URL to read. Automatically extracts relevant information based on the query.',
+        schema: {
+            type: 'object',
+            properties: {
+                url: {
+                    type: 'string',
+                    description: 'The URL of the webpage to read (must start with http:// or https://).',
+                },
+                query: {
+                    type: 'string',
+                    description: 'Query to focus the content extraction. Only information relevant to the query will be extracted from the webpage.',
+                },
+            },
+            required: ['url', 'query'],
+        },
+    },
+    {
         name: 'text',
         description: 'Use this when you have gathered enough information and are ready to respond to the user.',
         schema: {
@@ -359,6 +403,14 @@ async function executeTool(
                     toolCall.arguments as BashCommandArgs,
                     { confirmationContext: context?.confirmation }
                 );
+                return result.compiled;
+            }
+            case 'search_web': {
+                const result = await webSearch(toolCall.arguments as WebSearchArgs);
+                return result.compiled;
+            }
+            case 'read_webpage': {
+                const result = await readWebpage(toolCall.arguments as ReadWebpageArgs);
                 return result.compiled;
             }
             case 'text': {

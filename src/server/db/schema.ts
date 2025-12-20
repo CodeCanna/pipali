@@ -193,3 +193,17 @@ export const Conversation = pgTable('conversation', {
     title: text('title'),
     ...dbBaseModel,
 });
+
+// Web Scraper Configuration Schema
+export const WebScraperTypeEnum = pgEnum('web_scraper_type', ['exa', 'direct']);
+
+export const WebScraper = pgTable('web_scraper', {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    type: WebScraperTypeEnum('type').notNull(),
+    apiKey: text('api_key'),
+    apiBaseUrl: text('api_base_url'),
+    priority: integer('priority').default(0).notNull(),  // Higher priority = tried first
+    enabled: boolean('enabled').default(true).notNull(),
+    ...dbBaseModel,
+});
