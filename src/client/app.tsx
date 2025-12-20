@@ -467,7 +467,7 @@ const App = () => {
 
             const createThoughts = (): Thought[] => {
                 const newThoughts: Thought[] = [];
-                if (data.message && data.toolCalls) {
+                if (data.message && data.toolCalls?.length > 0) {
                     newThoughts.push({
                         id: crypto.randomUUID(),
                         type: 'thought',
@@ -482,22 +482,20 @@ const App = () => {
                     });
                 }
 
-                if (data.toolCalls && Array.isArray(data.toolCalls)) {
-                    for (const toolCall of data.toolCalls) {
-                        const toolResult = data.toolResults?.find(
-                            (tr: any) => tr.source_call_id === toolCall.tool_call_id
-                        )?.content;
-                        const matchingToolContent = !!toolResult && typeof toolResult !== 'string' ? JSON.stringify(toolResult) : toolResult;
+                for (const toolCall of data.toolCalls) {
+                    const toolResult = data.toolResults?.find(
+                        (tr: any) => tr.source_call_id === toolCall.tool_call_id
+                    )?.content;
+                    const matchingToolContent = !!toolResult && typeof toolResult !== 'string' ? JSON.stringify(toolResult) : toolResult;
 
-                        newThoughts.push({
-                            id: toolCall.tool_call_id || crypto.randomUUID(),
-                            type: 'tool_call',
-                            content: '',
-                            toolName: toolCall.function_name,
-                            toolArgs: toolCall.arguments,
-                            toolResult: matchingToolContent,
-                        });
-                    }
+                    newThoughts.push({
+                        id: toolCall.tool_call_id || crypto.randomUUID(),
+                        type: 'tool_call',
+                        content: '',
+                        toolName: toolCall.function_name,
+                        toolArgs: toolCall.arguments,
+                        toolResult: matchingToolContent,
+                    });
                 }
 
                 return newThoughts;
