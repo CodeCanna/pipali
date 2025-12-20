@@ -11,6 +11,7 @@ import { getDefaultUser, maxIterations } from '../utils';
 import { research } from '../processor/director';
 import { atifConversationService } from '../processor/conversation/atif/atif.service';
 import { getActiveStatus } from '../sessions';
+import { loadSkills, getLoadedSkills } from '../skills';
 
 const api = new Hono().basePath('/api');
 
@@ -376,6 +377,34 @@ api.post('/conversations/import/atif', zValidator('json', importSchema), async (
     }
 });
 
+
+// Skills endpoints
+
+// Get currently loaded skills
+api.get('/skills', async (c) => {
+    const skills = getLoadedSkills();
+    return c.json({ skills });
+});
+
+// Reload skills from disk
+api.post('/skills/reload', async (c) => {
+    console.log('[API] 🔄 Reloading skills...');
+    const result = await loadSkills();
+
+    if (result.errors.length > 0) {
+        for (const error of result.errors) {
+            console.warn(`[Skills] ⚠️  ${error.path}: ${error.message}`);
+        }
+    }
+
+    console.log(`[API] 🎯 Loaded ${result.skills.length} skill(s)`);
+
+    return c.json({
+        success: true,
+        skills: result.skills,
+        errors: result.errors,
+    });
+});
 
 // Mount the OpenAPI documentation
 api.route('/', openapi);

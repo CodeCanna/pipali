@@ -37,6 +37,7 @@ Assuming you can search through files.
 - User Name: {username}
 - Operating System: {os_info}
 
+{skills_context}
 # Available Tool AIs
 You decide which of the tool AIs listed below would you use to accomplish the user assigned task. You **only** have access to the following tool AIs:
 

@@ -11,6 +11,7 @@ import { bashCommand, type BashCommandArgs } from '../actor/bash_command';
 import { webSearch, type WebSearchArgs } from '../actor/search_web';
 import { readWebpage, type ReadWebpageArgs } from '../actor/read_webpage';
 import * as prompts from './prompts';
+import { getLoadedSkills, formatSkillsForPrompt } from '../../skills';
 import type { ATIFObservationResult, ATIFToolCall, ATIFTrajectory } from '../conversation/atif/atif.types';
 import { addStepToTrajectory } from '../conversation/atif/atif.utils';
 import type { ConfirmationContext } from '../confirmation';
@@ -279,10 +280,14 @@ async function pickNextTool(
         ? prompts.personalityContext.format({ personality })
         : Promise.resolve('');
 
+    // Build skills context
+    const skillsContext = formatSkillsForPrompt(getLoadedSkills());
+
     // Build system prompt using ChatPromptTemplate
     const systemPrompt = await prompts.planFunctionExecution.format({
         tools: toolOptionsStr,
         personality_context: await personalityContext,
+        skills_context: skillsContext,
         current_date: currentDate ?? new Date().toISOString().split('T')[0],
         day_of_week: dayOfWeek ?? new Date().toLocaleDateString('en-US', { weekday: 'long' }),
         location: location ?? 'Unknown',

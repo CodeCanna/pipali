@@ -6,6 +6,7 @@ import app from "./routes";
 import api from "./routes/api";
 import { initializeDatabase } from "./init";
 import { getMigrationsFolder } from "./utils";
+import { loadSkills } from "./skills";
 import { websocketHandler, type WebSocketData } from "./routes/ws";
 import {
     IS_COMPILED_BINARY,
@@ -123,6 +124,17 @@ async function main() {
     }
 
     await initializeDatabase();
+
+    // Load skills from global and local paths
+    const skillResult = await loadSkills();
+    if (skillResult.errors.length > 0) {
+        for (const error of skillResult.errors) {
+            console.warn(`[Skills] ⚠️  ${error.path}: ${error.message}`);
+        }
+    }
+    if (skillResult.skills.length > 0) {
+        console.log(`🎯 Loaded ${skillResult.skills.length} skill(s): ${skillResult.skills.map(s => s.name).join(', ')}`);
+    }
 
     // Build frontend only in development mode (not when running as compiled binary)
     if (!IS_COMPILED_BINARY) {
