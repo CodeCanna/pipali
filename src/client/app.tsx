@@ -871,6 +871,8 @@ const App = () => {
         const newMessages = [...messages, userMsg, assistantMsg];
         setMessages(newMessages);
         setIsProcessing(true);
+        // Switch to conversation view when sending from home page
+        setShowHomePage(false);
 
         if (conversationId) {
             setConversationStates(prev => {
