@@ -28,6 +28,20 @@ import { MessageList } from "./components/messages";
 import { ToastContainer } from "./components/confirmation";
 import { HomePage } from "./components/home";
 
+// UUID generator that works in non-secure contexts (e.g., HTTP on non-localhost)
+function generateUUID(): string {
+    try {
+        return crypto.randomUUID();
+    } catch {
+        // Fallback for non-secure contexts where crypto.randomUUID throws
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
+    }
+}
+
 const App = () => {
     // Core state
     const [messages, setMessages] = useState<Message[]>([]);
@@ -190,7 +204,7 @@ const App = () => {
                         role: 'assistant',
                         content: '',
                         thoughts: thoughts,
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                     });
                 }
                 thoughts = [];
@@ -215,7 +229,7 @@ const App = () => {
                         thoughts.push({
                             type: 'thought',
                             content: msg.reasoning_content,
-                            id: crypto.randomUUID(),
+                            id: generateUUID(),
                             isInternalThought: true,
                         });
                     }
@@ -345,7 +359,7 @@ const App = () => {
                 setIsProcessing(false);
                 setIsPaused(false);
                 setMessages(prev => [...prev, {
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     role: 'assistant',
                     content: `Error: ${message.error}`,
                 }]);
@@ -362,7 +376,7 @@ const App = () => {
                     const lastMsg = msgs[msgs.length - 1];
                     if (!lastMsg || !lastMsg.isStreaming) {
                         msgs = [...msgs, {
-                            id: crypto.randomUUID(),
+                            id: generateUUID(),
                             role: 'assistant' as const,
                             content: '',
                             isStreaming: true,
@@ -419,8 +433,8 @@ const App = () => {
                 if (isBackgroundTask && pendingMsg) {
                     // For background task: create user message + streaming assistant message
                     const initialMessages = [
-                        { id: crypto.randomUUID(), role: 'user' as const, content: pendingMsg },
-                        { id: crypto.randomUUID(), role: 'assistant' as const, content: '', thoughts: [], isStreaming: true },
+                        { id: generateUUID(), role: 'user' as const, content: pendingMsg },
+                        { id: generateUUID(), role: 'assistant' as const, content: '', thoughts: [], isStreaming: true },
                     ];
                     setConversationStates(prevStates => {
                         const next = new Map(prevStates);
@@ -476,13 +490,13 @@ const App = () => {
                 // Add thought/message if present
                 if (data.message && data.toolCalls?.length > 0) {
                     newThoughts.push({
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         type: 'thought',
                         content: data.message,
                     });
                 } else if (data.thought) {
                     newThoughts.push({
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         type: 'thought',
                         content: data.thought,
                         isInternalThought: true,
@@ -492,7 +506,7 @@ const App = () => {
                 // Add tool calls as pending (no results yet)
                 for (const toolCall of data.toolCalls || []) {
                     newThoughts.push({
-                        id: toolCall.tool_call_id || crypto.randomUUID(),
+                        id: toolCall.tool_call_id || generateUUID(),
                         type: 'tool_call',
                         content: '',
                         toolName: toolCall.function_name,
@@ -620,7 +634,7 @@ const App = () => {
                     );
                 }
                 return [...msgs, {
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     role: 'assistant' as const,
                     content: data.response,
                     isStreaming: false,
@@ -847,8 +861,8 @@ const App = () => {
             const resumeMsg = input.trim();
             setInput("");
 
-            const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: resumeMsg };
-            const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+            const userMsg: Message = { id: generateUUID(), role: 'user', content: resumeMsg };
+            const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
 
             const calcNewMessages = (prev: Message[]) => {
                 const updated = prev.map(msg => msg.isStreaming ? { ...msg, isStreaming: false } : msg);
@@ -885,8 +899,8 @@ const App = () => {
 
             wsRef.current?.send(JSON.stringify({ type: 'pause', conversationId }));
 
-            const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: interruptMsg };
-            const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+            const userMsg: Message = { id: generateUUID(), role: 'user', content: interruptMsg };
+            const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
 
             const calcNewMessages = (prev: Message[]) => {
                 const updated = prev.map(msg => msg.isStreaming ? { ...msg, isStreaming: false } : msg);
@@ -918,8 +932,8 @@ const App = () => {
         }
 
         // Normal send
-        const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: input };
-        const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+        const userMsg: Message = { id: generateUUID(), role: 'user', content: input };
+        const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
 
         const newMessages = [...messages, userMsg, assistantMsg];
         setMessages(newMessages);
