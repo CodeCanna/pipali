@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { db, getDefaultChatModel } from '../db';
 import { Conversation } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, isNull, and } from 'drizzle-orm';
 import { AiModelApi, ChatModel, User, UserChatModel } from '../db/schema';
 import openapi from './openapi';
 import automations from './automations';
@@ -125,6 +125,7 @@ api.get('/conversations', async (c) => {
         return c.json({ error: 'User not found' }, 404);
     }
 
+    // Filter out automation conversations (those with automationId set)
     const conversations = await db.select({
         id: Conversation.id,
         title: Conversation.title,
@@ -133,7 +134,10 @@ api.get('/conversations', async (c) => {
         trajectory: Conversation.trajectory,
     })
     .from(Conversation)
-    .where(eq(Conversation.userId, adminUser.id))
+    .where(and(
+        eq(Conversation.userId, adminUser.id),
+        isNull(Conversation.automationId)
+    ))
     .orderBy(desc(Conversation.updatedAt));
 
     // Map to include a preview, active status, and latest reasoning

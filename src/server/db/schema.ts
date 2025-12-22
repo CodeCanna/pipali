@@ -193,6 +193,8 @@ export const Conversation = pgTable('conversation', {
     userId: integer('user_id').notNull().references(() => User.id, { onDelete: 'cascade' }),
     trajectory: jsonb('trajectory').$type<ATIFTrajectory>().notNull(),
     title: text('title'),
+    // Optional link to automation - if set, this conversation belongs to an automation
+    automationId: uuid('automation_id'),
     ...dbBaseModel,
 });
 
@@ -231,6 +233,10 @@ export const Automation = pgTable('automation', {
 
     // Status
     status: AutomationStatusEnum('status').default('active').notNull(),
+
+    // Linked conversation - all runs persist to this conversation
+    // The conversation stores the ATIF trajectory, giving the agent context across runs
+    conversationId: uuid('conversation_id').references(() => Conversation.id, { onDelete: 'set null' }),
 
     // Execution limits
     maxIterations: integer('max_iterations').default(15).notNull(),

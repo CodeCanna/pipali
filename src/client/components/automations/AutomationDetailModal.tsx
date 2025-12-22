@@ -1,8 +1,8 @@
 // Modal for viewing, editing, and deleting an automation
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Trash2, Play, Pause, Calendar, Clock, Pencil, Save } from 'lucide-react';
 import type { AutomationInfo, FrequencyType, DayOfWeek } from '../../types/automations';
+import { X, Loader2, Trash2, Play, Pause, Calendar, Clock, MessageSquare } from 'lucide-react';
 import { DAYS_OF_WEEK, TIME_OPTIONS, DAY_OF_MONTH_OPTIONS, MINUTE_OPTIONS } from '../../types/automations';
 
 interface AutomationDetailModalProps {
@@ -10,6 +10,7 @@ interface AutomationDetailModalProps {
     onClose: () => void;
     onUpdated: () => void;
     onDeleted: () => void;
+    onViewConversation?: (conversationId: string) => void;
 }
 
 const FREQUENCY_OPTIONS: { value: FrequencyType; label: string }[] = [
@@ -140,6 +141,7 @@ export function AutomationDetailModal({
     onClose,
     onUpdated,
     onDeleted,
+    onViewConversation,
 }: AutomationDetailModalProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -514,6 +516,16 @@ export function AutomationDetailModal({
                                 <Trash2 size={16} />
                             </button>
                             <div className="action-spacer" />
+                            {automation.conversationId && onViewConversation && (
+                                <button
+                                    type="button"
+                                    onClick={() => onViewConversation(automation.conversationId!)}
+                                    className="btn-secondary"
+                                >
+                                    <MessageSquare size={16} />
+                                    <span>View History</span>
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleToggleStatus}

@@ -1086,7 +1086,9 @@ const App = () => {
                     <SkillsPage />
                 )}
                 {currentPage === 'automations' && (
-                    <AutomationsPage />
+                    <AutomationsPage
+                        onViewConversation={selectConversation}
+                    />
                 )}
                 {currentPage === 'chat' && (
                     <MessageList messages={messages} />

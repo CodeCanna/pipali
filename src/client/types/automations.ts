@@ -28,6 +28,7 @@ export type AutomationInfo = {
     triggerType: TriggerType;
     triggerConfig: TriggerConfig;
     status: AutomationStatus;
+    conversationId?: string;
     maxIterations?: number;
     maxExecutionsPerDay?: number;
     maxExecutionsPerHour?: number;

@@ -8,7 +8,13 @@ import { AutomationsEmpty } from './AutomationsEmpty';
 import { CreateAutomationModal } from './CreateAutomationModal';
 import { AutomationDetailModal } from './AutomationDetailModal';
 
-export function AutomationsPage() {
+interface AutomationsPageProps {
+    onViewConversation: (conversationId: string) => void;
+}
+
+export function AutomationsPage({
+    onViewConversation,
+}: AutomationsPageProps) {
     const [automations, setAutomations] = useState<AutomationInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -126,6 +132,10 @@ export function AutomationsPage() {
                     onClose={() => setSelectedAutomation(null)}
                     onUpdated={handleAutomationUpdated}
                     onDeleted={handleAutomationDeleted}
+                    onViewConversation={(convId) => {
+                        setSelectedAutomation(null);
+                        onViewConversation(convId);
+                    }}
                 />
             )}
         </main>

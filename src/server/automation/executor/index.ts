@@ -6,11 +6,10 @@
  */
 
 import { db } from '../../db';
-import { Automation, AutomationExecution, PendingConfirmation, User } from '../../db/schema';
+import { Automation, AutomationExecution, Conversation, PendingConfirmation, User } from '../../db/schema';
 import { eq, and, gte, sql } from 'drizzle-orm';
-import { research } from '../../processor/director';
-import { createEmptyATIFTrajectory, type ATIFTrajectory } from '../../processor/conversation/atif/atif.types';
-import { addStepToTrajectory } from '../../processor/conversation/atif/atif.utils';
+import { runResearchToCompletion } from '../../processor/research-runner';
+import { atifConversationService } from '../../processor/conversation/atif/atif.service';
 import type { TriggerEventData } from '../types';
 import type { ConfirmationContext } from '../../processor/confirmation';
 import { createEmptyPreferences } from '../../processor/confirmation';
@@ -290,6 +289,46 @@ function createAutomationConfirmationContext(executionId: string): ConfirmationC
 }
 
 /**
+ * Get or create a conversation for the automation.
+ * All runs of an automation persist to the same conversation.
+ * Returns the conversation ID.
+ */
+async function getOrCreateAutomationConversation(
+    automation: typeof Automation.$inferSelect,
+    user: typeof User.$inferSelect
+): Promise<string> {
+    // If automation already has a conversation, use it
+    if (automation.conversationId) {
+        const [existing] = await db.select()
+            .from(Conversation)
+            .where(eq(Conversation.id, automation.conversationId));
+        if (existing) {
+            return existing.id;
+        }
+    }
+
+    // Create a new conversation for this automation
+    const conversation = await atifConversationService.createConversation(
+        user,
+        'panini-automation',
+        '1.0.0',
+        'default',
+        `Automation: ${automation.name}`
+    );
+
+    // Link the conversation to the automation (bidirectional)
+    await db.update(Automation)
+        .set({ conversationId: conversation.id })
+        .where(eq(Automation.id, automation.id));
+
+    await db.update(Conversation)
+        .set({ automationId: automation.id })
+        .where(eq(Conversation.id, conversation.id));
+
+    return conversation.id;
+}
+
+/**
  * Run a single automation execution
  */
 async function runExecution(
@@ -336,50 +375,35 @@ async function runExecution(
 
         console.log(`[Automation] Starting execution ${executionId}`);
 
+        // Get or create the automation's conversation
+        const conversationId = await getOrCreateAutomationConversation(automation, user);
+
         // Build the prompt with trigger context
         const contextualPrompt = buildPromptWithContext(automation.prompt, triggerData);
 
-        // Create trajectory for this execution
-        const trajectory: ATIFTrajectory = createEmptyATIFTrajectory(
-            executionId,
-            'panini-automation',
-            '1.0.0',
-            'default'
+        // Add the automation prompt as user message to the conversation
+        await atifConversationService.addStep(
+            conversationId,
+            'user',
+            contextualPrompt
         );
-
-        // Add the automation prompt as user message
-        addStepToTrajectory(trajectory, 'user', contextualPrompt);
 
         // Create confirmation context for this execution
         const confirmationContext = createAutomationConfirmationContext(executionId);
 
-        // Run research loop
-        let finalResponse = '';
-        let iterationCount = 0;
-
-        for await (const iteration of research({
-            chatHistory: trajectory,
+        // Run research using the shared runner
+        const result = await runResearchToCompletion({
+            conversationId,
+            user,
             maxIterations: automation.maxIterations,
-            currentDate: new Date().toISOString().split('T')[0],
-            dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-            user: user,
             abortSignal: abortController.signal,
             confirmationContext,
-        })) {
-            iterationCount++;
-
-            // Check for final response
-            const textTool = iteration.toolCalls.find(tc => tc.function_name === 'text');
-            if (textTool) {
-                finalResponse = textTool.arguments.response || '';
-            }
-        }
+        });
 
         // Update execution as completed
         await db.update(AutomationExecution)
             .set({
                 status: 'completed',
-                trajectory,
                 completedAt: new Date(),
             })
             .where(eq(AutomationExecution.id, executionId));
@@ -389,7 +413,7 @@ async function runExecution(
             .set({ lastExecutedAt: new Date() })
             .where(eq(Automation.id, automationId));
 
-        console.log(`[Automation] Execution ${executionId} completed (${iterationCount} iterations)`);
+        console.log(`[Automation] Execution ${executionId} completed (${result.iterationCount} iterations)`);
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

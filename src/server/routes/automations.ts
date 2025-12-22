@@ -137,6 +137,7 @@ automations.get('/', async (c) => {
         triggerType: automation.triggerType,
         triggerConfig: automation.triggerConfig,
         status: automation.status,
+        conversationId: automation.conversationId,
         maxIterations: automation.maxIterations,
         maxExecutionsPerDay: automation.maxExecutionsPerDay,
         maxExecutionsPerHour: automation.maxExecutionsPerHour,
