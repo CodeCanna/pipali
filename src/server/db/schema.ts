@@ -1,5 +1,7 @@
 import { serial, text, timestamp, pgTable, pgEnum, uuid, boolean, integer, jsonb } from 'drizzle-orm/pg-core';
 import { type ATIFTrajectory } from '../processor/conversation/atif/atif.types';
+import { type TriggerConfig, type TriggerEventData } from '../automation/types';
+import { type ConfirmationRequest } from '../processor/confirmation/confirmation.types';
 
 export interface Context {
     compiled: string;
@@ -205,5 +207,75 @@ export const WebScraper = pgTable('web_scraper', {
     apiBaseUrl: text('api_base_url'),
     priority: integer('priority').default(0).notNull(),  // Higher priority = tried first
     enabled: boolean('enabled').default(true).notNull(),
+    ...dbBaseModel,
+});
+
+// Automation System Schemas
+export const TriggerTypeEnum = pgEnum('trigger_type', ['cron', 'file_watch']);
+export const AutomationStatusEnum = pgEnum('automation_status', ['active', 'paused', 'disabled']);
+export const ExecutionStatusEnum = pgEnum('execution_status', ['pending', 'running', 'awaiting_confirmation', 'completed', 'failed', 'cancelled']);
+export const ConfirmationStatusEnum = pgEnum('confirmation_status', ['pending', 'approved', 'denied', 'expired']);
+
+export const Automation = pgTable('automation', {
+    id: uuid('id').defaultRandom().notNull().primaryKey(),
+    userId: integer('user_id').notNull().references(() => User.id, { onDelete: 'cascade' }),
+
+    // Metadata
+    name: text('name').notNull(),
+    description: text('description'),
+    prompt: text('prompt').notNull(),
+
+    // Trigger configuration
+    triggerType: TriggerTypeEnum('trigger_type').notNull(),
+    triggerConfig: jsonb('trigger_config').$type<TriggerConfig>().notNull(),
+
+    // Status
+    status: AutomationStatusEnum('status').default('active').notNull(),
+
+    // Execution limits
+    maxIterations: integer('max_iterations').default(15).notNull(),
+    maxExecutionsPerDay: integer('max_executions_per_day'),
+    maxExecutionsPerHour: integer('max_executions_per_hour'),
+
+    // Timestamps
+    lastExecutedAt: timestamp('last_executed_at'),
+    nextScheduledAt: timestamp('next_scheduled_at'),
+    ...dbBaseModel,
+});
+
+export const AutomationExecution = pgTable('automation_execution', {
+    id: uuid('id').defaultRandom().notNull().primaryKey(),
+    automationId: uuid('automation_id').notNull().references(() => Automation.id, { onDelete: 'cascade' }),
+
+    // Execution details
+    status: ExecutionStatusEnum('status').default('pending').notNull(),
+    triggerData: jsonb('trigger_data').$type<TriggerEventData>(),
+
+    // Results (uses ATIF format like Conversation)
+    trajectory: jsonb('trajectory').$type<ATIFTrajectory>(),
+
+    // Timing
+    startedAt: timestamp('started_at'),
+    completedAt: timestamp('completed_at'),
+
+    // Error handling
+    errorMessage: text('error_message'),
+    retryCount: integer('retry_count').default(0).notNull(),
+
+    ...dbBaseModel,
+});
+
+export const PendingConfirmation = pgTable('pending_confirmation', {
+    id: uuid('id').defaultRandom().notNull().primaryKey(),
+    executionId: uuid('execution_id').notNull().references(() => AutomationExecution.id, { onDelete: 'cascade' }),
+
+    // Confirmation request details
+    request: jsonb('request').$type<ConfirmationRequest>().notNull(),
+
+    // Status tracking
+    status: ConfirmationStatusEnum('status').default('pending').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    respondedAt: timestamp('responded_at'),
+
     ...dbBaseModel,
 });

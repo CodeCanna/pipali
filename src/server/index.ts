@@ -12,6 +12,7 @@ import {
     IS_COMPILED_BINARY,
     EMBEDDED_MIGRATIONS,
 } from "./embedded-assets";
+import { startAutomationSystem, stopAutomationSystem } from "./automation";
 
 // Parse CLI arguments
 function getServerConfig() {
@@ -136,6 +137,9 @@ async function main() {
         console.log(`🎯 Loaded ${skillResult.skills.length} skill(s): ${skillResult.skills.map(s => s.name).join(', ')}`);
     }
 
+    // Start automation system (cron scheduler, file watchers)
+    await startAutomationSystem();
+
     // Build frontend only in development mode (not when running as compiled binary)
     if (!IS_COMPILED_BINARY) {
         console.log("Building frontend...");
@@ -187,6 +191,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     console.log(`\n[Server] Received ${signal}, shutting down gracefully...`);
     server.stop();
+    stopAutomationSystem();
     await closeDatabase();
     console.log('[Server] Shutdown complete.');
     process.exit(0);

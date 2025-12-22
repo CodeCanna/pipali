@@ -6,6 +6,7 @@ import { Conversation } from '../db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { AiModelApi, ChatModel, User, UserChatModel } from '../db/schema';
 import openapi from './openapi';
+import automations from './automations';
 
 import { getDefaultUser, maxIterations } from '../utils';
 import { research } from '../processor/director';
@@ -486,6 +487,9 @@ api.delete('/skills/:name', async (c) => {
     console.log(`[API] ✅ Deleted skill "${name}"`);
     return c.json({ success: true });
 });
+
+// Mount the automations router
+api.route('/automations', automations);
 
 // Mount the OpenAPI documentation
 api.route('/', openapi);
