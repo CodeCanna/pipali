@@ -8,9 +8,9 @@ import { AiModelApi, ChatModel, User, UserChatModel } from '../db/schema';
 import openapi from './openapi';
 import automations from './automations';
 
-import { getDefaultUser, maxIterations } from '../utils';
-import { research } from '../processor/director';
+import { getDefaultUser } from '../utils';
 import { atifConversationService } from '../processor/conversation/atif/atif.service';
+import { runResearchToCompletion } from '../processor/research-runner';
 import { getActiveStatus } from '../sessions';
 import { loadSkills, getLoadedSkills, createSkill, getSkill, deleteSkill, updateSkill } from '../skills';
 
@@ -75,68 +75,25 @@ api.post('/chat', zValidator('json', schema), async (c) => {
         message
     );
 
-    // Run research and add steps as they happen
+    // Run research using shared runner
     console.log(`[API] 🔬 Starting research...`);
-    let finalResponse = '';
-    let iterationCount = 0;
 
-    for await (const iteration of research({
-        chatHistory: conversation.trajectory,
-        maxIterations: maxIterations,
-        currentDate: new Date().toISOString().split('T')[0],
-        dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-        user: user,
-    })) {
-        iterationCount++;
-
-        // Log tool calls
-        for (const tc of iteration.toolCalls) {
-            console.log(`[API] 🔧 Tool: ${tc.function_name}`, tc.arguments ? JSON.stringify(tc.arguments).slice(0, 100) : '');
-        }
-        if (iteration.toolCalls.length > 1) {
-            console.log(`[API] ⚡ Executing ${iteration.toolCalls.length} tools in parallel`);
-        }
-
-        if (iteration.warning) {
-            console.warn(`[API] ⚠️ Research warning: ${iteration.warning}`);
-            continue;
-        }
-
-        // Add the entire iteration as a single step in the trajectory
-        if (iteration.toolCalls.length > 0 && iteration.toolResults) {
-            await atifConversationService.addStep(
-                conversation.id,
-                'agent',
-                '', // No message for tool execution steps
-                undefined,
-                iteration.toolCalls,
-                { results: iteration.toolResults },
-                iteration.thought // Add reasoning as part of the same step
-            );
-        } else {
-            console.warn(`[API] ⚠️ No tool calls or results in iteration`);
-        }
-    }
-
-    // If no final response was generated, create one
-    if (!finalResponse) {
-        finalResponse = 'Failed to generate response.';
-    }
-
-    // Add final response as the last agent step
-    await atifConversationService.addStep(
-        conversation.id,
-        'agent',
-        finalResponse
-    );
+    const result = await runResearchToCompletion({
+        conversationId: conversation.id,
+        user,
+    });
 
     console.log(`[API] ✅ Research complete`);
-    console.log(`[API] Iterations: ${iterationCount}`);
-    console.log(`[API] Response length: ${finalResponse.length} chars`);
-    console.log(`[API] Conversation ID: ${conversation?.id}`);
+    console.log(`[API] Iterations: ${result.iterationCount}`);
+    console.log(`[API] Response length: ${result.response.length} chars`);
+    console.log(`[API] Conversation ID: ${conversation.id}`);
     console.log(`${'='.repeat(60)}\n`);
 
-    return c.json({ response: finalResponse, conversationId: conversation?.id, iterations: iterationCount });
+    return c.json({
+        response: result.response,
+        conversationId: conversation.id,
+        iterations: result.iterationCount
+    });
 });
 
 api.get('/chat/:conversationId/history', async (c) => {

@@ -1,10 +1,13 @@
 import type { ServerWebSocket } from "bun";
-import { research, ResearchPausedError } from "../processor/director";
 import { db, getDefaultChatModel } from "../db";
 import { Conversation, User } from "../db/schema";
 import { eq } from "drizzle-orm";
-import { getDefaultUser, maxIterations } from "../utils";
+import { getDefaultUser } from "../utils";
 import { atifConversationService } from "../processor/conversation/atif/atif.service";
+import {
+    runResearchWithConversation,
+    ResearchPausedError,
+} from "../processor/research-runner";
 import {
     type ConfirmationRequest,
     type ConfirmationResponse,
@@ -132,55 +135,44 @@ async function runResearch(
     // Signal that research is starting/resuming
     sendToClient(ws, { type: 'research' }, conversationId);
 
-    // Get conversation and its current history from DB
-    const results = await db.select().from(Conversation).where(eq(Conversation.id, conversationId));
-    const conversation = results[0];
-
-    if (!conversation) {
-        sendToClient(ws, { type: 'error', error: 'Conversation not found' }, conversationId);
-        setSessionInactive(conversationId);
-        return;
-    }
-
-    // Find the last user message to use as the query
-    const trajectory = conversation.trajectory;
-    const lastUserMessage = [...trajectory.steps].reverse().find(m => m.source === 'user' && typeof m.message === 'string');
-    if (!lastUserMessage || typeof lastUserMessage.message !== 'string') {
-        sendToClient(ws, { type: 'error', error: 'No user message found' }, conversationId);
-        setSessionInactive(conversationId);
-        return;
-    }
-    const userQuery = lastUserMessage.message;
-
-    // Chat history is everything except the last user message (which becomes the query)
     console.log(`[WS] 🔬 Starting research (conv: ${conversationId})...`);
-    console.log(`[WS] Query: "${userQuery.slice(0, 100)}${userQuery.length > 100 ? '...' : ''}"`);
-    console.log(`[WS] History messages: ${trajectory.steps.length}`);
-
-    let finalResponse = '';
-    let finalThought: string | undefined;
-    let iterationCount = 0;
 
     // Create confirmation context for this research session
     const confirmationContext = createConfirmationContext(ws, session);
 
     try {
-        for await (const iteration of research({
-            chatHistory: trajectory,
-            maxIterations: maxIterations,
-            currentDate: new Date().toISOString().split('T')[0],
-            dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-            user: user,
+        // Use the shared research runner with streaming callbacks
+        const runner = runResearchWithConversation({
+            conversationId,
+            user,
             abortSignal: session.abortController.signal,
-            confirmationContext: confirmationContext,
-        })) {
-            iterationCount++;
+            confirmationContext,
+            onToolCallStart: (iteration) => {
+                // Send tool call start to client before execution
+                sendToClient(ws, {
+                    type: 'tool_call_start',
+                    data: {
+                        thought: iteration.thought,
+                        message: iteration.message,
+                        toolCalls: iteration.toolCalls,
+                    }
+                }, conversationId);
+            },
+            onIteration: (iteration) => {
+                // Send iteration update to client with results
+                sendToClient(ws, { type: 'iteration', data: iteration }, conversationId);
+            },
+            onReasoning: (thought) => {
+                // Update shared store with latest reasoning
+                updateSessionReasoning(conversationId, thought);
+            },
+        });
 
-            // Update shared store with latest reasoning
-            if (iteration.thought) {
-                updateSessionReasoning(conversationId, iteration.thought);
-            }
-
+        // Consume all iterations (callbacks handle the streaming)
+        // Use manual iteration to properly capture the return value
+        let iteratorResult = await runner.next();
+        while (!iteratorResult.done) {
+            const iteration = iteratorResult.value;
             // Log tool calls
             for (const tc of iteration.toolCalls) {
                 console.log(`[WS] 🔧 Tool: ${tc.function_name}`, tc.arguments ? JSON.stringify(tc.arguments).slice(0, 100) : '');
@@ -191,57 +183,25 @@ async function runResearch(
             if (iteration.warning) {
                 console.warn(`[WS] ⚠️ Warning: ${iteration.warning}`);
             }
-
-            // Handle tool call start (before execution) - send immediately to show current step
-            if (iteration.isToolCallStart) {
-                sendToClient(ws, {
-                    type: 'tool_call_start',
-                    data: {
-                        thought: iteration.thought,
-                        message: iteration.message,
-                        toolCalls: iteration.toolCalls,
-                    }
-                }, conversationId);
-                continue;
-            }
-
-            // Check for text tool (final response)
-            const textTool = iteration.toolCalls.find(tc => tc.function_name === 'text');
-            if (textTool) {
-                finalResponse = textTool.arguments.response || '';
-                // Capture the thought to save with the final response
-                finalThought = iteration.thought;
-                // If there's a thought/reasoning with the final response, send it as an iteration
-                // so it appears in the train of thought before the final message
-                if (iteration.thought || iteration.message) {
-                    sendToClient(ws, {
-                        type: 'iteration',
-                        data: {
-                            thought: iteration.thought,
-                            message: iteration.message,
-                            toolCalls: [],
-                            toolResults: [],
-                        }
-                    }, conversationId);
-                }
-                // Don't add the text tool as a step, we'll add it as the final response
-            } else if (iteration.toolCalls.length > 0 && iteration.toolResults) {
-                await atifConversationService.addStep(
-                    conversation.id,
-                    'agent',
-                    iteration.message ?? '',
-                    undefined,
-                    iteration.toolCalls,
-                    { results: iteration.toolResults },
-                    iteration.thought,
-                );
-
-                // Send iteration update to client with results
-                sendToClient(ws, { type: 'iteration', data: iteration }, conversationId);
-            } else {
-                console.warn(`[WS] ⚠️ No tool calls or results in iteration`);
-            }
+            iteratorResult = await runner.next();
         }
+
+        // When done, the value is the final result
+        const result = iteratorResult.value;
+
+        console.log(`[WS] ✅ Research complete (conv: ${conversationId})`);
+        console.log(`[WS] Iterations: ${result.iterationCount}`);
+        console.log(`[WS] Response length: ${result.response.length} chars`);
+        console.log(`${'='.repeat(60)}\n`);
+
+        sendToClient(ws, {
+            type: 'complete',
+            data: {
+                response: result.response,
+                conversationId
+            }
+        }, conversationId);
+
     } catch (error) {
         if (error instanceof ResearchPausedError) {
             // State is already saved to DB via addStep calls
@@ -258,35 +218,6 @@ async function runResearch(
         setSessionInactive(conversationId);
         return;
     }
-
-    // If no final response was generated, create one
-    if (!finalResponse) {
-        finalResponse = 'Failed to generate response.';
-    }
-
-    // Add final response as the last agent step (with reasoning if present)
-    await atifConversationService.addStep(
-        conversation.id,
-        'agent',
-        finalResponse,
-        undefined,
-        undefined,
-        undefined,
-        finalThought
-    );
-
-    console.log(`[WS] ✅ Research complete (conv: ${conversationId})`);
-    console.log(`[WS] Iterations: ${iterationCount}`);
-    console.log(`[WS] Response length: ${finalResponse.length} chars`);
-    console.log(`${'='.repeat(60)}\n`);
-
-    sendToClient(ws, {
-        type: 'complete',
-        data: {
-            response: finalResponse,
-            conversationId: conversation?.id
-        }
-    }, conversationId);
 
     // Clean up session
     const sessions = getConnectionSessions(ws);
