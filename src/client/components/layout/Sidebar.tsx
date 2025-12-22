@@ -1,7 +1,7 @@
 // Sidebar with conversation list
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap } from 'lucide-react';
+import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock } from 'lucide-react';
 import type { ConversationSummary, ConversationState, ConfirmationRequest } from '../../types';
 
 const MAX_VISIBLE_CHATS = 5;
@@ -13,12 +13,13 @@ interface SidebarProps {
     pendingConfirmations: Map<string, ConfirmationRequest>;
     currentConversationId?: string;
     exportingConversationId: string | null;
-    currentPage?: 'home' | 'chat' | 'skills';
+    currentPage?: 'home' | 'chat' | 'skills' | 'automations';
     onNewChat: () => void;
     onSelectConversation: (id: string) => void;
     onDeleteConversation: (id: string, e: React.MouseEvent) => void;
     onExportConversation: (id: string) => void;
     onGoToSkills?: () => void;
+    onGoToAutomations?: () => void;
     onClose?: () => void;
 }
 
@@ -35,6 +36,7 @@ export function Sidebar({
     onDeleteConversation,
     onExportConversation,
     onGoToSkills,
+    onGoToAutomations,
     onClose,
 }: SidebarProps) {
     const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
@@ -301,6 +303,13 @@ export function Sidebar({
                     >
                         <Zap size={16} />
                         <span>Skills</span>
+                    </button>
+                    <button
+                        className={`sidebar-nav-btn ${currentPage === 'automations' ? 'active' : ''}`}
+                        onClick={onGoToAutomations}
+                    >
+                        <Clock size={16} />
+                        <span>Automations</span>
                     </button>
                 </div>
 

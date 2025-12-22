@@ -28,9 +28,10 @@ import { MessageList } from "./components/messages";
 import { ToastContainer } from "./components/confirmation";
 import { HomePage } from "./components/home";
 import { SkillsPage } from "./components/skills";
+import { AutomationsPage } from "./components/automations";
 
 // Page types
-type PageType = 'home' | 'chat' | 'skills';
+type PageType = 'home' | 'chat' | 'skills' | 'automations';
 
 // UUID generator that works in non-secure contexts (e.g., HTTP on non-localhost)
 function generateUUID(): string {
@@ -61,6 +62,7 @@ const App = () => {
     const [currentPage, setCurrentPage] = useState<PageType>(() => {
         const path = window.location.pathname;
         if (path === '/skills') return 'skills';
+        if (path === '/automations') return 'automations';
         const params = new URLSearchParams(window.location.search);
         return params.get('conversationId') ? 'chat' : 'home';
     });
@@ -765,6 +767,32 @@ const App = () => {
         window.history.pushState({}, '', '/skills');
     };
 
+    const goToAutomationsPage = () => {
+        // Save current conversation state if needed
+        if (conversationId) {
+            const currentState = conversationStates.get(conversationId);
+            if (currentState?.isProcessing) {
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    const existing = next.get(conversationId);
+                    if (existing) {
+                        next.set(conversationId, { ...existing, messages });
+                    }
+                    return next;
+                });
+            }
+        }
+
+        setCurrentPage('automations');
+        setConversationId(undefined);
+        setMessages([]);
+        setIsProcessing(false);
+        setIsPaused(false);
+
+        // Update URL to /automations
+        window.history.pushState({}, '', '/automations');
+    };
+
     const selectConversation = (id: string) => {
         // Save current conversation state if it's processing
         if (conversationId) {
@@ -1031,6 +1059,7 @@ const App = () => {
                 onDeleteConversation={deleteConversation}
                 onExportConversation={exportConversationAsATIF}
                 onGoToSkills={goToSkillsPage}
+                onGoToAutomations={goToAutomationsPage}
                 onClose={() => setSidebarOpen(false)}
             />
 
@@ -1055,6 +1084,9 @@ const App = () => {
                 )}
                 {currentPage === 'skills' && (
                     <SkillsPage />
+                )}
+                {currentPage === 'automations' && (
+                    <AutomationsPage />
                 )}
                 {currentPage === 'chat' && (
                     <MessageList messages={messages} />
