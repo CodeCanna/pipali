@@ -66,7 +66,8 @@ const App = () => {
         if (path === '/skills') return 'skills';
         if (path === '/automations') return 'automations';
         const params = new URLSearchParams(window.location.search);
-        return params.get('conversationId') ? 'chat' : 'home';
+        // Show chat page if conversationId or query param is present
+        return (params.get('conversationId') || params.get('q')) ? 'chat' : 'home';
     });
 
     // Multiple pending confirmations - one per conversation
@@ -83,6 +84,12 @@ const App = () => {
     const conversationIdRef = useRef<string | undefined>(undefined);
     // Track pending background task message (sent before conversation_created is received)
     const pendingBackgroundMessageRef = useRef<string | null>(null);
+    // Track initial query from URL param (sent once when WebSocket connects or after history loads)
+    const initialQueryRef = useRef<string | null>(
+        new URLSearchParams(window.location.search).get('q')
+    );
+    // Track if we have a pending query that needs to wait for history to load
+    const pendingQueryAfterHistoryRef = useRef<string | null>(null);
 
     // Hooks
     const { textareaRef, scheduleTextareaFocus } = useFocusManagement();
@@ -323,6 +330,19 @@ const App = () => {
 
             finalizeCurrentAgent();
             setMessages(historyMessages);
+
+            // Check if there's a pending query to send after history loaded
+            const pendingQuery = pendingQueryAfterHistoryRef.current;
+            if (pendingQuery && wsRef.current?.readyState === WebSocket.OPEN) {
+                pendingQueryAfterHistoryRef.current = null;
+
+                // Add the new message to the loaded history
+                const userMsg: Message = { id: generateUUID(), role: 'user', content: pendingQuery };
+                const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+                setMessages(prev => [...prev, userMsg, assistantMsg]);
+                setIsProcessing(true);
+                wsRef.current.send(JSON.stringify({ message: pendingQuery, conversationId: id }));
+            }
         } catch (e) {
             console.error("Failed to fetch history", e);
         }
@@ -381,6 +401,35 @@ const App = () => {
         ws.onopen = () => {
             console.log("Connected to WebSocket");
             setIsConnected(true);
+
+            // Auto-send initial query from URL param if present
+            const initialQuery = initialQueryRef.current;
+            if (initialQuery) {
+                initialQueryRef.current = null; // Clear to prevent re-sending on reconnect
+
+                // Clear query param from URL without page reload
+                const url = new URL(window.location.href);
+                url.searchParams.delete('q');
+                window.history.replaceState({}, '', url);
+
+                // Get conversationId from URL if present (to continue existing conversation)
+                const urlConversationId = new URLSearchParams(window.location.search).get('conversationId') || undefined;
+
+                if (urlConversationId) {
+                    // If there's a conversationId, we need to wait for history to load first
+                    // Store the query to be sent after history loads
+                    pendingQueryAfterHistoryRef.current = initialQuery;
+                    setCurrentPage('chat');
+                } else {
+                    // No conversationId, start fresh conversation immediately
+                    const userMsg: Message = { id: generateUUID(), role: 'user', content: initialQuery };
+                    const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+                    setMessages([userMsg, assistantMsg]);
+                    setIsProcessing(true);
+                    setCurrentPage('chat');
+                    ws.send(JSON.stringify({ message: initialQuery }));
+                }
+            }
         };
 
         ws.onclose = () => {
