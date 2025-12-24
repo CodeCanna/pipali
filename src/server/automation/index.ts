@@ -78,14 +78,16 @@ export async function activateAutomation(automation: {
 }
 
 /**
- * Deactivate an automation (stop its scheduler/watcher)
+ * Deactivate an automation (stop its scheduler/watcher and cancel any running execution)
  */
 export function deactivateAutomation(automationId: string): void {
     const { stopCronJob } = require('./scheduler/cron');
     const { stopFileWatcher } = require('./scheduler/file-watcher');
+    const { cancelExecution } = require('./executor');
 
     stopCronJob(automationId);
     stopFileWatcher(automationId);
+    cancelExecution(automationId);
 }
 
 /**

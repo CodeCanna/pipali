@@ -135,6 +135,54 @@ export const Selectors = {
     btnDangerOutline: '.btn-danger-outline',
     formError: '.form-error',
     formHint: '.form-hint',
+
+    // Automations Page
+    automationsGallery: '.automations-gallery',
+    automationsHeader: '.automations-header',
+    automationsCount: '.automations-count',
+    automationsCreateBtn: '.automations-create-btn',
+    automationsReloadBtn: '.automations-reload-btn',
+    automationsCards: '.automations-cards',
+    automationsEmpty: '.automations-empty',
+    automationsLoading: '.automations-loading',
+
+    // Automation Card
+    automationCard: '.automation-card',
+    automationCardTitle: '.automation-card-title',
+    automationCardDescription: '.automation-card-description',
+    automationCardPrompt: '.automation-card-prompt',
+    automationCardFooter: '.automation-card-footer',
+    automationSchedule: '.automation-schedule',
+    automationNextRun: '.automation-next-run',
+    automationStatusBadge: '.automation-status-badge',
+    automationAwaitingConfirmation: '.automation-card.awaiting-confirmation',
+
+    // Automation Detail Modal
+    automationDetailModal: '.automation-detail-modal',
+    automationDetailSection: '.automation-detail-section',
+    automationDetailSchedule: '.automation-detail-schedule',
+    automationDetailNextRun: '.automation-detail-next-run',
+    automationDetailInstructions: '.automation-detail-instructions',
+    automationDetailMeta: '.automation-detail-meta',
+    automationDetailActions: '.automation-detail-actions',
+    instructionsTextarea: '.instructions-textarea',
+    frequencySelect: '.frequency-select',
+    frequencySelector: '.frequency-selector',
+
+    // Automation Confirmation Section
+    automationConfirmationSection: '.automation-confirmation-section',
+    confirmationHeader: '.confirmation-header',
+    confirmationContent: '.confirmation-content',
+    confirmationActions: '.confirmation-actions',
+    btnConfirmation: '.btn-confirmation',
+
+    // Create Automation Modal
+    createAutomationModal: '.create-automation-modal',
+
+    // Toast Container (for automation confirmations)
+    toastContainer: '.toast-container',
+    toastAutomation: '.confirmation-toast--automation',
+    automationSource: '.automation-source',
 } as const;
 
 export type SelectorKey = keyof typeof Selectors;

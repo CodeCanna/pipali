@@ -185,6 +185,7 @@ export function shellCommandScenario(): MockScenario {
                     {
                         function_name: 'bash_command',
                         arguments: {
+                            justification: 'User requested to list files in the directory',
                             command: 'ls -la',
                             cwd: '.',
                             operation_type: 'read-only',
@@ -192,6 +193,7 @@ export function shellCommandScenario(): MockScenario {
                         tool_call_id: 'tc-bash-1',
                     },
                 ],
+                // Note: toolResults are for documentation only - actual tools are executed
                 toolResults: [
                     {
                         source_call_id: 'tc-bash-1',
@@ -220,6 +222,7 @@ export function readWriteShellCommandScenario(): MockScenario {
                     {
                         function_name: 'bash_command',
                         arguments: {
+                            justification: 'User requested to modify the file contents',
                             command: 'echo "new content" >> file.txt',
                             cwd: '.',
                             operation_type: 'read-write',
@@ -227,6 +230,7 @@ export function readWriteShellCommandScenario(): MockScenario {
                         tool_call_id: 'tc-bash-rw-1',
                     },
                 ],
+                // Note: toolResults are for documentation only - actual tools are executed
                 toolResults: [
                     {
                         source_call_id: 'tc-bash-rw-1',

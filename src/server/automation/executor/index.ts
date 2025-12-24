@@ -43,6 +43,7 @@ const pendingConfirmations = new Map<string, {
     resolve: (response: ConfirmationResponse) => void;
     reject: (error: Error) => void;
     executionId: string;
+    automationId: string;
 }>();
 
 /**
@@ -181,7 +182,8 @@ async function runExecutionWithRetry(
             if (
                 errorMessage === 'Confirmation timeout expired' ||
                 errorMessage === 'Automation not found' ||
-                errorMessage === 'User not found'
+                errorMessage === 'User not found' ||
+                errorMessage === 'Automation cancelled'
             ) {
                 console.log(`[Automation] Non-retryable error for ${executionId}: ${errorMessage}`);
                 return;
@@ -231,7 +233,7 @@ function buildPromptWithContext(
 /**
  * Create confirmation context that queues confirmations for user approval
  */
-function createAutomationConfirmationContext(executionId: string): ConfirmationContext {
+function createAutomationConfirmationContext(executionId: string, automationId: string): ConfirmationContext {
     // Create preferences for this automation execution
     // Automations start with empty preferences (always ask for confirmation)
     const preferences = createEmptyPreferences();
@@ -274,6 +276,7 @@ function createAutomationConfirmationContext(executionId: string): ConfirmationC
                     resolve,
                     reject,
                     executionId,
+                    automationId,
                 });
 
                 // Set timeout for expiration
@@ -396,7 +399,7 @@ async function runExecution(
         );
 
         // Create confirmation context for this execution
-        const confirmationContext = createAutomationConfirmationContext(executionId);
+        const confirmationContext = createAutomationConfirmationContext(executionId, automationId);
 
         // Run research using the shared runner
         const result = await runResearchToCompletion({
@@ -557,12 +560,23 @@ export async function getPendingConfirmations(userId: number): Promise<Array<{
 }
 
 /**
- * Cancel a running execution
+ * Cancel a running execution and clean up any pending confirmations
  */
 export function cancelExecution(automationId: string): boolean {
+    // Reject any pending confirmations for this automation
+    for (const [confirmationId, pending] of pendingConfirmations.entries()) {
+        if (pending.automationId === automationId) {
+            pendingConfirmations.delete(confirmationId);
+            pending.reject(new Error('Automation cancelled'));
+        }
+    }
+
+    // Abort the running execution
     const controller = runningExecutions.get(automationId);
     if (controller) {
         controller.abort();
+        // Also remove from running executions immediately to free up the slot
+        runningExecutions.delete(automationId);
         return true;
     }
     return false;
