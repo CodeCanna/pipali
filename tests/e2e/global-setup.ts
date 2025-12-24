@@ -22,6 +22,11 @@ async function globalSetup(config: FullConfig): Promise<void> {
     // Store server instance for teardown
     setGlobalTestServer(server);
 
+    // Export skills directories for tests to use
+    // These are set as environment variables so tests can access them
+    process.env.TEST_SKILLS_GLOBAL_DIR = server.getSkillsGlobalDir();
+    process.env.TEST_SKILLS_LOCAL_DIR = server.getSkillsLocalDir();
+
     console.log('[E2E Setup] Test server ready\n');
 }
 

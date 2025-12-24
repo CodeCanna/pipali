@@ -7,7 +7,7 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
-import { rm } from 'fs/promises';
+import { mkdir, rm } from 'fs/promises';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { MockScenario } from './mock-llm';
@@ -26,6 +26,8 @@ export class TestServer {
     private port: number;
     private host: string;
     private dbPath: string;
+    private skillsGlobalDir: string;
+    private skillsLocalDir: string;
     private mockScenarios: MockScenario[];
 
     constructor(config: TestServerConfig) {
@@ -33,11 +35,32 @@ export class TestServer {
         this.host = config.host || '127.0.0.1';
         const testId = Date.now();
         this.dbPath = `/tmp/panini/panini-test-${testId}`;
+        this.skillsGlobalDir = `/tmp/panini/panini-test-${testId}-skills-global`;
+        this.skillsLocalDir = `/tmp/panini/panini-test-${testId}-skills-local`;
         this.mockScenarios = config.mockScenarios || [];
+    }
+
+    /**
+     * Get the global skills directory for this test server
+     */
+    getSkillsGlobalDir(): string {
+        return this.skillsGlobalDir;
+    }
+
+    /**
+     * Get the local skills directory for this test server
+     */
+    getSkillsLocalDir(): string {
+        return this.skillsLocalDir;
     }
 
     async start(): Promise<void> {
         console.log(`[TestServer] Starting on ${this.host}:${this.port}...`);
+
+        // Create isolated skills directories for testing
+        await mkdir(this.skillsGlobalDir, { recursive: true });
+        await mkdir(this.skillsLocalDir, { recursive: true });
+        console.log(`[TestServer] Created test skills dirs: global=${this.skillsGlobalDir}, local=${this.skillsLocalDir}`);
 
         // Set environment variables for the test server
         const env: NodeJS.ProcessEnv = {
@@ -46,6 +69,9 @@ export class TestServer {
             PANINI_HOST: this.host,
             POSTGRES_DB: this.dbPath,
             PANINI_TEST_MODE: 'true',
+            // Use isolated skills directories for testing
+            PANINI_SKILLS_GLOBAL_DIR: this.skillsGlobalDir,
+            PANINI_SKILLS_LOCAL_DIR: this.skillsLocalDir,
         };
 
         // Pass mock scenarios if provided
@@ -121,10 +147,12 @@ export class TestServer {
             console.log('[TestServer] Stopped');
         }
 
-        // Clean up test database
+        // Clean up test database and skills directories
         try {
             await rm(this.dbPath, { recursive: true, force: true });
-            console.log('[TestServer] Cleaned up test database');
+            await rm(this.skillsGlobalDir, { recursive: true, force: true });
+            await rm(this.skillsLocalDir, { recursive: true, force: true });
+            console.log('[TestServer] Cleaned up test database and skills directories');
         } catch {
             // Ignore cleanup errors
         }

@@ -50,13 +50,28 @@ export interface UpdateSkillResult {
 let cachedSkills: Skill[] = [];
 
 /**
+ * Get the global skills directory path
+ */
+export function getGlobalSkillsDir(): string {
+    return process.env.PANINI_SKILLS_GLOBAL_DIR || path.join(os.homedir(), '.panini', 'skills');
+}
+
+/**
+ * Get the local skills directory path
+ */
+export function getLocalSkillsDir(): string {
+    return process.env.PANINI_SKILLS_LOCAL_DIR || path.join(process.cwd(), '.panini', 'skills');
+}
+
+/**
  * Get the paths to scan for skills
  * Returns global path (~/.panini/skills) and local path (<cwd>/.panini/skills)
+ * Paths can be overridden via PANINI_SKILLS_GLOBAL_DIR and PANINI_SKILLS_LOCAL_DIR env vars
  */
 function getSkillsPaths(): { path: string; source: 'global' | 'local' }[] {
     return [
-        { path: path.join(os.homedir(), '.panini', 'skills'), source: 'global' },
-        { path: path.join(process.cwd(), '.panini', 'skills'), source: 'local' },
+        { path: getGlobalSkillsDir(), source: 'global' },
+        { path: getLocalSkillsDir(), source: 'local' },
     ];
 }
 
@@ -103,9 +118,7 @@ export async function createSkill(input: CreateSkillInput): Promise<CreateSkillR
     }
 
     // Determine the base path
-    const basePath = source === 'global'
-        ? path.join(os.homedir(), '.panini', 'skills')
-        : path.join(process.cwd(), '.panini', 'skills');
+    const basePath = source === 'global' ? getGlobalSkillsDir() : getLocalSkillsDir();
 
     const skillDir = path.join(basePath, name);
     const skillMdPath = path.join(skillDir, 'SKILL.md');

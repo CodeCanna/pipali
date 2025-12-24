@@ -84,6 +84,57 @@ export const Selectors = {
     // Confirmation Toast
     confirmationToast: '.confirmation-toast',
     toastBtn: '.toast-btn',
+
+    // Skills Page
+    skillsGallery: '.skills-gallery',
+    skillsHeader: '.skills-header',
+    skillsCount: '.skills-count',
+    skillsCreateBtn: '.skills-create-btn',
+    skillsReloadBtn: '.skills-reload-btn',
+    skillsCards: '.skills-cards',
+    skillsEmpty: '.skills-empty',
+    skillsErrors: '.skills-errors',
+    skillsError: '.skills-error',
+    skillsLoading: '.skills-loading',
+
+    // Skill Card
+    skillCard: '.skill-card',
+    skillCardTitle: '.skill-card-title',
+    skillCardDescription: '.skill-card-description',
+    skillSourceBadge: '.skill-source-badge',
+    skillLocation: '.skill-location',
+
+    // Skill Detail Modal
+    skillDetailModal: '.skill-detail-modal',
+    skillDetailDescriptionInput: '.skill-detail-description-input',
+    skillDetailInstructionsInput: '.skill-detail-instructions-input',
+    skillDetailLocation: '.skill-detail-location',
+    skillDetailLoading: '.skill-detail-loading',
+    deleteConfirmText: '.delete-confirm-text',
+
+    // Create Skill Modal
+    skillModal: '.skill-modal',
+    skillForm: '.skill-form',
+    skillNameInput: '#skill-name',
+    createSkillDescriptionInput: '#skill-description',
+    createSkillInstructionsInput: '#skill-instructions',
+    sourceOptions: '.source-options',
+    sourceOptionLocal: '.source-option:has(span:text("Local"))',
+    sourceOptionGlobal: '.source-option:has(span:text("Global"))',
+    sourceOptionSelected: '.source-option.selected',
+
+    // Modal Common
+    modalBackdrop: '.modal-backdrop',
+    modal: '.modal',
+    modalHeader: '.modal-header',
+    modalClose: '.modal-close',
+    modalActions: '.modal-actions',
+    btnPrimary: '.btn-primary',
+    btnSecondary: '.btn-secondary',
+    btnDanger: '.btn-danger',
+    btnDangerOutline: '.btn-danger-outline',
+    formError: '.form-error',
+    formHint: '.form-hint',
 } as const;
 
 export type SelectorKey = keyof typeof Selectors;
