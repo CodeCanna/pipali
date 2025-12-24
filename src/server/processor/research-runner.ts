@@ -112,7 +112,7 @@ export async function* runResearchWithConversation(
     for await (const iteration of research({
         chatHistory: trajectory,
         maxIterations,
-        currentDate: new Date().toISOString().split('T')[0],
+        currentDate: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD in local time
         dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
         user,
         abortSignal,

@@ -284,12 +284,14 @@ async function pickNextTool(
     const skillsContext = formatSkillsForPrompt(getLoadedSkills());
 
     // Build system prompt using ChatPromptTemplate
+    const now = new Date();
     const systemPrompt = await prompts.planFunctionExecution.format({
         tools: toolOptionsStr,
         personality_context: await personalityContext,
         skills_context: skillsContext,
-        current_date: currentDate ?? new Date().toISOString().split('T')[0],
-        day_of_week: dayOfWeek ?? new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+        current_date: currentDate ?? now.toLocaleDateString('en-CA'), // YYYY-MM-DD in local time
+        current_time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        day_of_week: dayOfWeek ?? now.toLocaleDateString('en-US', { weekday: 'long' }),
         location: location ?? 'Unknown',
         username: username ?? 'User',
         os_info: `${process.platform} ${process.arch}`,
