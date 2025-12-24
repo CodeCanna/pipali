@@ -165,10 +165,17 @@ export async function readFile(args: ReadFileArgs): Promise<FileContentResult> {
     }
 
     try {
+        // Expand tilde to home directory if present
+        const expandedPath = filePath.startsWith('~/')
+            ? path.join(os.homedir(), filePath.slice(2))
+            : filePath === '~'
+                ? os.homedir()
+                : filePath;
+
         // Resolve to absolute path (relative paths resolve relative to home folder)
-        const absolutePath = path.isAbsolute(filePath)
-            ? filePath
-            : path.resolve(os.homedir(), filePath);
+        const absolutePath = path.isAbsolute(expandedPath)
+            ? expandedPath
+            : path.resolve(os.homedir(), expandedPath);
 
         // Read the file using Bun.file
         let resolvedPath = absolutePath;
