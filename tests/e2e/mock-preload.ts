@@ -118,7 +118,11 @@ function resetMockState() {
 
 // Set global mock function for the server to use
 declare global {
-    var __paniniMockLLM: typeof getMockResponse | undefined;
+    var __paniniMockLLM: ((query: string) => {
+        message?: string;
+        raw: Array<{ name: string; args: Record<string, unknown>; id: string }>;
+        thought?: string;
+    }) | undefined;
     var __paniniMockReset: typeof resetMockState | undefined;
 }
 

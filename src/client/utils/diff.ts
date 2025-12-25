@@ -71,6 +71,7 @@ export function computeLCS(a: string[], b: string[]): string[] {
     }
 
     for (let i = 1; i <= m; i++) {
+        const row = dp[i]!;
         for (let j = 1; j <= n; j++) {
             const aVal = a[i - 1];
             const bVal = b[j - 1];
@@ -79,9 +80,9 @@ export function computeLCS(a: string[], b: string[]): string[] {
             const prevLeft = dp[i]?.[j - 1] ?? 0;
 
             if (aVal === bVal) {
-                dp[i][j] = prevDiag + 1;
+                row[j] = prevDiag + 1;
             } else {
-                dp[i][j] = Math.max(prevUp, prevLeft);
+                row[j] = Math.max(prevUp, prevLeft);
             }
         }
     }

@@ -46,6 +46,12 @@ export function supportsResponsesApi(baseURL: string | null | undefined): boolea
 export function formatMessagesForOpenAI(messages: ChatMessage[]): ChatMessage[] {
     const formatted: ChatMessage[] = [];
 
+    const isTextBlock = (item: unknown): item is { type: 'text'; text: string } => {
+        if (!item || typeof item !== 'object') return false;
+        const maybe: any = item;
+        return maybe.type === 'text' && typeof maybe.text === 'string';
+    };
+
     for (let i = 0; i < messages.length; i++) {
         const msg = messages[i];
         if (!msg) continue;
@@ -65,8 +71,8 @@ export function formatMessagesForOpenAI(messages: ChatMessage[]): ChatMessage[] 
                     console.log('[OpenAI Formatter] Converting ToolMessage with image to HumanMessage');
 
                     // Extract text description for the tool result acknowledgment
-                    const textContent = content.find((item: any) => item.type === 'text');
-                    const textDescription = textContent?.text || 'Image loaded successfully';
+                    const textContent = content.find(isTextBlock);
+                    const textDescription = textContent?.text ?? 'Image loaded successfully';
 
                     // Create a text-only ToolMessage for the tool result
                     formatted.push(new ToolMessage({
