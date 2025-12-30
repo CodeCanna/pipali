@@ -9,6 +9,7 @@
 import { db } from '../../db';
 import { WebScraper } from '../../db/schema';
 import { desc, eq } from 'drizzle-orm';
+import { getValidAccessToken } from '../../auth';
 import { extractRelevantContent } from './webpage_extractor';
 import type { MetricsAccumulator } from '../director/types';
 
@@ -61,6 +62,63 @@ async function getEnabledWebScrapers(): Promise<(typeof WebScraper.$inferSelect)
     } catch (error) {
         console.log('[ReadWebpage] No web scrapers configured in database, using environment variables');
         return [];
+    }
+}
+
+/**
+ * Read webpage content using Panini Platform API
+ */
+async function readWithPlatform(
+    url: string,
+    query: string | undefined,
+    apiKey: string,
+    apiBaseUrl: string
+): Promise<string | null> {
+    const endpoint = `${apiBaseUrl}/read-webpage`;
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+    };
+
+    const payload: { url: string; query?: string } = { url };
+    if (query) {
+        payload.query = query;
+    }
+
+    console.log(`[ReadWebpage] Read using Panini Platform: ${url}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_REQUEST_TIMEOUT);
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Platform read-webpage failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        // Platform returns { content: "...", title?: "...", url: "..." }
+        if (!data.content) {
+            return null;
+        }
+
+        return data.content;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error('Webpage fetch timed out');
+        }
+        throw error;
     }
 }
 
@@ -262,15 +320,31 @@ export async function readWebpage(
         let lastError: Error | null = null;
         let usedProvider = 'unknown';
 
-        // Try Exa scrapers from database first
-        const exaScrapers = scrapers.filter(s => s.type === 'exa');
-        for (const scraper of exaScrapers) {
+        // Try database-configured scrapers first (ordered by priority)
+        for (const scraper of scrapers) {
             try {
-                rawContent = await readWithExa(
-                    url,
-                    scraper.apiKey || undefined,
-                    scraper.apiBaseUrl || undefined
-                );
+                if (scraper.type === 'exa') {
+                    rawContent = await readWithExa(
+                        url,
+                        scraper.apiKey || undefined,
+                        scraper.apiBaseUrl || undefined
+                    );
+                } else if (scraper.type === 'platform') {
+                    // Platform scraper - get a valid access token
+                    if (scraper.apiBaseUrl) {
+                        const validToken = await getValidAccessToken();
+                        if (validToken) {
+                            rawContent = await readWithPlatform(
+                                url,
+                                query,
+                                validToken,
+                                scraper.apiBaseUrl
+                            );
+                        }
+                    }
+                }
+                // 'direct' type scrapers are handled in the final fallback
+
                 if (rawContent) {
                     usedProvider = scraper.name;
                     console.log(`[ReadWebpage] Successfully read with ${scraper.name}`);

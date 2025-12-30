@@ -4,6 +4,7 @@ import { type ToolDefinition, type ChatMessage } from './conversation';
 import { generateChatmlMessagesWithContext } from './utils';
 import { sendMessageToGpt } from './openai';
 import type { ATIFTrajectory } from './atif/atif.types';
+import { getValidAccessToken } from '../../auth';
 
 // Test mock interface - set by E2E test preload scripts via globalThis
 declare global {
@@ -73,10 +74,23 @@ export async function sendMessageToModel(
     // Depending on the model type, you would call the appropriate function
     if (aiModelType === 'openai') {
         const startTime = Date.now();
+
+        // For Panini provider, get a valid access token
+        let apiKey = chatModelWithApi.aiModelApi?.apiKey;
+        if (aiModelApiName === 'Panini') {
+            const validToken = await getValidAccessToken();
+            if (validToken) {
+                apiKey = validToken;
+            } else {
+                console.error('[LLM] ❌ Failed to get valid platform access token');
+                throw new Error('Platform authentication expired. Please sign in again.');
+            }
+        }
+
         const response = await sendMessageToGpt(
             messages,
             chatModelWithApi.chatModel.name,
-            chatModelWithApi.aiModelApi?.apiKey,
+            apiKey,
             chatModelWithApi.aiModelApi?.apiBaseUrl,
             tools,
             toolChoice,

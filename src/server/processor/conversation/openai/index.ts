@@ -14,11 +14,13 @@ export async function sendMessageToGpt(
 ): Promise<ResponseWithThought> {
     const formattedMessages = formatMessagesForOpenAI(messages);
     const lcTools = toOpenaiTools(tools);
+
     let modelKwargs: Record<string, any> = {};
     if (isOpenaiUrl(apiBaseUrl)) {
         modelKwargs['reasoning'] = { summary: "auto", effort: "high" };
         modelKwargs['include'] = ["reasoning.encrypted_content"];
     }
+
     const chat = new ChatOpenAI({
         apiKey: apiKey,
         model: model,

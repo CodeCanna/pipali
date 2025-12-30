@@ -204,7 +204,7 @@ export const Conversation = pgTable('conversation', {
 });
 
 // Web Search Provider Configuration Schema
-export const WebSearchProviderTypeEnum = pgEnum('web_search_provider_type', ['exa', 'serper']);
+export const WebSearchProviderTypeEnum = pgEnum('web_search_provider_type', ['exa', 'serper', 'platform']);
 
 export const WebSearchProvider = pgTable('web_search_provider', {
     id: serial('id').primaryKey(),
@@ -218,7 +218,7 @@ export const WebSearchProvider = pgTable('web_search_provider', {
 });
 
 // Web Scraper Configuration Schema
-export const WebScraperTypeEnum = pgEnum('web_scraper_type', ['exa', 'direct']);
+export const WebScraperTypeEnum = pgEnum('web_scraper_type', ['exa', 'direct', 'platform']);
 
 export const WebScraper = pgTable('web_scraper', {
     id: serial('id').primaryKey(),
@@ -339,5 +339,19 @@ export const McpServer = pgTable('mcp_server', {
     // When populated, only listed tools are available to the agent
     enabledTools: jsonb('enabled_tools').$type<string[]>(),
 
+    ...dbBaseModel,
+});
+
+// Platform Authentication Token Storage
+// Stores tokens for authenticated sessions with the Panini Platform
+export const PlatformAuth = pgTable('platform_auth', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => User.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token').notNull(),
+    refreshToken: text('refresh_token').notNull(),
+    expiresAt: timestamp('expires_at'),
+    platformUserId: text('platform_user_id'),  // UUID from platform
+    platformEmail: text('platform_email'),
+    platformUrl: text('platform_url'),  // Which platform instance
     ...dbBaseModel,
 });

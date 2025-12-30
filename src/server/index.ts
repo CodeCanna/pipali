@@ -14,6 +14,7 @@ import {
 } from "./embedded-assets";
 import { startAutomationSystem, stopAutomationSystem } from "./automation";
 import { loadEnabledMcpServers, closeMcpClients } from "./processor/mcp";
+import { configureAuth, isAuthenticated } from "./auth";
 
 // Parse CLI arguments
 function getServerConfig() {
@@ -29,6 +30,14 @@ function getServerConfig() {
                 type: "string",
                 short: "p",
                 default: process.env.PANINI_PORT || "6464",
+            },
+            anon: {
+                type: "boolean",
+                default: process.env.PANINI_ANON_MODE === "true",
+            },
+            "platform-url": {
+                type: "string",
+                default: process.env.PANINI_PLATFORM_URL || "https://panini.khoj.dev",
             },
             help: {
                 type: "boolean",
@@ -46,15 +55,17 @@ Panini - Personal AI Assistant
 Usage: panini [options]
 
 Options:
-  -h, --host <host>    Host to bind to (default: 127.0.0.1, env: PANINI_HOST)
-  -p, --port <port>    Port to listen on (default: 6464, env: PANINI_PORT)
-      --help           Show this help message
+  -h, --host <host>        Host to bind to (default: 127.0.0.1, env: PANINI_HOST)
+  -p, --port <port>        Port to listen on (default: 6464, env: PANINI_PORT)
+      --anon               Skip platform authentication, use local API keys (env: PANINI_ANON_MODE)
+      --platform-url <url> Platform URL for authentication (env: PANINI_PLATFORM_URL)
+      --help               Show this help message
 
 Examples:
-  panini                        # Start on 127.0.0.1:6464
+  panini                        # Start with platform authentication
+  panini --anon                 # Start without authentication (use local API keys)
   panini -p 8080                # Start on 127.0.0.1:8080
   panini --host 0.0.0.0         # Start on all interfaces
-  panini -h 0.0.0.0 -p 8080     # Start on 0.0.0.0:8080
 `);
         process.exit(0);
     }
@@ -62,6 +73,8 @@ Examples:
     return {
         host: values.host as string,
         port: parseInt(values.port as string, 10),
+        anon: values.anon as boolean,
+        platformUrl: values["platform-url"] as string,
     };
 }
 
@@ -118,6 +131,12 @@ async function main() {
     // Parse CLI arguments
     const config = getServerConfig();
 
+    // Configure auth module
+    configureAuth({
+        platformUrl: config.platformUrl,
+        anonMode: config.anon,
+    });
+
     // Run migrations - either embedded or from disk
     if (IS_COMPILED_BINARY) {
         await runEmbeddedMigrations();
@@ -125,7 +144,16 @@ async function main() {
         await migrate(db, { migrationsFolder: getMigrationsFolder() });
     }
 
+    // Initialize database (creates user, sets up models from env vars in anon mode)
     await initializeDatabase();
+
+    // Check if already authenticated (before starting server)
+    const alreadyAuthenticated = !config.anon && await isAuthenticated();
+    if (alreadyAuthenticated) {
+        console.log('🔐 Using existing platform authentication');
+    } else if (config.anon) {
+        console.log('🔓 Running in anonymous mode (using local API keys)');
+    }
 
     // Load skills from global and local paths
     const skillResult = await loadSkills();
@@ -196,6 +224,12 @@ async function main() {
   });
 
   console.log(`Server listening on http://${config.host}:${server.port}`);
+
+  // Log auth status (authentication is now handled via the frontend login page)
+  if (!config.anon && !alreadyAuthenticated) {
+      console.log('🔐 Authentication required - sign in via the web interface');
+      console.log(`   Platform: ${config.platformUrl}`);
+  }
 
   // Graceful shutdown handlers to prevent database corruption
   const shutdown = async (signal: string) => {

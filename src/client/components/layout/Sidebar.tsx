@@ -1,8 +1,8 @@
 // Sidebar with conversation list
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Wrench } from 'lucide-react';
-import type { ConversationSummary, ConversationState, ConfirmationRequest } from '../../types';
+import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Wrench, User, LogOut, Shield } from 'lucide-react';
+import type { ConversationSummary, ConversationState, ConfirmationRequest, AuthStatus } from '../../types';
 
 const MAX_VISIBLE_CHATS = 5;
 
@@ -14,6 +14,7 @@ interface SidebarProps {
     currentConversationId?: string;
     exportingConversationId: string | null;
     currentPage?: 'home' | 'chat' | 'skills' | 'automations' | 'mcp-tools';
+    authStatus?: AuthStatus | null;
     onNewChat: () => void;
     onSelectConversation: (id: string) => void;
     onDeleteConversation: (id: string, e: React.MouseEvent) => void;
@@ -21,6 +22,7 @@ interface SidebarProps {
     onGoToSkills?: () => void;
     onGoToAutomations?: () => void;
     onGoToMcpTools?: () => void;
+    onLogout?: () => void;
     onClose?: () => void;
 }
 
@@ -32,6 +34,7 @@ export function Sidebar({
     currentConversationId,
     exportingConversationId,
     currentPage,
+    authStatus,
     onNewChat,
     onSelectConversation,
     onDeleteConversation,
@@ -39,23 +42,31 @@ export function Sidebar({
     onGoToSkills,
     onGoToAutomations,
     onGoToMcpTools,
+    onLogout,
     onClose,
 }: SidebarProps) {
     const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
     const [openMenuContext, setOpenMenuContext] = useState<'sidebar' | 'modal' | null>(null);
     const [showAllChatsModal, setShowAllChatsModal] = useState(false);
+    const [showUserMenu, setShowUserMenu] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
 
-    // Close conversation menu when clicking outside
+    // Close menus when clicking outside
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             const target = e.target as HTMLElement | null;
             if (!target) return;
-            if (target.closest('.conversation-menu-container')) return;
-            setOpenConversationMenuId(null);
-            setOpenMenuContext(null);
+            // Close conversation menu
+            if (!target.closest('.conversation-menu-container')) {
+                setOpenConversationMenuId(null);
+                setOpenMenuContext(null);
+            }
+            // Close user menu
+            if (!target.closest('.user-profile-container')) {
+                setShowUserMenu(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -339,6 +350,60 @@ export function Sidebar({
                         <div className="no-conversations">No conversations yet</div>
                     )}
                 </div>
+
+                {/* User Profile Section */}
+                {authStatus && (authStatus.authenticated || authStatus.anonMode) && (
+                    <div className="sidebar-user-section">
+                        <div className="user-profile-container">
+                            <button
+                                className="user-profile-btn"
+                                onClick={() => setShowUserMenu(prev => !prev)}
+                                aria-label="User menu"
+                            >
+                                <div className="user-avatar">
+                                    {authStatus.anonMode ? (
+                                        <Shield size={18} />
+                                    ) : (
+                                        <User size={18} />
+                                    )}
+                                </div>
+                                <div className="user-info">
+                                    <span className="user-name">
+                                        {authStatus.anonMode
+                                            ? 'Anonymous Mode'
+                                            : authStatus.user?.name || authStatus.user?.email || 'User'}
+                                    </span>
+                                    {!authStatus.anonMode && authStatus.user?.email && authStatus.user?.name && (
+                                        <span className="user-email">{authStatus.user.email}</span>
+                                    )}
+                                </div>
+                            </button>
+
+                            {showUserMenu && (
+                                <div className="user-menu" role="menu">
+                                    {!authStatus.anonMode && (
+                                        <button
+                                            className="user-menu-item danger"
+                                            onClick={() => {
+                                                setShowUserMenu(false);
+                                                onLogout?.();
+                                            }}
+                                            role="menuitem"
+                                        >
+                                            <LogOut size={14} />
+                                            <span>Sign out</span>
+                                        </button>
+                                    )}
+                                    {authStatus.anonMode && (
+                                        <div className="user-menu-info">
+                                            <span>Using local API keys</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </aside>
 
             {/* All Chats Modal */}

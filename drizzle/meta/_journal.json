@@ -57,6 +57,13 @@
       "when": 1766788416725,
       "tag": "0007_wooden_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1767129636613,
+      "tag": "0008_spooky_random",
+      "breakpoints": true
     }
   ]
 }

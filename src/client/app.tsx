@@ -14,6 +14,7 @@ import type {
     ConversationSummary,
     ConversationState,
     ActiveTask,
+    AuthStatus,
 } from "./types";
 import type { PendingConfirmation } from "./types/confirmation";
 
@@ -31,6 +32,7 @@ import { HomePage } from "./components/home";
 import { SkillsPage } from "./components/skills";
 import { AutomationsPage } from "./components/automations";
 import { McpToolsPage } from "./components/mcp-tools";
+import { LoginPage } from "./components/auth";
 import type { AutomationPendingConfirmation } from "./types/automations";
 
 // Page types
@@ -61,6 +63,7 @@ const App = () => {
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [exportingConversationId, setExportingConversationId] = useState<string | null>(null);
+    const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
     // Current page state - determine from URL
     const [currentPage, setCurrentPage] = useState<PageType>(() => {
         const params = new URLSearchParams(window.location.search);
@@ -103,6 +106,7 @@ const App = () => {
         connectWebSocket();
         fetchConversations();
         fetchAutomationConfirmations();
+        fetchAuthStatus();
 
         // Check URL for conversationId
         const params = new URLSearchParams(window.location.search);
@@ -221,6 +225,31 @@ const App = () => {
             }
         } catch (e) {
             console.error("Failed to fetch automation confirmations", e);
+        }
+    };
+
+    const fetchAuthStatus = async () => {
+        try {
+            const res = await fetch('/api/auth/status');
+            if (res.ok) {
+                const data = await res.json();
+                setAuthStatus(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch auth status", e);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            const res = await fetch('/api/auth/logout', { method: 'POST' });
+            if (res.ok) {
+                // Fetch auth status again - this will return authenticated: false
+                // which will trigger the login page to show
+                await fetchAuthStatus();
+            }
+        } catch (e) {
+            console.error("Failed to logout", e);
         }
     };
 
@@ -1257,6 +1286,12 @@ const App = () => {
 
     // ===== Render =====
 
+    // Show login page if not authenticated and not in anonymous mode
+    // Also show login after logout (authStatus is null or not authenticated)
+    if (authStatus !== null && !authStatus.authenticated && !authStatus.anonMode) {
+        return <LoginPage onLoginSuccess={fetchAuthStatus} />;
+    }
+
     return (
         <div className="app-wrapper">
             <Sidebar
@@ -1267,6 +1302,7 @@ const App = () => {
                 currentConversationId={conversationId}
                 exportingConversationId={exportingConversationId}
                 currentPage={currentPage}
+                authStatus={authStatus}
                 onNewChat={startNewConversation}
                 onSelectConversation={selectConversation}
                 onDeleteConversation={deleteConversation}
@@ -1274,6 +1310,7 @@ const App = () => {
                 onGoToSkills={goToSkillsPage}
                 onGoToAutomations={goToAutomationsPage}
                 onGoToMcpTools={goToMcpToolsPage}
+                onLogout={handleLogout}
                 onClose={() => setSidebarOpen(false)}
             />
 

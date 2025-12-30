@@ -6,3 +6,4 @@ export * from './confirmation';
 export * from './conversation';
 export * from './models';
 export * from './task';
+export * from './auth';

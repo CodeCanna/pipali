@@ -8,6 +8,7 @@ import { AiModelApi, ChatModel, User, UserChatModel } from '../db/schema';
 import openapi from './openapi';
 import automations from './automations';
 import mcp from './mcp';
+import auth from './auth';
 
 import { getDefaultUser } from '../utils';
 import { atifConversationService } from '../processor/conversation/atif/atif.service';
@@ -452,5 +453,8 @@ api.route('/mcp', mcp);
 
 // Mount the OpenAPI documentation
 api.route('/', openapi);
+
+// Mount the auth router
+api.route('/auth', auth);
 
 export default api;

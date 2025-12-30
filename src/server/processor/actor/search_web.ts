@@ -8,6 +8,7 @@
 import { db } from '../../db';
 import { WebSearchProvider } from '../../db/schema';
 import { desc, eq } from 'drizzle-orm';
+import { getValidAccessToken } from '../../auth';
 
 // Timeout for web search requests (in milliseconds)
 const SEARCH_REQUEST_TIMEOUT = 30000;
@@ -208,6 +209,79 @@ async function searchWithSerper(
 }
 
 /**
+ * Search using Panini Platform API
+ */
+async function searchWithPlatform(
+    query: string,
+    maxResults: number,
+    countryCode: string,
+    apiKey: string,
+    apiBaseUrl: string
+): Promise<ExtendedSearchResult> {
+    const searchEndpoint = `${apiBaseUrl}/web-search`;
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+    };
+
+    const payload = {
+        query,
+        max_results: maxResults,
+        country_code: countryCode,
+    };
+
+    console.log(`[WebSearch] Search using Panini Platform for: "${query.slice(0, 100)}${query.length > 100 ? '...' : ''}"`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SEARCH_REQUEST_TIMEOUT);
+
+    try {
+        const response = await fetch(searchEndpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Platform search failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        // Platform returns { results: [...], answerBox?, knowledgeGraph?, peopleAlsoAsk? }
+        const organic: SearchResult[] = (data.results || []).map((item: any) => ({
+            title: item.title || '',
+            link: item.link || '',
+            snippet: item.snippet || '',
+        }));
+
+        const result: ExtendedSearchResult = { organic };
+
+        if (data.answerBox) {
+            result.answerBox = data.answerBox;
+        }
+        if (data.knowledgeGraph) {
+            result.knowledgeGraph = data.knowledgeGraph;
+        }
+        if (data.peopleAlsoAsk) {
+            result.peopleAlsoAsk = data.peopleAlsoAsk;
+        }
+
+        return result;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error('Search request timed out');
+        }
+        throw error;
+    }
+}
+
+/**
  * Search using Exa API
  */
 async function searchWithExa(
@@ -330,6 +404,20 @@ export async function webSearch(args: WebSearchArgs): Promise<WebSearchResult> {
                         provider.apiKey || undefined,
                         provider.apiBaseUrl || undefined
                     );
+                } else if (provider.type === 'platform') {
+                    // Platform provider - get a valid access token
+                    if (provider.apiBaseUrl) {
+                        const validToken = await getValidAccessToken();
+                        if (validToken) {
+                            extendedResult = await searchWithPlatform(
+                                query,
+                                effectiveMaxResults,
+                                country_code,
+                                validToken,
+                                provider.apiBaseUrl
+                            );
+                        }
+                    }
                 }
 
                 if (extendedResult && extendedResult.organic.length > 0) {
