@@ -1,6 +1,6 @@
 import { ChatOpenAI } from '@langchain/openai';
 import type { ChatMessage, ResponseWithThought, ToolDefinition, UsageMetrics } from '../conversation';
-import { toOpenaiTools, formatMessagesForOpenAI, isOpenaiUrl, supportsResponsesApi } from './utils';
+import { toOpenaiTools, formatMessagesForOpenAI, supportsResponsesApi } from './utils';
 import { calculateCost, type PricingConfig } from '../costs';
 
 export async function sendMessageToGpt(
@@ -15,12 +15,6 @@ export async function sendMessageToGpt(
     const formattedMessages = formatMessagesForOpenAI(messages);
     const lcTools = toOpenaiTools(tools);
 
-    let modelKwargs: Record<string, any> = {};
-    if (isOpenaiUrl(apiBaseUrl)) {
-        modelKwargs['reasoning'] = { summary: "auto", effort: "high" };
-        modelKwargs['include'] = ["reasoning.encrypted_content"];
-    }
-
     const chat = new ChatOpenAI({
         apiKey: apiKey,
         model: model,
@@ -33,7 +27,7 @@ export async function sendMessageToGpt(
         tool_choice: lcTools ? toolChoice : undefined,
     });
 
-    const response = await chat.invoke(formattedMessages, modelKwargs);
+    const response = await chat.invoke(formattedMessages);
     const reasoning: any = response.additional_kwargs?.reasoning;
     const summary = typeof reasoning?.summary === "string"
         ? reasoning.summary

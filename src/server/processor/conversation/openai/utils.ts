@@ -1,6 +1,7 @@
 import type { ToolDefinition, ChatMessage } from "../conversation";
 import type { ToolDefinition as LcToolDefinition } from '@langchain/core/language_models/base';
 import { HumanMessage, ToolMessage } from '@langchain/core/messages';
+import { getPlatformUrl } from "../../../auth";
 
 export function toOpenaiTools(tools?: ToolDefinition[]): LcToolDefinition[] | undefined {
     if (!tools) return undefined;
@@ -14,14 +15,13 @@ export function toOpenaiTools(tools?: ToolDefinition[]): LcToolDefinition[] | un
     }));
 }
 
-export function isOpenaiUrl(baseURL: string | null | undefined): boolean {
-    return !baseURL || baseURL.startsWith("https://api.openai.com");
-}
-
 export function supportsResponsesApi(baseURL: string | null | undefined): boolean {
+    // Supports OpenAI, Platform, and Groq URLs
     if (
-        isOpenaiUrl(baseURL)
-        || (baseURL?.startsWith("https://api.groq.com"))
+        !baseURL
+        || baseURL.startsWith("https://api.openai.com")
+        || baseURL.startsWith(getPlatformUrl())
+        || baseURL.startsWith("https://api.groq.com")
     ) {
         return true;
     }
