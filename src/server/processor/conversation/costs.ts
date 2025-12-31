@@ -22,7 +22,6 @@ export interface ModelPricing {
  */
 export const modelToCost: Record<string, ModelPricing> = {
     // OpenAI Pricing: https://openai.com/api/pricing/
-    "gpt-5.1": { input: 1.25, output: 10.00, cache_read: 0.125 },
     "gpt-5.2": { input: 1.75, output: 14.00, cache_read: 0.175 },
 
     // Gemini Pricing: https://ai.google.dev/pricing
@@ -33,21 +32,6 @@ export const modelToCost: Record<string, ModelPricing> = {
     "claude-haiku-4-5": { input: 1.0, output: 5.0, cache_read: 0.1, cache_write: 1.25 },
     "claude-sonnet-4-5": { input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 3.75 },
     "claude-opus-4-5": { input: 5.0, output: 25.0, cache_read: 0.5, cache_write: 6.25 },
-
-    // Grok pricing: https://docs.x.ai/docs/models
-    "grok-4-1-fast": { input: 0.20, output: 0.50, cache_read: 0.05 },
-    "grok-4": { input: 3.0, output: 15.0, cache_read: 0.75 },
-
-    // Groq pricing
-    "moonshotai/kimi-k2-instruct-0905": { input: 1.00, output: 3.00 },
-    "openai/gpt-oss-120b": { input: 0.15, output: 0.75 },
-    "openai/gpt-oss-20b": { input: 0.10, output: 0.50 },
-
-    // Cerebras pricing
-    "zai-glm-4.6": { input: 2.25, output: 2.75 },
-
-    // Miscellaneous
-    "moonshotai/kimi-k2-thinking": { input: 0.60, output: 2.50 },
 };
 
 /**
