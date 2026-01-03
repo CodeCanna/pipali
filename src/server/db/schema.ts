@@ -152,6 +152,7 @@ export const ChatModel = pgTable('chat_model', {
     friendlyName: text('friendly_name'),
     modelType: ChatModelTypeEnum('model_type').default('google').notNull(),
     visionEnabled: boolean('vision_enabled').default(false).notNull(),
+    useResponsesApi: boolean('use_responses_api').default(false).notNull(),
     aiModelApiId: integer('ai_model_api_id').references(() => AiModelApi.id, { onDelete: 'cascade' }),
     // Token Cost (USD) for Usage Tracking
     inputCostPerMillion: real('input_cost_per_million'),

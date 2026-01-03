@@ -1,6 +1,6 @@
 import { ChatOpenAI } from '@langchain/openai';
 import type { ChatMessage, ResponseWithThought, ToolDefinition, UsageMetrics } from '../conversation';
-import { toOpenaiTools, formatMessagesForOpenAI, supportsResponsesApi } from './utils';
+import { toOpenaiTools, formatMessagesForOpenAI } from './utils';
 import { calculateCost, type PricingConfig } from '../costs';
 
 export async function sendMessageToGpt(
@@ -11,6 +11,7 @@ export async function sendMessageToGpt(
     tools?: ToolDefinition[],
     toolChoice: string = 'auto',
     pricing?: PricingConfig,
+    useResponsesApi: boolean = false,
 ): Promise<ResponseWithThought> {
     const formattedMessages = formatMessagesForOpenAI(messages);
     const lcTools = toOpenaiTools(tools);
@@ -18,7 +19,7 @@ export async function sendMessageToGpt(
     const chat = new ChatOpenAI({
         apiKey: apiKey,
         model: model,
-        useResponsesApi: supportsResponsesApi(apiBaseUrl),
+        useResponsesApi: useResponsesApi,
         configuration: {
             baseURL: apiBaseUrl,
         },

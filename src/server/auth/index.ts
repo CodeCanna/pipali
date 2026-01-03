@@ -366,7 +366,7 @@ export async function syncPlatformModels(): Promise<void> {
         }
 
         const data = await response.json();
-        const platformModels = data.data as Array<{ id: string; owned_by: string; name?: string | null }>;
+        const platformModels = data.data as Array<{ id: string; owned_by: string; name?: string | null; use_responses_api?: boolean }>;
 
         if (!platformModels || platformModels.length === 0) {
             console.log('[Auth] No models available from platform');
@@ -411,8 +411,9 @@ export async function syncPlatformModels(): Promise<void> {
         const existingModelNames = new Set(existingModels.map(m => m.name));
         const platformModelNames = new Set(platformModels.map(m => m.id));
 
-        // Add new models
+        // Add new models and update existing ones with useResponsesApi
         let addedCount = 0;
+        let updatedCount = 0;
         for (const model of platformModels) {
             if (!existingModelNames.has(model.id)) {
                 const modelType = detectModelType(model.id, model.owned_by);
@@ -421,9 +422,19 @@ export async function syncPlatformModels(): Promise<void> {
                     friendlyName: model.name || model.id,
                     modelType: modelType,
                     visionEnabled: true, // Assume vision support
+                    useResponsesApi: model.use_responses_api || false,
                     aiModelApiId: providerId,
                 });
                 addedCount++;
+            } else {
+                // Update useResponsesApi for existing models
+                const existingModel = existingModels.find(m => m.name === model.id);
+                if (existingModel && existingModel.useResponsesApi !== (model.use_responses_api || false)) {
+                    await db.update(ChatModel)
+                        .set({ useResponsesApi: model.use_responses_api || false, updatedAt: new Date() })
+                        .where(eq(ChatModel.id, existingModel.id));
+                    updatedCount++;
+                }
             }
         }
 
@@ -436,8 +447,8 @@ export async function syncPlatformModels(): Promise<void> {
             }
         }
 
-        if (addedCount > 0 || removedCount > 0) {
-            console.log(`[Auth] Platform models synced: ${addedCount} added, ${removedCount} removed`);
+        if (addedCount > 0 || removedCount > 0 || updatedCount > 0) {
+            console.log(`[Auth] Platform models synced: ${addedCount} added, ${updatedCount} updated, ${removedCount} removed`);
         } else {
             console.log('[Auth] Platform models already up to date');
         }

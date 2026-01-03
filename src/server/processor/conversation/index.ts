@@ -95,6 +95,7 @@ export async function sendMessageToModel(
             tools,
             toolChoice,
             pricing,
+            chatModelWithApi.chatModel.useResponsesApi,
         );
         console.log(`[LLM] ⏱️ Response received in ${(Date.now() - startTime) / 1000.0}ms`);
         return response;
