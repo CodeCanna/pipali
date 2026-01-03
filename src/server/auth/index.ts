@@ -366,7 +366,7 @@ export async function syncPlatformModels(): Promise<void> {
         }
 
         const data = await response.json();
-        const platformModels = data.data as Array<{ id: string; owned_by: string }>;
+        const platformModels = data.data as Array<{ id: string; owned_by: string; name?: string | null }>;
 
         if (!platformModels || platformModels.length === 0) {
             console.log('[Auth] No models available from platform');
@@ -418,7 +418,7 @@ export async function syncPlatformModels(): Promise<void> {
                 const modelType = detectModelType(model.id, model.owned_by);
                 await db.insert(ChatModel).values({
                     name: model.id,
-                    friendlyName: model.id,
+                    friendlyName: model.name || model.id,
                     modelType: modelType,
                     visionEnabled: true, // Assume vision support
                     aiModelApiId: providerId,
