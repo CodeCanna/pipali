@@ -85,8 +85,8 @@ const App = () => {
         return 'home';
     });
 
-    // Multiple pending confirmations - one per conversation
-    const [pendingConfirmations, setPendingConfirmations] = useState<Map<string, ConfirmationRequest>>(new Map());
+    // Multiple pending confirmations - queue per conversation (supports parallel tool calls)
+    const [pendingConfirmations, setPendingConfirmations] = useState<Map<string, ConfirmationRequest[]>>(new Map());
     // Pending confirmations from automations
     const [automationConfirmations, setAutomationConfirmations] = useState<AutomationPendingConfirmation[]>([]);
     // Per-conversation state for tracking active tasks across all conversations
@@ -626,7 +626,11 @@ const App = () => {
             if (msgConversationId) {
                 setPendingConfirmations(prev => {
                     const next = new Map(prev);
-                    next.set(msgConversationId, confirmationData);
+                    const existing = next.get(msgConversationId) || [];
+                    // Add to queue (avoid duplicates by checking requestId)
+                    if (!existing.some(c => c.requestId === confirmationData.requestId)) {
+                        next.set(msgConversationId, [...existing, confirmationData]);
+                    }
                     return next;
                 });
             }
@@ -833,6 +837,7 @@ const App = () => {
                     return next;
                 });
 
+                // Clear confirmation queue for completed conversation
                 setPendingConfirmations(prev => {
                     const next = new Map(prev);
                     next.delete(completedConvId);
@@ -1101,7 +1106,8 @@ const App = () => {
     };
 
     const sendConfirmationResponse = (convId: string, optionId: string, guidance?: string) => {
-        const pendingConfirmation = pendingConfirmations.get(convId);
+        const queue = pendingConfirmations.get(convId);
+        const pendingConfirmation = queue?.[0]; // Get first in queue
         if (!pendingConfirmation || !isConnected) return;
 
         const response = {
@@ -1117,9 +1123,16 @@ const App = () => {
 
         wsRef.current?.send(JSON.stringify(response));
 
+        // Remove the responded confirmation from the queue
         setPendingConfirmations(prev => {
             const next = new Map(prev);
-            next.delete(convId);
+            const existingQueue = next.get(convId) || [];
+            const remainingQueue = existingQueue.slice(1); // Remove first item
+            if (remainingQueue.length > 0) {
+                next.set(convId, remainingQueue);
+            } else {
+                next.delete(convId);
+            }
             return next;
         });
     };
@@ -1153,10 +1166,15 @@ const App = () => {
 
     // Compute list of all pending confirmations
     const allConfirmations = useMemo((): PendingConfirmation[] => {
-        const chatConfirmations = Array.from(pendingConfirmations.entries()).map(([convId, request]) => {
+        const chatConfirmations: PendingConfirmation[] = [];
+        // Flatten the queue: for each conversation, take all confirmations in the queue
+        for (const [convId, queue] of pendingConfirmations.entries()) {
             const conv = conversations.find(c => c.id === convId);
-            return toChatConfirmation(convId, request, conv?.title || 'Background Task');
-        });
+            const convTitle = conv?.title || 'Background Task';
+            for (const request of queue) {
+                chatConfirmations.push(toChatConfirmation(convId, request, convTitle));
+            }
+        }
         const automationConfirmationsList = automationConfirmations.map(toAutomationConfirmation);
         return [...chatConfirmations, ...automationConfirmationsList];
     }, [pendingConfirmations, automationConfirmations, conversations, toChatConfirmation, toAutomationConfirmation]);
@@ -1170,13 +1188,19 @@ const App = () => {
         }
     };
 
-    // Confirmation dismiss handler
+    // Confirmation dismiss handler - removes specific confirmation from queue
     const handleConfirmationDismiss = (confirmation: PendingConfirmation) => {
         const { source } = confirmation;
         if (source.type === 'chat') {
             setPendingConfirmations(prev => {
                 const next = new Map(prev);
-                next.delete(source.conversationId);
+                const existingQueue = next.get(source.conversationId) || [];
+                const remainingQueue = existingQueue.filter(c => c.requestId !== confirmation.request.requestId);
+                if (remainingQueue.length > 0) {
+                    next.set(source.conversationId, remainingQueue);
+                } else {
+                    next.delete(source.conversationId);
+                }
                 return next;
             });
         } else {
@@ -1188,7 +1212,7 @@ const App = () => {
         e?.preventDefault();
         if (!input.trim() || !isConnected) return;
 
-        // Clear any pending confirmation dialog for current conversation
+        // Clear confirmation queue for current conversation when user sends a new message
         if (conversationId) {
             setPendingConfirmations(prev => {
                 const next = new Map(prev);
@@ -1401,7 +1425,7 @@ const App = () => {
                     conversationId={conversationId}
                     onPause={pauseResearch}
                     onResume={() => resumeResearch()}
-                    pendingConfirmation={conversationId ? pendingConfirmations.get(conversationId) : undefined}
+                    pendingConfirmation={conversationId ? pendingConfirmations.get(conversationId)?.[0] : undefined}
                     onConfirmationRespond={sendCurrentConfirmationResponse}
                     textareaRef={textareaRef}
                     onBackgroundSend={sendAsBackgroundTask}

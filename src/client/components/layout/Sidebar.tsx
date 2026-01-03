@@ -10,7 +10,7 @@ interface SidebarProps {
     isOpen: boolean;
     conversations: ConversationSummary[];
     conversationStates: Map<string, ConversationState>;
-    pendingConfirmations: Map<string, ConfirmationRequest>;
+    pendingConfirmations: Map<string, ConfirmationRequest[]>;
     currentConversationId?: string;
     exportingConversationId: string | null;
     currentPage?: 'home' | 'chat' | 'skills' | 'automations' | 'mcp-tools';
@@ -191,7 +191,7 @@ export function Sidebar({
         const liveState = conversationStates.get(conv.id);
         const isActive = liveState?.isProcessing ?? conv.isActive ?? false;
         const latestReasoning = liveState?.latestReasoning ?? conv.latestReasoning;
-        const hasPendingConfirmation = pendingConfirmations.has(conv.id);
+        const hasPendingConfirmation = (pendingConfirmations.get(conv.id)?.length ?? 0) > 0;
         const isSelected = inModal && index === selectedIndex;
 
         return (

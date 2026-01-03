@@ -27,6 +27,13 @@ export type WebSocketData = {
     conversationId?: string;
 };
 
+// Pending confirmation with resolve/reject handlers
+type PendingConfirmation = {
+    requestId: string;
+    resolve: (response: ConfirmationResponse) => void;
+    reject: (error: Error) => void;
+};
+
 // Session state for tracking active research per conversation
 type ResearchSession = {
     isPaused: boolean;
@@ -37,11 +44,8 @@ type ResearchSession = {
     userMessage?: string;
     // Confirmation support
     confirmationPreferences: ConfirmationPreferences;
-    pendingConfirmation?: {
-        requestId: string;
-        resolve: (response: ConfirmationResponse) => void;
-        reject: (error: Error) => void;
-    };
+    // Map of pending confirmations keyed by requestId (supports parallel tool calls)
+    pendingConfirmations: Map<string, PendingConfirmation>;
 };
 
 // Map WebSocket connections to their active research sessions (multiple per connection)
@@ -88,22 +92,22 @@ function createConfirmationCallback(
 ): ConfirmationCallback {
     return async (request: ConfirmationRequest): Promise<ConfirmationResponse> => {
         return new Promise((resolve, reject) => {
-            // Store the pending confirmation
-            session.pendingConfirmation = {
+            // Store the pending confirmation in the map (supports parallel tool calls)
+            session.pendingConfirmations.set(request.requestId, {
                 requestId: request.requestId,
                 resolve,
                 reject,
-            };
+            });
 
             // Send confirmation request to client with conversationId
-            console.log(`[WS] 🔐 Requesting confirmation: ${request.title} (conv: ${session.conversationId})`);
+            console.log(`[WS] 🔐 Requesting confirmation: ${request.title} (conv: ${session.conversationId}, pending: ${session.pendingConfirmations.size})`);
             sendToClient(ws, {
                 type: 'confirmation_request',
                 data: request,
             }, session.conversationId);
 
             // Note: The response will be handled in the message handler
-            // which will call session.pendingConfirmation.resolve()
+            // which will call the appropriate pending confirmation's resolve()
         });
     };
 }
@@ -255,11 +259,11 @@ export const websocketHandler = {
                 console.log(`[WS] ⏸️ Pausing research (conv: ${data.conversationId})`);
                 session.isPaused = true;
                 session.abortController.abort();
-                // Reject any pending confirmation so the research loop can exit cleanly
-                if (session.pendingConfirmation) {
-                    session.pendingConfirmation.reject(new Error('Research paused'));
-                    session.pendingConfirmation = undefined;
+                // Reject all pending confirmations so the research loop can exit cleanly
+                for (const [requestId, pending] of session.pendingConfirmations) {
+                    pending.reject(new Error('Research paused'));
                 }
+                session.pendingConfirmations.clear();
                 sendToClient(ws, { type: 'pause' }, data.conversationId);
                 setSessionPaused(data.conversationId);
             }
@@ -290,19 +294,15 @@ export const websocketHandler = {
         // Handle confirmation response
         if (data.type === 'confirmation_response') {
             const session = sessions.get(data.conversationId);
-            if (session?.pendingConfirmation) {
-                const { requestId, resolve } = session.pendingConfirmation;
-                const response = data.data;
+            const response = data.data;
+            const pending = session?.pendingConfirmations.get(response.requestId);
 
-                if (response.requestId === requestId) {
-                    console.log(`[WS] 🔐 Confirmation response received: ${response.selectedOptionId} (conv: ${data.conversationId})`);
-                    session.pendingConfirmation = undefined;
-                    resolve(response);
-                } else {
-                    console.warn(`[WS] ⚠️ Confirmation response requestId mismatch: expected ${requestId}, got ${response.requestId}`);
-                }
+            if (pending) {
+                console.log(`[WS] 🔐 Confirmation response received: ${response.selectedOptionId} (conv: ${data.conversationId}, remaining: ${session!.pendingConfirmations.size - 1})`);
+                session!.pendingConfirmations.delete(response.requestId);
+                pending.resolve(response);
             } else {
-                console.warn(`[WS] ⚠️ Received confirmation response but no pending confirmation (conv: ${data.conversationId})`);
+                console.warn(`[WS] ⚠️ Received confirmation response for unknown requestId: ${response.requestId} (conv: ${data.conversationId})`);
             }
             return;
         }
@@ -377,6 +377,7 @@ export const websocketHandler = {
             user,
             userMessage: userQuery,
             confirmationPreferences: createEmptyPreferences(),
+            pendingConfirmations: new Map(),
         };
         sessions.set(conversation.id, session);
 
