@@ -16,6 +16,7 @@ import { atifConversationService } from '../processor/conversation/atif/atif.ser
 import { runResearchToCompletion } from '../processor/research-runner';
 import { getActiveStatus } from '../sessions';
 import { loadSkills, getLoadedSkills, createSkill, getSkill, deleteSkill, updateSkill } from '../skills';
+import { syncPlatformModels } from '../auth';
 
 const api = new Hono().basePath('/api');
 
@@ -251,6 +252,10 @@ api.delete('/conversations/:conversationId/messages/:stepId', async (c) => {
 
 // Get all available chat models
 api.get('/models', async (c) => {
+    // Sync latest chat models from platform, if authenticated
+    await syncPlatformModels();
+
+    // Return updated models list from local DB
     const models = await db.select({
         id: ChatModel.id,
         name: ChatModel.name,
