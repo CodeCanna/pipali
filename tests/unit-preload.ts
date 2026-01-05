@@ -29,7 +29,17 @@ const dbSchemaModule = import.meta.resolve('../src/server/db/schema');
 
 mock.module(dbSchemaModule, () => {
     return {
+        // Basic tables
         User: { $inferSelect: {} },
+        AiModelApi: { $inferSelect: {} },
+        ChatModel: { $inferSelect: {} },
+        UserChatModel: { $inferSelect: {} },
+        Conversation: { $inferSelect: {} },
+        PlatformAuth: { $inferSelect: {} },
+        McpServer: { $inferSelect: {} },
+        Automation: { $inferSelect: {} },
+        AutomationExecution: { $inferSelect: {} },
+        // Web search/scraper tables with column references for queries
         WebSearchProvider: {
             enabled: 'enabled',
             priority: 'priority',
