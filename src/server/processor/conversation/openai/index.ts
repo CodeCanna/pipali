@@ -58,7 +58,11 @@ export async function sendMessageToGpt(
         const cacheWriteTokens = promptDetails?.cache_creation || 0;
 
         // Use cost from platform if available, else fallback to estimate it locally
-        const metadata: Record<string, any> = (response.additional_kwargs?.__raw_response as any)?.metadata;
+        // For Responses API streaming, metadata is in response_metadata.metadata (from response.completed event)
+        // For non-streaming or Chat Completions, it may be in additional_kwargs.__raw_response.metadata
+        const metadata: Record<string, any> =
+            (response.response_metadata?.metadata as Record<string, any>) ??
+            (response.additional_kwargs?.__raw_response as any)?.metadata;
         const rawCostUsd = metadata?.cost_usd ?? metadata?.["cost_usd"];
         const platformCostUsd = typeof rawCostUsd === 'number' ? rawCostUsd : (rawCostUsd ? parseFloat(rawCostUsd) : undefined);
         const costUsd = platformCostUsd || calculateCost(model, promptTokens, completionTokens, cachedReadTokens, cacheWriteTokens, 0, pricing);
