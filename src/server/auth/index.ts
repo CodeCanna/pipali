@@ -15,6 +15,10 @@ import type { AuthTokens, PlatformUserInfo } from './types';
 let platformUrl: string = process.env.PANINI_PLATFORM_URL || 'https://panini.khoj.dev';
 let anonMode: boolean = false;
 
+// Mutex for token refresh to prevent race conditions
+// When multiple requests detect an expired token simultaneously, only one should refresh
+let refreshPromise: Promise<string | null> | null = null;
+
 /**
  * Configure the auth module
  */
@@ -228,8 +232,32 @@ export async function clearTokens(): Promise<void> {
 /**
  * Refresh the access token using the refresh token
  * Returns the new access token or null if refresh failed
+ *
+ * Uses a mutex to prevent race conditions when multiple requests
+ * try to refresh simultaneously (refresh tokens are single-use)
  */
 export async function refreshAccessToken(): Promise<string | null> {
+    // If a refresh is already in progress, wait for it instead of starting another
+    if (refreshPromise) {
+        console.log('[Auth] Token refresh already in progress, waiting...');
+        return refreshPromise;
+    }
+
+    // Start the refresh and store the promise so concurrent calls can wait
+    refreshPromise = doRefreshAccessToken();
+
+    try {
+        return await refreshPromise;
+    } finally {
+        // Clear the mutex after completion (success or failure)
+        refreshPromise = null;
+    }
+}
+
+/**
+ * Internal function that performs the actual token refresh
+ */
+async function doRefreshAccessToken(): Promise<string | null> {
     const tokens = await getStoredTokens();
     if (!tokens) {
         return null;
