@@ -50,7 +50,10 @@ export function MessageItem({ message, onDelete }: MessageItemProps) {
             {/* Message Content */}
             {message.content ? (
                 <div className="message-content">
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    <ReactMarkdown
+                        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
+                        rehypePlugins={[rehypeKatex]}
+                    >
                         {message.content}
                     </ReactMarkdown>
                 </div>
