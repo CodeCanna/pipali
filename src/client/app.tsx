@@ -341,13 +341,25 @@ const App = () => {
                         });
                     }
 
+                    // Build tool results map from observation if present
                     if (msg.observation && msg.observation.results) {
                         toolResultsMap = new Map(
                             msg.observation.results
                             .filter((res: any) => res.source_call_id && res.content)
                             .map((res: any) => [res.source_call_id, res.content])
                         );
+                    }
 
+                    // Add tool calls as thoughts (with results if available)
+                    if (msg.tool_calls && msg.tool_calls.length > 0) {
+                        // If there's a message alongside tool calls, add it as a thought first
+                        if (hasMessage) {
+                            thoughts.push({
+                                type: 'thought',
+                                content: msg.message,
+                                id: generateUUID(),
+                            });
+                        }
                         for (const tc of msg.tool_calls) {
                             thoughts.push({
                                 type: 'tool_call',
@@ -358,9 +370,8 @@ const App = () => {
                                 id: tc.tool_call_id,
                             });
                         }
-                    }
-
-                    if (hasMessage) {
+                    } else if (hasMessage) {
+                        // No tool calls, just a message - set as currentAgentMessage
                         currentAgentMessage = {
                             role: 'assistant',
                             content: msg.message,

@@ -23,7 +23,7 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtI
                 <div className="thought-step">💭</div>
                 <div className="thought-content">
                     <div className={`thought-reasoning ${thought.isInternalThought ? 'italic' : ''}`}>
-                        {thought.content}
+                        {thought.content.trim()}
                     </div>
                 </div>
             </div>
