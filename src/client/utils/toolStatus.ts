@@ -36,5 +36,14 @@ export function getToolResultStatus(toolResult: string | undefined, toolName: st
         return 'success';
     }
 
+    // For web tools, check if we got actual content (not an error)
+    if (toolName === 'search_web' || toolName === 'read_webpage') {
+        if (toolResult.length > 0 && !lowerResult.startsWith('error') && !lowerResult.startsWith('failed')) {
+            return 'success';
+        } else {
+            return 'error';
+        }
+    }
+
     return 'neutral';
 }
