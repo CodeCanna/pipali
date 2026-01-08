@@ -339,15 +339,10 @@ async function pickNextTool(
     const lastUserIndex = config.chatHistory.steps.findLastIndex(s => s.source === 'user') || 0;
     const isLast = config.chatHistory.steps.length - lastUserIndex == config.maxIterations - 1;
     const previousIterations = config.chatHistory.steps.slice(lastUserIndex + 1);
-    const toolChoice = isLast ? 'none' : 'auto';
 
     // Get all tools (built-in + MCP)
     const tools = await getAllTools();
-
-    // Build tool options string
-    const toolOptionsStr = tools
-        .map(tool => `- "${tool.name}": "${tool.description}"`)
-        .join('\n');
+    const toolChoice = isLast ? 'none' : 'auto';
 
     // Build personality context
     const personalityContext = personality
@@ -360,7 +355,6 @@ async function pickNextTool(
     // Build system prompt using ChatPromptTemplate
     const now = new Date();
     const systemPrompt = await prompts.planFunctionExecution.format({
-        tools: toolOptionsStr,
         personality_context: await personalityContext,
         skills_context: skillsContext,
         current_date: currentDate ?? now.toLocaleDateString('en-CA'), // YYYY-MM-DD in local time
