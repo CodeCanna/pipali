@@ -1,0 +1,33 @@
+/*
+ * Panini Styles - Scrollbar & Selection
+ * Includes: custom scrollbar, text selection, KaTeX
+ */
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+}
+
+/* Selection */
+::selection {
+    background: rgba(23, 23, 23, 0.1);
+}
+
+/* KaTeX - hide HTML version, show only visual HTML */
+.katex-html {
+    display: none;
+}

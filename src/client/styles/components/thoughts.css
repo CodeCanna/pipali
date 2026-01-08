@@ -1,0 +1,467 @@
+/*
+ * Panini Styles - Thoughts Component
+ * Includes: thoughts section, tool results (grep, diff, bash, list)
+ */
+
+/* Thoughts Section */
+.thoughts-section {
+    margin-bottom: 4px;
+}
+
+.thoughts-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.thoughts-toggle:hover {
+    background: var(--color-border);
+}
+
+.thoughts-summary {
+    font-weight: 500;
+}
+
+.thoughts-chevron {
+    transition: transform var(--transition);
+}
+
+.thoughts-chevron.expanded {
+    transform: rotate(180deg);
+}
+
+/* Streaming preview - shows latest thought while streaming */
+.thoughts-preview {
+    margin-top: 12px;
+    padding-left: 8px;
+    border-left: 2px solid var(--color-border);
+}
+
+.thoughts-preview .thought-item {
+    padding-left: 12px;
+}
+
+.thoughts-preview .thought-step {
+    animation: pulse-step 1s ease-in-out infinite;
+}
+
+@keyframes pulse-step {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+.thoughts-list {
+    margin-top: 12px;
+    padding-left: 8px;
+    border-left: 2px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.thought-item {
+    display: flex;
+    gap: 12px;
+    padding-left: 12px;
+}
+
+.thought-step {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-muted);
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.thought-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.thought-tool {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: 4px;
+}
+
+.thought-args {
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+}
+
+.thought-reasoning {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-bottom: 6px;
+    white-space: pre-wrap;
+}
+
+.thought-reasoning.italic {
+    font-style: italic;
+}
+
+.thought-result {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    background: var(--color-bg-muted);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 180px;
+    overflow: auto;
+}
+
+/* Thought diff view for edit/write operations */
+.thought-diff {
+    margin-top: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.thought-diff-line {
+    display: flex;
+    padding: 1px 8px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.thought-diff-line.context {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+}
+
+.thought-diff-line.removed {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+}
+
+.thought-diff-line.added {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+.thought-diff-indicator {
+    flex-shrink: 0;
+    width: 16px;
+    font-weight: 600;
+    user-select: none;
+}
+
+.thought-diff-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.thought-diff-truncated {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-muted);
+    border-top: 1px solid var(--color-border);
+}
+
+/* Thought step status indicators */
+.thought-step.success {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+.thought-step.error {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+}
+
+.thought-step.neutral {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+}
+
+.thought-step.pending {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    animation: pulse-pending 1s ease-in-out infinite;
+}
+
+@keyframes pulse-pending {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+/* Grep results view */
+.thought-grep {
+    margin-top: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--color-bg-elevated);
+}
+
+.grep-file-group {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.grep-file-group:last-child {
+    border-bottom: none;
+}
+
+.grep-file-header {
+    padding: 4px 8px;
+    font-weight: 600;
+    color: var(--color-text);
+    background: var(--color-bg-muted);
+    font-size: 11px;
+}
+
+.grep-result-line {
+    display: flex;
+    padding: 1px 8px;
+    gap: 8px;
+}
+
+/* Matched line - highlighted */
+.grep-result-line.match {
+    background: #ffffe3;
+}
+
+/* Context line - dimmed */
+.grep-result-line.context {
+    opacity: 0.4;
+}
+
+.grep-line-num {
+    flex-shrink: 0;
+    width: 36px;
+    text-align: right;
+    color: var(--color-text-muted);
+    user-select: none;
+}
+
+.grep-text {
+    flex: 1;
+    color: var(--color-text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.grep-result-truncated {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-muted);
+    border-top: 1px solid var(--color-border);
+}
+
+/* List files results view */
+.thought-list {
+    margin-top: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+
+.list-dir-group {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.list-dir-group:last-child {
+    border-bottom: none;
+}
+
+.list-dir-header {
+    padding: 4px 8px;
+    font-weight: 600;
+    color: var(--color-text);
+    background: var(--color-bg-muted);
+    font-size: 11px;
+}
+
+.list-file-item {
+    padding: 2px 8px 2px 16px;
+}
+
+.list-file-name {
+    color: var(--color-text-secondary);
+}
+
+.list-result-truncated {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-muted);
+    border-top: 1px solid var(--color-border);
+}
+
+/* Bash command results view */
+.thought-bash {
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+.bash-justification {
+    display: flex;
+    gap: 6px;
+    padding: 6px 8px;
+    background: var(--color-bg-muted);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.bash-label {
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.bash-justification-text {
+    color: var(--color-text-secondary);
+}
+
+.bash-command-block {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--color-code-bg);
+}
+
+.bash-command-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: var(--color-code-border);
+    border-bottom: 1px solid var(--color-code-border);
+}
+
+.bash-cwd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-syntax-comment);
+    background: none;
+    padding: 0;
+}
+
+.bash-prompt {
+    color: var(--color-syntax-keyword);
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.bash-command-text {
+    margin: 0;
+    padding: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-code-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.bash-command-text code {
+    font-family: inherit;
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+.bash-output {
+    margin-top: 6px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+}
+
+.bash-output.success {
+    border-color: rgba(34, 197, 94, 0.25);
+}
+
+.bash-output.error {
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
+.bash-output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: var(--color-bg-muted);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.bash-output.success .bash-output-header {
+    background: rgba(34, 197, 94, 0.06);
+}
+
+.bash-output.error .bash-output-header {
+    background: rgba(239, 68, 68, 0.06);
+}
+
+.bash-expand-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.bash-output-text {
+    margin: 0;
+    padding: 6px 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 150px;
+    overflow-y: auto;
+    background: var(--color-bg);
+}
+
+.bash-output.error .bash-output-text {
+    color: #ef4444;
+}

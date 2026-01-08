@@ -1,0 +1,241 @@
+/*
+ * Panini Design Tokens - Colors (Dark Mode)
+ * Based on Khoj Design System
+ *
+ * Supports:
+ * - System preference via prefers-color-scheme
+ * - Manual toggle via .dark/.light class on :root
+ */
+
+/* System preference dark mode */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    /* Backgrounds */
+    --color-bg: #121212;
+    --color-bg-elevated: #1e1e1e;
+    --color-bg-muted: #2a2a2a;
+    --color-bg-sidebar: #161616;
+
+    /* Text */
+    --color-text: #e0e0e0;
+    --color-text-secondary: #a0a0a0;
+    --color-text-muted: #707070;
+
+    /* Borders */
+    --color-border: #333333;
+    --color-border-subtle: #2a2a2a;
+
+    /* Interactive */
+    --color-accent: #e0e0e0;
+    --color-accent-hover: #ffffff;
+
+    /* Status - Success */
+    --color-success: #4ade80;
+    --color-success-bg: #052e16;
+    --color-success-text: #86efac;
+    --color-success-border: #166534;
+
+    /* Status - Warning */
+    --color-warning: #fbbf24;
+    --color-warning-bg: #451a03;
+    --color-warning-text: #fcd34d;
+    --color-warning-border: #92400e;
+
+    /* Status - Error */
+    --color-error: #f87171;
+    --color-error-bg: #450a0a;
+    --color-error-text: #fca5a5;
+    --color-error-border: #991b1b;
+
+    /* Status - Info */
+    --color-info: #60a5fa;
+    --color-info-bg: #1e3a5f;
+    --color-info-text: #93c5fd;
+    --color-info-border: #1e40af;
+
+    /* Code blocks */
+    --color-code-bg: #0d0d0d;
+    --color-code-text: #d4d4d4;
+    --color-code-border: #333333;
+
+    /* Diff colors */
+    --color-diff-add-bg: #052e16;
+    --color-diff-add-text: #86efac;
+    --color-diff-remove-bg: #450a0a;
+    --color-diff-remove-text: #fca5a5;
+    --color-diff-context-bg: #2a2a2a;
+
+    /* Scrollbar */
+    --color-scrollbar-track: transparent;
+    --color-scrollbar-thumb: #404040;
+    --color-scrollbar-thumb-hover: #525252;
+
+    /* Selection */
+    --color-selection-bg: #e0e0e0;
+    --color-selection-text: #121212;
+
+    /* Interactive states */
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(255, 255, 255, 0.1);
+    --text-muted: var(--color-text-muted);
+    --border-light: var(--color-border-subtle);
+
+    /* Shadows need to be more subtle in dark mode */
+    --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Manual dark mode override */
+:root.dark {
+  /* Backgrounds */
+  --color-bg: #121212;
+  --color-bg-elevated: #1e1e1e;
+  --color-bg-muted: #2a2a2a;
+  --color-bg-sidebar: #161616;
+
+  /* Text */
+  --color-text: #e0e0e0;
+  --color-text-secondary: #a0a0a0;
+  --color-text-muted: #707070;
+
+  /* Borders */
+  --color-border: #333333;
+  --color-border-subtle: #2a2a2a;
+
+  /* Interactive */
+  --color-accent: #e0e0e0;
+  --color-accent-hover: #ffffff;
+
+  /* Status - Success */
+  --color-success: #4ade80;
+  --color-success-bg: #052e16;
+  --color-success-text: #86efac;
+  --color-success-border: #166534;
+
+  /* Status - Warning */
+  --color-warning: #fbbf24;
+  --color-warning-bg: #451a03;
+  --color-warning-text: #fcd34d;
+  --color-warning-border: #92400e;
+
+  /* Status - Error */
+  --color-error: #f87171;
+  --color-error-bg: #450a0a;
+  --color-error-text: #fca5a5;
+  --color-error-border: #991b1b;
+
+  /* Status - Info */
+  --color-info: #60a5fa;
+  --color-info-bg: #1e3a5f;
+  --color-info-text: #93c5fd;
+  --color-info-border: #1e40af;
+
+  /* Code blocks */
+  --color-code-bg: #0d0d0d;
+  --color-code-text: #d4d4d4;
+  --color-code-border: #333333;
+
+  /* Diff colors */
+  --color-diff-add-bg: #052e16;
+  --color-diff-add-text: #86efac;
+  --color-diff-remove-bg: #450a0a;
+  --color-diff-remove-text: #fca5a5;
+  --color-diff-context-bg: #2a2a2a;
+
+  /* Scrollbar */
+  --color-scrollbar-track: transparent;
+  --color-scrollbar-thumb: #404040;
+  --color-scrollbar-thumb-hover: #525252;
+
+  /* Selection */
+  --color-selection-bg: #e0e0e0;
+  --color-selection-text: #121212;
+
+  /* Interactive states */
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.1);
+  --text-muted: var(--color-text-muted);
+  --border-light: var(--color-border-subtle);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Manual light mode override (when user explicitly chooses light) */
+:root.light {
+  /* Backgrounds */
+  --color-bg: #fafafa;
+  --color-bg-elevated: #ffffff;
+  --color-bg-muted: #f5f5f5;
+  --color-bg-sidebar: #f8f8f8;
+
+  /* Text */
+  --color-text: #1a1a1a;
+  --color-text-secondary: #525252;
+  --color-text-muted: #a3a3a3;
+
+  /* Borders */
+  --color-border: #e5e5e5;
+  --color-border-subtle: #f0f0f0;
+
+  /* Interactive */
+  --color-accent: #1a1a1a;
+  --color-accent-hover: #404040;
+
+  /* Status - Success */
+  --color-success: #22c55e;
+  --color-success-bg: #dcfce7;
+  --color-success-text: #166534;
+  --color-success-border: #86efac;
+
+  /* Status - Warning */
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fcd34d;
+
+  /* Status - Error */
+  --color-error: #ef4444;
+  --color-error-bg: #fee2e2;
+  --color-error-text: #991b1b;
+  --color-error-border: #fca5a5;
+
+  /* Status - Info */
+  --color-info: #3498db;
+  --color-info-bg: #dbeafe;
+  --color-info-text: #1e40af;
+  --color-info-border: #93c5fd;
+
+  /* Code blocks */
+  --color-code-bg: #1e1e1e;
+  --color-code-text: #d4d4d4;
+  --color-code-border: #2d2d2d;
+
+  /* Diff colors */
+  --color-diff-add-bg: #dcfce7;
+  --color-diff-add-text: #166534;
+  --color-diff-remove-bg: #fee2e2;
+  --color-diff-remove-text: #991b1b;
+  --color-diff-context-bg: #f5f5f5;
+
+  /* Scrollbar */
+  --color-scrollbar-track: transparent;
+  --color-scrollbar-thumb: #d4d4d4;
+  --color-scrollbar-thumb-hover: #a3a3a3;
+
+  /* Selection */
+  --color-selection-bg: #1a1a1a;
+  --color-selection-text: #ffffff;
+
+  /* Interactive states */
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.08);
+  --text-muted: var(--color-text-muted);
+  --border-light: var(--color-border-subtle);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
+}

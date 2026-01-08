@@ -1,0 +1,180 @@
+/*
+ * Panini Styles - Header Layout
+ * Includes: header, logo, model selector, status indicator
+ */
+
+/* Header */
+.header {
+    flex-shrink: 0;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-elevated);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.sidebar-toggle:hover {
+    background: var(--color-bg-muted);
+    color: var(--color-text);
+}
+
+.logo {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    margin: 0;
+}
+
+.logo.clickable {
+    cursor: pointer;
+    transition: opacity var(--transition);
+}
+
+.logo.clickable:hover {
+    opacity: 0.7;
+}
+
+.logo.clickable:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Model Selector */
+.model-selector {
+    position: relative;
+}
+
+.model-selector-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.model-selector-btn:hover {
+    border-color: var(--color-text-muted);
+}
+
+.model-selector-btn svg {
+    transition: transform var(--transition);
+}
+
+.model-selector-btn svg.rotated {
+    transform: rotate(180deg);
+}
+
+.model-name {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 220px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+}
+
+.model-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    font-size: 13px;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background var(--transition);
+    text-align: left;
+}
+
+.model-option:hover {
+    background: var(--color-bg-muted);
+}
+
+.model-option.selected {
+    background: var(--color-bg-muted);
+}
+
+.model-option-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.model-option-name {
+    font-weight: 500;
+}
+
+.model-option-provider {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.status {
+    display: flex;
+    align-items: center;
+}
+
+.status-dot {
+    transition: color var(--transition);
+}
+
+.status-dot.connected {
+    color: var(--color-success);
+}
+
+.status-dot.disconnected {
+    color: var(--color-error);
+}

@@ -1,0 +1,82 @@
+/*
+ * Panini Styles - Responsive Breakpoints
+ * Mobile-first responsive adjustments
+ */
+
+/* Tablet and below */
+@media (max-width: 768px) {
+    /* Mobile backdrop overlay */
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 40;
+        animation: fade-in 0.15s ease;
+    }
+
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 50;
+        box-shadow: var(--shadow-md);
+        width: min(var(--sidebar-width), 85vw);
+    }
+
+    .sidebar.closed {
+        margin-left: 0;
+        transform: translateX(-100%);
+    }
+
+    /* Show close button on mobile */
+    .sidebar-close-btn {
+        display: flex;
+    }
+
+    .model-name {
+        max-width: 100px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .header {
+        padding: 12px 16px;
+    }
+
+    .messages {
+        padding: 16px;
+        gap: 24px;
+    }
+
+    .input-area {
+        padding: 12px 16px 16px;
+    }
+
+    .input-form {
+        padding: 10px 14px;
+    }
+
+    .model-selector-btn {
+        padding: 6px 10px;
+    }
+
+    .model-name {
+        max-width: 80px;
+    }
+
+    /* Task gallery responsive */
+    .task-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .task-gallery {
+        padding: 24px 16px;
+    }
+}

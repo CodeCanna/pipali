@@ -1,0 +1,204 @@
+/*
+ * Panini Styles - Messages Component
+ * Includes: message layout, content formatting, streaming animation
+ */
+
+/* Messages */
+.messages {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.message {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.message-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.message-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    letter-spacing: -0.01em;
+}
+
+.user-message .message-label {
+    color: var(--color-text-muted);
+}
+
+.message-delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    opacity: 0.6;
+}
+
+.message-delete-btn:hover {
+    background: var(--bg-hover);
+    color: var(--color-text-secondary);
+    opacity: 1;
+}
+
+.message-delete-btn:active {
+    background: var(--bg-active);
+}
+
+.message-content {
+    font-size: var(--text-base);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text);
+}
+
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+    font-family: var(--font-heading);
+    font-weight: var(--font-semibold);
+    line-height: var(--leading-tight);
+    margin: var(--space-6) 0 var(--space-3) 0;
+    color: var(--color-text);
+}
+
+.message-content h1:first-child,
+.message-content h2:first-child,
+.message-content h3:first-child {
+    margin-top: 0;
+}
+
+.message-content h1 { font-size: var(--text-2xl); }
+.message-content h2 { font-size: var(--text-xl); }
+.message-content h3 { font-size: var(--text-lg); }
+.message-content h4 { font-size: var(--text-base); }
+
+.message-content p {
+    margin: 0 0 12px 0;
+}
+
+.message-content p:last-child {
+    margin-bottom: 0;
+}
+
+.message-content pre {
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 16px 0;
+}
+
+.message-content code {
+    background: var(--color-bg-muted);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+.message-content pre code {
+    background: none;
+    padding: 0;
+}
+
+.message-content ul, .message-content ol {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.message-content li {
+    margin: 6px 0;
+}
+
+.message-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+}
+
+.message-content th,
+.message-content td {
+    padding: 10px 12px;
+    text-align: left;
+    border: 1px solid var(--color-border);
+}
+
+.message-content th {
+    background: var(--color-bg-muted);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.message-content td {
+    background: var(--color-bg-elevated);
+}
+
+.message-content tr:hover td {
+    background: var(--color-bg-muted);
+}
+
+.message-content tbody tr:nth-child(even) td {
+    background: var(--color-bg);
+}
+
+.message-content tbody tr:nth-child(even):hover td {
+    background: var(--color-bg-muted);
+}
+
+/* Streaming Animation */
+.streaming {
+    display: flex;
+    gap: 4px;
+    padding: 4px 0;
+}
+
+.streaming-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--color-text-muted);
+    border-radius: 50%;
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+.streaming-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.streaming-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+    0%, 80%, 100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+    }
+    40% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

@@ -1,8 +1,9 @@
 // Sidebar with conversation list
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Wrench, User, LogOut, Shield } from 'lucide-react';
+import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Wrench, User, LogOut, Shield, Sun, Moon, Monitor } from 'lucide-react';
 import type { ConversationSummary, ConversationState, ConfirmationRequest, AuthStatus } from '../../types';
+import { useTheme, type Theme } from '../../hooks';
 
 const MAX_VISIBLE_CHATS = 5;
 
@@ -52,6 +53,7 @@ export function Sidebar({
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
+    const { theme, setTheme, isDark } = useTheme();
 
     // Close menus when clicking outside
     useEffect(() => {
@@ -381,6 +383,36 @@ export function Sidebar({
 
                             {showUserMenu && (
                                 <div className="user-menu" role="menu">
+                                    {/* Theme Toggle */}
+                                    <div className="user-menu-theme">
+                                        <span className="user-menu-label">Theme</span>
+                                        <div className="theme-toggle-group">
+                                            <button
+                                                className={`theme-toggle-btn ${theme === 'light' ? 'active' : ''}`}
+                                                onClick={() => setTheme('light')}
+                                                aria-label="Light theme"
+                                                title="Light"
+                                            >
+                                                <Sun size={14} />
+                                            </button>
+                                            <button
+                                                className={`theme-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
+                                                onClick={() => setTheme('dark')}
+                                                aria-label="Dark theme"
+                                                title="Dark"
+                                            >
+                                                <Moon size={14} />
+                                            </button>
+                                            <button
+                                                className={`theme-toggle-btn ${theme === 'system' ? 'active' : ''}`}
+                                                onClick={() => setTheme('system')}
+                                                aria-label="System theme"
+                                                title="System"
+                                            >
+                                                <Monitor size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
                                     {!authStatus.anonMode && (
                                         <button
                                             className="user-menu-item danger"

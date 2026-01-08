@@ -1,0 +1,882 @@
+/*
+ * Panini Styles - Automations Page
+ * Includes: automations gallery, automation cards, automation modals
+ */
+
+.automations-gallery {
+    padding: 48px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.automations-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.automations-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.automations-header-left h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+}
+
+.automations-count {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-muted);
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+}
+
+.automations-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.automations-create-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--color-accent);
+    color: var(--color-bg);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.automations-create-btn:hover {
+    background: var(--color-accent-hover);
+}
+
+.automations-reload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition);
+    color: var(--color-text-secondary);
+}
+
+.automations-reload-btn:hover:not(:disabled) {
+    background: var(--color-bg-muted);
+    color: var(--color-text);
+}
+
+.automations-reload-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.automations-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    color: var(--color-text-muted);
+    font-size: 14px;
+}
+
+.automations-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+    gap: 16px;
+}
+
+/* Automation Card */
+.automation-card {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.automation-card:hover {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.automation-card:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+.automation-card.paused {
+    opacity: 0.7;
+    border-left: 3px solid var(--color-warning);
+}
+
+.automation-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.automation-status-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.automation-status-badge.active {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+.automation-status-badge.paused {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+}
+
+.automation-status-badge.error {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+}
+
+.automation-status-badge.awaiting-confirmation {
+    background: var(--color-warning-bg);
+    color: #b45309;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: pulse-attention 2s ease-in-out infinite;
+}
+
+@keyframes pulse-attention {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Automation card awaiting confirmation state */
+.automation-card.awaiting-confirmation {
+    border-left: 3px solid #f59e0b;
+    background: linear-gradient(to right, rgba(245, 158, 11, 0.05), var(--color-bg-elevated));
+}
+
+.automation-card.awaiting-confirmation:hover {
+    border-color: #f59e0b;
+}
+
+.automation-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.automation-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-8);
+    height: var(--space-8);
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: all var(--transition);
+}
+
+.automation-action-btn:hover {
+    background: var(--color-bg-muted);
+    color: var(--color-text);
+}
+
+.automation-action-btn.pause:hover {
+    background: var(--color-warning-bg);
+    border-color: #fde68a;
+    color: var(--color-warning-text);
+}
+
+.automation-action-btn.play:hover {
+    background: var(--color-success-bg);
+    border-color: #bbf7d0;
+    color: var(--color-success-text);
+}
+
+.automation-action-btn.delete:hover {
+    background: var(--color-error-bg);
+    border-color: var(--color-error-border);
+    color: var(--color-error-text);
+}
+
+.automation-card-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.automation-card-description {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.automation-card-prompt {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.5;
+    font-style: italic;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.automation-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border-subtle);
+    flex-wrap: wrap;
+}
+
+.automation-schedule,
+.automation-next-run {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.automation-chevron {
+    margin-left: auto;
+    color: var(--color-text-muted);
+}
+
+/* Automations Empty State */
+.empty-state.automations-empty {
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.empty-state.automations-empty h2 {
+    margin: 16px 0 8px;
+}
+
+.empty-state.automations-empty p {
+    color: var(--color-text-secondary);
+    margin: 0 0 8px;
+}
+
+.empty-state.automations-empty .empty-hint {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin-top: 16px;
+}
+
+/* Create Automation Modal */
+.automation-modal {
+    max-width: 560px;
+    width: 100%;
+}
+
+.automation-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 16px 24px;
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-section-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0 0 4px;
+}
+
+.form-section-subtitle {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.frequency-selector,
+.time-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.frequency-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.frequency-icon {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.frequency-label {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+}
+
+.frequency-select {
+    padding: 6px 10px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    color: var(--color-text);
+    cursor: pointer;
+    min-width: 100px;
+}
+
+.frequency-select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+.time-select {
+    min-width: 120px;
+}
+
+.frequency-detail {
+    padding-left: 26px;
+}
+
+.frequency-detail-label {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0 0 8px;
+}
+
+/* Instructions Section */
+.instruction-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.instruction-suggestion {
+    padding: 6px 12px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.instruction-suggestion:hover {
+    background: var(--color-bg-muted);
+    border-color: var(--color-text-muted);
+    color: var(--color-text);
+}
+
+.instructions-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--color-text);
+    resize: vertical;
+    min-height: 100px;
+    transition: all var(--transition);
+}
+
+.instructions-textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.1);
+}
+
+.instructions-textarea::placeholder {
+    color: var(--color-text-muted);
+}
+
+/* Save button styling */
+.btn-save {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.btn-save:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+}
+
+/* Schedule Section Toggle (Optional schedule) */
+.schedule-section {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0;
+    gap: 0;
+}
+
+.schedule-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 16px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text);
+    text-align: left;
+}
+
+.schedule-toggle:hover {
+    background: var(--color-bg-elevated);
+}
+
+.schedule-toggle svg {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.schedule-toggle-hint {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--color-text-muted);
+    margin-left: 4px;
+}
+
+.schedule-content {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border-top: 1px solid var(--color-border);
+    margin-top: 0;
+    padding-top: 16px;
+}
+
+/* Run Now button */
+.btn-run-now {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-bg);
+}
+
+.btn-run-now:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+}
+
+.btn-run-now:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Automation Detail Modal */
+.automation-detail-modal {
+    max-width: 560px;
+    width: 100%;
+}
+
+.automation-detail-header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.automation-detail-header-content h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+}
+
+.automation-detail-content {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.automation-detail-section h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 8px 0;
+}
+
+.automation-detail-schedule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    color: var(--color-text);
+}
+
+.automation-detail-next-run {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin-top: 8px;
+}
+
+.automation-detail-instructions {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.automation-detail-meta {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-text-secondary);
+}
+
+.automation-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-6);
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+/* Ensure consistent button heights in automation detail modal */
+.automation-detail-actions button {
+    min-height: var(--space-10);
+    box-sizing: border-box;
+}
+
+.action-spacer {
+    flex: 1;
+}
+
+.btn-pause {
+    color: #92400e;
+}
+
+.btn-pause:hover {
+    background: #fef3c7;
+    border-color: #fde68a;
+}
+
+.btn-play {
+    color: #166534;
+}
+
+.btn-play:hover {
+    background: #dcfce7;
+    border-color: #bbf7d0;
+}
+
+/* Automation Confirmation Section in Detail Modal */
+.automation-confirmation-section {
+    background: linear-gradient(to right, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.02));
+    border: 1px solid #fcd34d;
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.automation-confirmation-section .confirmation-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    color: #b45309;
+}
+
+.automation-confirmation-section .confirmation-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.automation-confirmation-section .confirmation-content {
+    margin-bottom: var(--space-4);
+}
+
+.automation-confirmation-section .confirmation-title {
+    font-weight: 500;
+    margin-bottom: var(--space-2);
+    color: var(--color-text);
+}
+
+.automation-confirmation-section .confirmation-reason {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    margin-bottom: var(--space-3);
+}
+
+.automation-confirmation-section .confirmation-message {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.automation-confirmation-section .confirmation-command-section {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin-top: var(--space-2);
+}
+
+.automation-confirmation-section .confirmation-command-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-2);
+}
+
+.automation-confirmation-section .confirmation-command-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.automation-confirmation-section .confirmation-workdir {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-muted);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.automation-confirmation-section .confirmation-command-code {
+    margin: 0;
+    font-size: 12px;
+    background: var(--color-bg-muted);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+}
+
+.automation-confirmation-section .confirmation-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.automation-confirmation-section .btn-confirmation {
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.automation-confirmation-section .btn-confirmation.primary {
+    background: var(--color-accent);
+    color: white;
+    border: none;
+}
+
+.automation-confirmation-section .btn-confirmation.primary:hover {
+    background: var(--color-accent-hover);
+}
+
+.automation-confirmation-section .btn-confirmation.primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.automation-confirmation-section .btn-confirmation.secondary {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.automation-confirmation-section .btn-confirmation.secondary:hover {
+    background: var(--color-bg-muted);
+    color: var(--color-text);
+}
+
+.automation-confirmation-section .btn-confirmation.danger {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+    border: 1px solid var(--color-error-border);
+}
+
+.automation-confirmation-section .btn-confirmation.danger:hover {
+    background: #fecaca;
+}
+
+.automation-confirmation-section .btn-confirmation.warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    border: 1px solid var(--color-warning-border);
+}
+
+.automation-confirmation-section .btn-confirmation.warning:hover {
+    background: #fde68a;
+}
+
+/* Guidance input in automation confirmation section */
+.confirmation-guidance-section {
+    margin-top: var(--space-3);
+}
+
+.confirmation-guidance-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.confirmation-guidance-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+.confirmation-guidance-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.confirmation-guidance-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    justify-content: flex-end;
+}
+
+/* Responsive Automations */
+@media (max-width: 640px) {
+    .automations-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .automations-gallery {
+        padding: 24px 16px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .automations-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .frequency-row {
+        flex-wrap: wrap;
+    }
+
+    .instruction-suggestions {
+        flex-direction: column;
+    }
+
+    .instruction-suggestion {
+        text-align: center;
+    }
+
+    /* Automation detail modal responsive */
+    .automation-detail-modal {
+        max-width: none;
+        width: 100%;
+    }
+
+    .automation-detail-header-content h2 {
+        max-width: 200px;
+    }
+
+    .automation-detail-content {
+        padding: 16px;
+    }
+
+    /* Button layout for automation detail modal on mobile */
+    .automation-detail-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-4);
+    }
+
+    .automation-detail-actions button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Hide the spacer on mobile */
+    .automation-detail-actions .action-spacer {
+        display: none;
+    }
+
+    .automation-detail-actions .delete-confirm-text {
+        text-align: center;
+    }
+}
+

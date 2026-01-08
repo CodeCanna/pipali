@@ -1,0 +1,101 @@
+/*
+ * Panini Design Tokens - Colors (Light Mode)
+ * Based on Khoj Design System
+ */
+
+:root {
+  /* Backgrounds */
+  --color-bg: #fafafa;
+  --color-bg-elevated: #ffffff;
+  --color-bg-muted: #f5f5f5;
+  --color-bg-sidebar: #f8f8f8;
+
+  /* Text */
+  --color-text: #1a1a1a;
+  --color-text-secondary: #525252;
+  --color-text-muted: #a3a3a3;
+
+  /* Borders */
+  --color-border: #e5e5e5;
+  --color-border-subtle: #f0f0f0;
+
+  /* Interactive */
+  --color-accent: #1a1a1a;
+  --color-accent-hover: #404040;
+
+  /* Status - Success */
+  --color-success: #22c55e;
+  --color-success-bg: #dcfce7;
+  --color-success-text: #166534;
+  --color-success-border: #86efac;
+
+  /* Status - Warning */
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fcd34d;
+
+  /* Status - Error */
+  --color-error: #ef4444;
+  --color-error-bg: #fee2e2;
+  --color-error-text: #991b1b;
+  --color-error-border: #fca5a5;
+
+  /* Status - Info */
+  --color-info: #3498db;
+  --color-info-bg: #dbeafe;
+  --color-info-text: #1e40af;
+  --color-info-border: #93c5fd;
+
+  /* Code blocks */
+  --color-code-bg: #1e1e1e;
+  --color-code-text: #d4d4d4;
+  --color-code-border: #2d2d2d;
+
+  /* Syntax highlighting */
+  --color-syntax-keyword: #569cd6;
+  --color-syntax-string: #ce9178;
+  --color-syntax-number: #b5cea8;
+  --color-syntax-comment: #6a9955;
+  --color-syntax-function: #dcdcaa;
+  --color-syntax-variable: #9cdcfe;
+  --color-syntax-operator: #d4d4d4;
+
+  /* Diff colors */
+  --color-diff-add-bg: #dcfce7;
+  --color-diff-add-text: #166534;
+  --color-diff-remove-bg: #fee2e2;
+  --color-diff-remove-text: #991b1b;
+  --color-diff-context-bg: #f5f5f5;
+
+  /* Scrollbar */
+  --color-scrollbar-track: transparent;
+  --color-scrollbar-thumb: #d4d4d4;
+  --color-scrollbar-thumb-hover: #a3a3a3;
+
+  /* Selection */
+  --color-selection-bg: #1a1a1a;
+  --color-selection-text: #ffffff;
+
+  /* Interactive states */
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.08);
+
+  /* Legacy aliases for backward compatibility */
+  --bg-primary: var(--color-bg);
+  --bg-secondary: var(--color-bg-elevated);
+  --bg-tertiary: var(--color-bg-muted);
+  --bg-sidebar: var(--color-bg-sidebar);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-tertiary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --border-color: var(--color-border);
+  --border-subtle: var(--color-border-subtle);
+  --border-light: var(--color-border-subtle);
+  --accent: var(--color-accent);
+  --accent-subtle: var(--color-accent-hover);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --error: var(--color-error);
+}

@@ -84,6 +84,37 @@ async function buildFrontend(): Promise<{ appJs: string }> {
     return { appJs };
 }
 
+async function bundleCss(): Promise<string> {
+    console.log("🎨 Bundling CSS...");
+
+    const tempOutDir = path.join(DIST_DIR, "_temp_css");
+    await ensureDir(tempOutDir);
+
+    // Use Bun's bundler to process CSS with @import resolution
+    const result = await Bun.build({
+        entrypoints: [path.join(CLIENT_SRC, "styles/index.css")],
+        outdir: tempOutDir,
+        minify: true,
+    });
+
+    if (!result.success) {
+        console.error("CSS build failed:");
+        for (const log of result.logs) {
+            console.error(log);
+        }
+        process.exit(1);
+    }
+
+    // Read the bundled CSS
+    const bundledCss = await fs.readFile(path.join(tempOutDir, "index.css"), "utf-8");
+
+    // Clean up temp dir
+    await fs.rm(tempOutDir, { recursive: true, force: true });
+
+    console.log("✅ CSS bundled successfully");
+    return bundledCss;
+}
+
 async function readMigrations(): Promise<{ migrations: { sql: string; tag: string }[] }> {
     console.log("📦 Reading database migrations...");
 
@@ -230,9 +261,9 @@ async function main() {
 
         // Build frontend and read assets
         const { appJs } = await buildFrontend();
+        const stylesCss = await bundleCss();
         const { migrations } = await readMigrations();
         const indexHtml = await fs.readFile(path.join(CLIENT_SRC, "index.html"), "utf-8");
-        const stylesCss = await fs.readFile(path.join(CLIENT_SRC, "styles.css"), "utf-8");
 
         // Generate embedded assets module
         await generateEmbeddedAssets(migrations, indexHtml, stylesCss, appJs);
