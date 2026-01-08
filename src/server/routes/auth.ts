@@ -12,11 +12,12 @@ import {
 
 const auth = new Hono();
 
-// OAuth callback - receives tokens from platform after browser OAuth
+// OAuth callback - serves a page that extracts tokens from URL fragment
+// Tokens are passed via fragment (#) instead of query params (?) for security:
+// - Fragments are never sent to the server in HTTP requests
+// - Fragments are not logged in server access logs
+// - Fragments are not sent in Referer headers
 auth.get('/callback', async (c) => {
-    const accessToken = c.req.query('access_token');
-    const refreshToken = c.req.query('refresh_token');
-    const expiresIn = c.req.query('expires_in');
     const error = c.req.query('error');
 
     if (error) {
@@ -24,17 +25,26 @@ auth.get('/callback', async (c) => {
         return c.html(getAuthErrorHtml(error));
     }
 
-    if (!accessToken || !refreshToken) {
-        console.error('[Auth] Missing tokens in callback');
-        return c.html(getAuthErrorHtml('Missing authentication tokens'));
-    }
+    // Return a page that extracts tokens from fragment and POSTs to /complete
+    return c.html(getTokenExtractorHtml());
+});
 
-    // Calculate expiry
-    const expiresAt = expiresIn
-        ? new Date(Date.now() + parseInt(expiresIn, 10) * 1000)
-        : new Date(Date.now() + 15 * 60 * 1000); // Default 15 minutes
-
+// Complete OAuth - receives tokens via POST body (more secure than URL)
+auth.post('/complete', async (c) => {
     try {
+        const body = await c.req.json();
+        const { accessToken, refreshToken, expiresIn } = body;
+
+        if (!accessToken || !refreshToken) {
+            console.error('[Auth] Missing tokens in completion request');
+            return c.json({ error: 'Missing authentication tokens' }, 400);
+        }
+
+        // Calculate expiry
+        const expiresAt = expiresIn
+            ? new Date(Date.now() + parseInt(expiresIn, 10) * 1000)
+            : new Date(Date.now() + 15 * 60 * 1000); // Default 15 minutes
+
         // Store tokens
         await storeTokens({ accessToken, refreshToken, expiresAt });
         console.log('[Auth] Tokens stored successfully');
@@ -43,11 +53,10 @@ auth.get('/callback', async (c) => {
         syncPlatformModels().catch(err => console.error('[Auth] Failed to sync platform models:', err));
         syncPlatformWebTools().catch(err => console.error('[Auth] Failed to sync platform web tools:', err));
 
-        // Redirect to home page after successful auth
-        return c.redirect('/');
+        return c.json({ success: true, redirectUrl: '/' });
     } catch (err) {
-        console.error('[Auth] Failed to store tokens:', err);
-        return c.html(getAuthErrorHtml('Failed to store authentication tokens'));
+        console.error('[Auth] Failed to complete authentication:', err);
+        return c.json({ error: 'Failed to complete authentication' }, 500);
     }
 });
 
@@ -94,6 +103,117 @@ auth.get('/platform-url', async (c) => {
 });
 
 // HTML templates for OAuth callback
+
+/**
+ * Returns HTML page that extracts tokens from URL fragment and POSTs to /complete.
+ * This is more secure than receiving tokens in query params because:
+ * - URL fragments are never sent to the server in HTTP requests
+ * - They don't appear in server logs
+ * - They're not included in Referer headers
+ */
+function getTokenExtractorHtml(): string {
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <title>Completing Authentication...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #0a0a0a;
+            color: #fafafa;
+        }
+        .card {
+            background: #171717;
+            padding: 3rem;
+            border-radius: 1rem;
+            border: 1px solid #262626;
+            text-align: center;
+            max-width: 400px;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #262626;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        h1 { color: #fafafa; margin: 0 0 0.5rem; font-size: 1.25rem; }
+        p { color: #a1a1aa; margin: 0; font-size: 0.875rem; }
+        .error { color: #f87171; margin-top: 1rem; display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="spinner" id="spinner"></div>
+        <h1>Completing Authentication</h1>
+        <p>Please wait...</p>
+        <p class="error" id="error"></p>
+    </div>
+    <script>
+        (function() {
+            // Parse tokens from URL fragment (after #)
+            // Fragments are never sent to the server, providing better security
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+
+            // Check for errors first
+            const error = params.get('error');
+            if (error) {
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = decodeURIComponent(error);
+                return;
+            }
+
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+            const expiresIn = params.get('expires_in');
+
+            if (!accessToken || !refreshToken) {
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Missing authentication tokens. Please try again.';
+                return;
+            }
+
+            // POST tokens to server
+            fetch('/api/auth/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    expiresIn: expiresIn ? parseInt(expiresIn, 10) : null
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.redirectUrl) {
+                    // Clear the fragment from URL before redirecting
+                    window.location.replace(data.redirectUrl);
+                } else {
+                    throw new Error(data.error || 'Authentication failed');
+                }
+            })
+            .catch(err => {
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = err.message || 'Authentication failed. Please try again.';
+            });
+        })();
+    </script>
+</body>
+</html>`;
+}
+
 function getAuthErrorHtml(error: string): string {
     return `<!DOCTYPE html>
 <html>
