@@ -7,7 +7,7 @@ import path from 'path';
 import os from 'os';
 import { mkdir, rm } from 'fs/promises';
 import { loadSkillsFromPaths, isValidSkillName, isValidDescription } from './loader';
-import { formatSkillsForPrompt } from './prompt';
+import { formatSkillsForPrompt } from './utils';
 import type { Skill, SkillLoadResult } from './types';
 
 export interface DeleteSkillResult {

@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
 import { parseFrontmatter, isValidSkillName, loadSkillsFromPaths } from '../../src/server/skills/loader';
-import { formatSkillsForPrompt } from '../../src/server/skills/prompt';
+import { formatSkillsForPrompt } from '../../src/server/skills/utils';
 import type { Skill } from '../../src/server/skills/types';
 
 describe('skills', () => {
