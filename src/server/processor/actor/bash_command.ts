@@ -50,8 +50,8 @@ export interface BashCommandOptions {
 /** Default timeout for command execution (30 seconds) */
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-/** Maximum timeout allowed (5 minutes) */
-const MAX_TIMEOUT_MS = 300_000;
+/** Maximum timeout allowed (1 minutes) */
+const MAX_TIMEOUT_MS = 60_000;
 
 /**
  * Executes a bash command on the user's system.
