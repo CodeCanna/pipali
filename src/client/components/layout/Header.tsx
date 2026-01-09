@@ -3,6 +3,7 @@
 import React, { useRef, useEffect } from 'react';
 import { PanelLeftClose, PanelLeft, ChevronDown, Circle, Check } from 'lucide-react';
 import type { ChatModelInfo } from '../../types';
+import { getApiBaseUrl } from '../../utils/api';
 
 interface HeaderProps {
     sidebarOpen: boolean;
@@ -62,7 +63,7 @@ export function Header({
                             }
                         }}
                     >
-                        <img src="/icons/pipali_64.png" alt="Pipali" className="logo-icon" />
+                        <img src={`${getApiBaseUrl()}/icons/pipali_64.png`} alt="Pipali" className="logo-icon" />
                         <span className="logo-text">Pipali</span>
                     </div>
                 </div>

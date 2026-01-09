@@ -10,7 +10,7 @@
       "identifier": "shell:allow-spawn",
       "allow": [
         {
-          "name": "binaries/pipali-server",
+          "name": "pipali-server",
           "sidecar": true,
           "args": true
         }

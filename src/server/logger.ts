@@ -4,6 +4,7 @@
  */
 
 import pino from 'pino';
+import { IS_COMPILED_BINARY } from './embedded-assets';
 
 /**
  * Patterns to match and redact sensitive information in log messages.
@@ -97,21 +98,23 @@ const redactingHooks = {
 
 /**
  * Create the base pino logger with redaction enabled.
+ * Note: pino-pretty doesn't work in compiled Bun binaries, so we only use it in dev mode.
  */
+const usePrettyPrint = !IS_COMPILED_BINARY && process.env.NODE_ENV !== 'production';
+
 const baseLogger = pino({
     level: process.env.LOG_LEVEL || 'info',
     hooks: redactingHooks,
-    transport:
-        process.env.NODE_ENV !== 'production'
-            ? {
-                  target: 'pino-pretty',
-                  options: {
-                      colorize: true,
-                      translateTime: 'SYS:standard',
-                      ignore: 'pid,hostname',
-                  },
-              }
-            : undefined,
+    transport: usePrettyPrint
+        ? {
+              target: 'pino-pretty',
+              options: {
+                  colorize: true,
+                  translateTime: 'SYS:standard',
+                  ignore: 'pid,hostname',
+              },
+          }
+        : undefined,
 });
 
 /**

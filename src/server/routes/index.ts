@@ -16,7 +16,7 @@ if (IS_COMPILED_BINARY) {
         return c.html(EMBEDDED_INDEX_HTML);
     });
 
-    app.get('/styles.css', (c) => {
+    app.get('/styles/index.css', (c) => {
         return c.text(EMBEDDED_STYLES_CSS, 200, {
             'Content-Type': 'text/css',
         });

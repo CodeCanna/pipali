@@ -9,6 +9,7 @@ interface LoginPageProps {
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const logoUrl = `${getApiBaseUrl()}/icons/pipali_128.png`;
 
     const handleGoogleSignIn = async () => {
         setIsLoading(true);
@@ -61,7 +62,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <div className="login-card">
                 <div className="login-header">
                     <div className="login-logo">
-                        <img src="/icons/pipali_128.png" alt="Pipali" width="64" height="64" />
+                        <img src={logoUrl} alt="Pipali" width="64" height="64" />
                     </div>
                     <h1>Welcome to Pipali</h1>
                     <p>Sign in to continue to your personal AI assistant</p>
