@@ -193,10 +193,17 @@ async function main() {
   // This prevents Bun from restarting the server when files change during tests
   const isDevelopmentMode = !IS_COMPILED_BINARY && process.env.PIPALI_TEST_MODE !== 'true';
 
+  // Paths for quieter logging (e.g frequent polling endpoints)
+  const QUIETER_PATHS = new Set(['/api/automations/confirmations/pending']);
+
   const server = Bun.serve<WebSocketData, any>({
     async fetch(req, server) {
         const url = new URL(req.url);
-        log.info(`[${req.method}] ${url.pathname}`);
+        if (QUIETER_PATHS.has(url.pathname)) {
+            log.debug(`[${req.method}] ${url.pathname}`);
+        } else {
+            log.info(`[${req.method}] ${url.pathname}`);
+        }
 
         // WebSocket
         if (url.pathname === "/ws/chat") {
