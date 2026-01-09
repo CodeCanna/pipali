@@ -40,7 +40,7 @@ function getServerConfig() {
             },
             "platform-url": {
                 type: "string",
-                default: process.env.PIPALI_PLATFORM_URL || "https://pipali.ai",
+                default: process.env.PIPALI_PLATFORM_URL || "https://platform.pipali.ai",
             },
             help: {
                 type: "boolean",

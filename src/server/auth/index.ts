@@ -15,7 +15,7 @@ import { createChildLogger } from '../logger';
 const log = createChildLogger({ component: 'auth' });
 
 // Module state
-let platformUrl: string = process.env.PIPALI_PLATFORM_URL || 'https://pipali.ai';
+let platformUrl: string = process.env.PIPALI_PLATFORM_URL || 'https://platform.pipali.ai';
 let anonMode: boolean = false;
 
 // Mutex for token refresh to prevent race conditions
@@ -421,6 +421,15 @@ export async function syncPlatformModels(): Promise<void> {
 
         if (existingProvider) {
             providerId = existingProvider.id;
+            // Update base URL if it has changed (e.g., platform URL was updated)
+            const expectedBaseUrl = `${platformUrl}/openai/v1`;
+            if (existingProvider.apiBaseUrl !== expectedBaseUrl) {
+                log.info({ oldUrl: existingProvider.apiBaseUrl, newUrl: expectedBaseUrl }, 'Updating Pipali provider base URL');
+                await db
+                    .update(AiModelApi)
+                    .set({ apiBaseUrl: expectedBaseUrl, updatedAt: new Date() })
+                    .where(eq(AiModelApi.id, providerId));
+            }
             log.debug('Pipali provider already exists');
         } else {
             // Create the Pipali provider
@@ -547,12 +556,15 @@ export async function syncPlatformWebTools(): Promise<void> {
             .from(WebSearchProvider)
             .where(eq(WebSearchProvider.name, 'Pipali'));
 
+        const expectedWebToolsBaseUrl = `${platformUrl}/tools`;
+
         if (existingSearchProvider) {
-            // Update API key and ensure it's enabled with low priority (local keys take precedence)
+            // Update API key, base URL (if changed), and ensure it's enabled with low priority
             await db
                 .update(WebSearchProvider)
                 .set({
                     apiKey: tokens.accessToken,
+                    apiBaseUrl: expectedWebToolsBaseUrl,
                     enabled: true,
                     priority: 100, // Low priority so local API keys are tried first
                     updatedAt: new Date(),
@@ -579,11 +591,12 @@ export async function syncPlatformWebTools(): Promise<void> {
             .where(eq(WebScraper.name, 'Pipali'));
 
         if (existingScraper) {
-            // Update API key and ensure it's enabled with low priority
+            // Update API key, base URL (if changed), and ensure it's enabled with low priority
             await db
                 .update(WebScraper)
                 .set({
                     apiKey: tokens.accessToken,
+                    apiBaseUrl: expectedWebToolsBaseUrl,
                     enabled: true,
                     priority: 100, // Low priority so local API keys are tried first
                     updatedAt: new Date(),

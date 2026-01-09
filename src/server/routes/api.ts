@@ -16,7 +16,7 @@ import { atifConversationService } from '../processor/conversation/atif/atif.ser
 import { runResearchToCompletion } from '../processor/research-runner';
 import { getActiveStatus } from '../sessions';
 import { loadSkills, getLoadedSkills, createSkill, getSkill, deleteSkill, updateSkill } from '../skills';
-import { syncPlatformModels } from '../auth';
+import { syncPlatformModels, syncPlatformWebTools } from '../auth';
 import { createChildLogger } from '../logger';
 
 const log = createChildLogger({ component: 'api' });
@@ -256,8 +256,9 @@ api.delete('/conversations/:conversationId/messages/:stepId', async (c) => {
 
 // Get all available chat models
 api.get('/models', async (c) => {
-    // Sync latest chat models from platform, if authenticated
+    // Sync latest chat models and web tools from platform, if authenticated
     await syncPlatformModels();
+    syncPlatformWebTools(); // Run in background - doesn't affect models response
 
     // Return updated models list from local DB
     const models = await db.select({
