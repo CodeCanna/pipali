@@ -48,6 +48,9 @@
     margin-top: 12px;
     padding-left: 8px;
     border-left: 2px solid var(--color-border);
+    min-height: 240px;
+    max-height: 240px;
+    overflow-y: auto;
 }
 
 .thoughts-preview .thought-item {
