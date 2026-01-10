@@ -23,12 +23,15 @@ const log = createChildLogger({ component: 'api' });
 
 const api = new Hono().basePath('/api');
 
-// Enable CORS for Tauri desktop app (tauri://localhost origin) and local development
+// Enable CORS for Tauri desktop app and local development
+// - macOS/Linux WebView uses tauri://localhost origin
+// - Windows WebView2 uses http://tauri.localhost origin
 api.use('*', cors({
     origin: (origin) => {
         // Allow Tauri app, localhost dev servers, and same-origin requests
         if (!origin) return '*'; // Same-origin or non-browser requests
         if (origin.startsWith('tauri://')) return origin;
+        if (origin === 'http://tauri.localhost') return origin; // Windows WebView2
         if (origin.startsWith('http://localhost:')) return origin;
         if (origin.startsWith('http://127.0.0.1:')) return origin;
         return null; // Reject other origins
