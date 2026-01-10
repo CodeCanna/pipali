@@ -67,6 +67,11 @@
     color: var(--color-text);
 }
 
+.message-content ::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 .message-content h1,
 .message-content h2,
 .message-content h3,

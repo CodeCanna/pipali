@@ -50,6 +50,11 @@
     color: var(--color-text-muted);
 }
 
+.input-form textarea::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 .input-form textarea:disabled {
     opacity: 0.6;
 }
