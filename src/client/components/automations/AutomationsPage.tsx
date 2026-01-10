@@ -81,7 +81,7 @@ export function AutomationsPage({
             <main className="main-content">
                 <div className="messages-container">
                     <div className="automations-gallery">
-                        <div className="automations-loading">Loading automations...</div>
+                        <div className="automations-loading">Loading routines...</div>
                     </div>
                 </div>
             </main>
@@ -94,7 +94,7 @@ export function AutomationsPage({
                 <div className="automations-gallery">
                     <div className="automations-header">
                         <div className="automations-header-left">
-                            <h2>Automations</h2>
+                            <h2>Routines</h2>
                             <span className="automations-count">{automations.length}</span>
                         </div>
                         <div className="automations-header-actions">
@@ -109,7 +109,7 @@ export function AutomationsPage({
                                 onClick={handleRefresh}
                                 disabled={isRefreshing}
                                 className="automations-reload-btn"
-                                title="Refresh automations"
+                                title="Refresh routines"
                             >
                                 <RefreshCw size={16} className={isRefreshing ? 'spinning' : ''} />
                             </button>

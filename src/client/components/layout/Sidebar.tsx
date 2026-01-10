@@ -324,7 +324,7 @@ export function Sidebar({
                         onClick={onGoToAutomations}
                     >
                         <Clock size={16} />
-                        <span>Automations</span>
+                        <span>Routines</span>
                     </button>
                     <button
                         className={`sidebar-nav-btn ${currentPage === 'mcp-tools' ? 'active' : ''}`}

@@ -198,10 +198,10 @@ export function AutomationDetailModal({
                 onUpdated();
             } else {
                 const data = await res.json();
-                setError(data.error || 'Failed to update status');
+                setError(data.error || 'Failed to update routine status');
             }
         } catch (e) {
-            setError('Failed to update status');
+            setError('Failed to update routine status');
         } finally {
             setIsToggling(false);
         }
@@ -224,10 +224,10 @@ export function AutomationDetailModal({
                 setTimeout(() => setTriggerSuccess(false), 3000);
             } else {
                 const data = await res.json();
-                setError(data.error || 'Failed to trigger automation');
+                setError(data.error || 'Failed to trigger routine');
             }
         } catch (e) {
-            setError('Failed to trigger automation');
+            setError('Failed to trigger routine');
         } finally {
             setIsTriggering(false);
         }
@@ -276,10 +276,10 @@ export function AutomationDetailModal({
                 onUpdated();
             } else {
                 const data = await res.json();
-                setError(data.error || 'Failed to save changes');
+                setError(data.error || 'Failed to save routine');
             }
         } catch (e) {
-            setError('Failed to save changes');
+            setError('Failed to save routine');
         } finally {
             setIsSaving(false);
         }
@@ -298,11 +298,11 @@ export function AutomationDetailModal({
                 onDeleted();
             } else {
                 const data = await res.json();
-                setError(data.error || 'Failed to delete automation');
+                setError(data.error || 'Failed to delete routine');
                 setShowDeleteConfirm(false);
             }
         } catch (e) {
-            setError('Failed to delete automation');
+            setError('Failed to delete routine');
             setShowDeleteConfirm(false);
         } finally {
             setIsDeleting(false);
@@ -527,7 +527,7 @@ export function AutomationDetailModal({
                                             {/* Day of Week selector for weekly */}
                                             {frequency === 'week' && (
                                                 <div className="frequency-detail">
-                                                    <p className="frequency-detail-label">Every week, on which day should the automation run?</p>
+                                                    <p className="frequency-detail-label">Every week, on which day should the routine run?</p>
                                                     <div className="frequency-row">
                                                         <Calendar size={16} className="frequency-icon" />
                                                         <span className="frequency-label">On</span>
@@ -547,7 +547,7 @@ export function AutomationDetailModal({
                                             {/* Day of Month selector for monthly */}
                                             {frequency === 'month' && (
                                                 <div className="frequency-detail">
-                                                    <p className="frequency-detail-label">Every month, on which day should the automation run?</p>
+                                                    <p className="frequency-detail-label">Every month, on which day should the routine run?</p>
                                                     <div className="frequency-row">
                                                         <Calendar size={16} className="frequency-icon" />
                                                         <span className="frequency-label">On the</span>
@@ -567,7 +567,7 @@ export function AutomationDetailModal({
                                             {/* Minute selector for hourly */}
                                             {frequency === 'hour' && (
                                                 <div className="frequency-detail">
-                                                    <p className="frequency-detail-label">Every hour, at which minute should the automation run?</p>
+                                                    <p className="frequency-detail-label">Every hour, at which minute should the routine run?</p>
                                                     <div className="frequency-row">
                                                         <Clock size={16} className="frequency-icon" />
                                                         <span className="frequency-label">At minute</span>
@@ -588,7 +588,7 @@ export function AutomationDetailModal({
                                         {/* Time Section - only show for non-hourly frequencies */}
                                         {frequency !== 'hour' && (
                                             <div className="time-selector">
-                                                <p className="frequency-detail-label">At what time should the automation run?</p>
+                                                <p className="frequency-detail-label">At what time should the routine run?</p>
                                                 <div className="frequency-row">
                                                     <Clock size={16} className="frequency-icon" />
                                                     <span className="frequency-label">At</span>
@@ -616,7 +616,7 @@ export function AutomationDetailModal({
                 <div className="modal-actions automation-detail-actions">
                     {showDeleteConfirm ? (
                         <>
-                            <span className="delete-confirm-text">Delete this automation?</span>
+                            <span className="delete-confirm-text">Delete this routine?</span>
                             <button
                                 type="button"
                                 onClick={() => setShowDeleteConfirm(false)}
@@ -734,7 +734,7 @@ export function AutomationDetailModal({
                                 onClick={handleTrigger}
                                 className="btn-primary btn-run-now"
                                 disabled={isTriggering || pendingConfirmation !== undefined}
-                                title={pendingConfirmation ? 'Resolve pending confirmation first' : 'Run automation now'}
+                                title={pendingConfirmation ? 'Resolve pending confirmation first' : 'Run routine now'}
                             >
                                 {isTriggering ? (
                                     <>

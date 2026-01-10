@@ -109,10 +109,10 @@ export function CreateAutomationModal({ onClose, onCreated }: CreateAutomationMo
                 onCreated();
             } else {
                 const data = await res.json();
-                setError(data.error || 'Failed to create automation');
+                setError(data.error || 'Failed to create routine');
             }
         } catch (e) {
-            setError('Failed to create automation');
+            setError('Failed to create routine');
         } finally {
             setIsCreating(false);
         }
@@ -132,7 +132,7 @@ export function CreateAutomationModal({ onClose, onCreated }: CreateAutomationMo
         <div className="modal-backdrop" onClick={handleBackdropClick}>
             <div className="modal automation-modal">
                 <div className="modal-header">
-                    <h2>Create Automation</h2>
+                    <h2>Create Routine</h2>
                     <button onClick={onClose} className="modal-close">
                         <X size={18} />
                     </button>
