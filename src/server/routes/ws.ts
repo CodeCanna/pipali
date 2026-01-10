@@ -312,6 +312,12 @@ export const websocketHandler = {
 
         // Handle new message
         const { message: userQuery, conversationId } = data as { type: 'message'; message: string; conversationId?: string };
+
+        if (!userQuery) {
+            log.warn(`Received message without content`);
+            return;
+        }
+
         log.info(`\n${'='.repeat(60)}`);
         log.info(`💬 New message received`);
         log.info(`Query: "${userQuery.slice(0, 100)}${userQuery.length > 100 ? '...' : ''}"`);
