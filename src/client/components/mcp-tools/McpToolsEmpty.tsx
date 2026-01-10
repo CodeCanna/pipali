@@ -1,7 +1,6 @@
 // Empty state when no MCP servers are configured
 
-import React from 'react';
-import { Wrench } from 'lucide-react';
+import { Hammer } from 'lucide-react';
 
 interface McpToolsEmptyProps {
     onAddServer: () => void;
@@ -10,20 +9,19 @@ interface McpToolsEmptyProps {
 export function McpToolsEmpty({ onAddServer }: McpToolsEmptyProps) {
     return (
         <div className="empty-state mcp-tools-empty">
-            <Wrench className="empty-icon" size={32} strokeWidth={1.5} />
-            <h2>No Tool Servers</h2>
-            <p>Connect MCP servers to extend Pipali with external tools.</p>
+            <Hammer className="empty-icon" size={32} strokeWidth={1.5} />
+            <h2>No Tools</h2>
+            <p>Connect your apps and services to Pipali.</p>
             <p className="empty-hint">
-                MCP (Model Context Protocol) servers provide additional capabilities like:
+               Access data, manage tasks, and automate workflows across your apps and services.
             </p>
             <ul className="mcp-capabilities">
-                <li>Database queries</li>
-                <li>API integrations</li>
-                <li>Custom automations</li>
-                <li>External services</li>
+                <li>Interact with Slack, Email, Calendar</li>
+                <li>Manage projects on Notion, Linear, Github</li>
+                <li>Access files on Google Drive, Dropbox, OneDrive</li>
             </ul>
             <button className="btn-primary" onClick={onAddServer}>
-                Add Your First Server
+                Integrate Your First Tool
             </button>
         </div>
     );

@@ -65,7 +65,7 @@ export function McpToolsPage() {
             <main className="main-content">
                 <div className="messages-container">
                     <div className="mcp-tools-gallery">
-                        <div className="mcp-tools-loading">Loading MCP servers...</div>
+                        <div className="mcp-tools-loading">Loading tools...</div>
                     </div>
                 </div>
             </main>
@@ -78,7 +78,7 @@ export function McpToolsPage() {
                 <div className="mcp-tools-gallery">
                     <div className="mcp-tools-header">
                         <div className="mcp-tools-header-left">
-                            <h2>MCP Tool Servers</h2>
+                            <h2>Tools</h2>
                             <span className="mcp-tools-count">{servers.length}</span>
                         </div>
                         <div className="mcp-tools-header-actions">
@@ -87,7 +87,7 @@ export function McpToolsPage() {
                                 className="mcp-tools-create-btn"
                             >
                                 <Plus size={16} />
-                                <span>Add Server</span>
+                                <span>Connect Tool</span>
                             </button>
                             <button
                                 onClick={handleReload}

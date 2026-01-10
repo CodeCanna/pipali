@@ -1,9 +1,9 @@
 // Sidebar with conversation list
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Wrench, User, LogOut, Shield, Sun, Moon, Monitor } from 'lucide-react';
+import { Loader2, MessageSquare, AlertCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Hammer, User, LogOut, Shield, Sun, Moon, Monitor } from 'lucide-react';
 import type { ConversationSummary, ConversationState, ConfirmationRequest, AuthStatus } from '../../types';
-import { useTheme, type Theme } from '../../hooks';
+import { useTheme } from '../../hooks';
 
 const MAX_VISIBLE_CHATS = 5;
 
@@ -330,7 +330,7 @@ export function Sidebar({
                         className={`sidebar-nav-btn ${currentPage === 'mcp-tools' ? 'active' : ''}`}
                         onClick={onGoToMcpTools}
                     >
-                        <Wrench size={16} />
+                        <Hammer size={16} />
                         <span>Tools</span>
                     </button>
                 </div>

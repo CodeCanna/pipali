@@ -107,7 +107,7 @@ export function CreateMcpServerModal({ onClose, onCreated }: CreateMcpServerModa
         <div className="modal-backdrop" onClick={handleBackdropClick}>
             <div className="modal mcp-server-modal">
                 <div className="modal-header">
-                    <h2>Add MCP Server</h2>
+                    <h2>Add MCP Tool Server</h2>
                     <button onClick={onClose} className="modal-close">
                         <X size={18} />
                     </button>
@@ -134,7 +134,7 @@ export function CreateMcpServerModal({ onClose, onCreated }: CreateMcpServerModa
                             type="text"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="What this server provides"
+                            placeholder="Describe what this tool server provides"
                         />
                     </div>
 
