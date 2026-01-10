@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 // Import the shared context from the client hooks - this is the same context
 // that useSidecar() reads from in app.tsx
 import { SidecarContext } from "@/hooks/useSidecar";

@@ -7,6 +7,7 @@
  */
 
 import { findMatchingScenario, defaultMockScenarios, type MockScenario } from './fixtures/mock-llm';
+import type { ResponseWithThought } from '../../src/server/processor/conversation/conversation';
 
 // Track mock state per scenario (for multi-iteration scenarios)
 const scenarioState = new Map<string, { currentIteration: number }>();
@@ -33,7 +34,7 @@ console.log(`[MockPreload] Loaded ${scenarios.length} mock scenarios`);
 /**
  * Generate mock response based on query and scenario
  */
-function getMockResponse(query: string) {
+function getMockResponse(query: string): ResponseWithThought {
     const scenario = findMatchingScenario(query, scenarios);
 
     if (!scenario) {
@@ -94,13 +95,15 @@ function getMockResponse(query: string) {
         Bun.sleepSync(scenario.iterationDelayMs);
     }
 
-    // Return in the format expected by director (response.raw with {name, args, id})
+    // Return in the format expected by director (ResponseOutputItem[] for tool calls)
     return {
         message: undefined,
         raw: iteration.toolCalls.map((tc) => ({
-            name: tc.function_name,
-            args: tc.arguments,
+            type: 'function_call' as const,
             id: tc.tool_call_id,
+            call_id: tc.tool_call_id,
+            name: tc.function_name,
+            arguments: JSON.stringify(tc.arguments),
         })),
         thought: iteration.thought,
     };
@@ -116,19 +119,8 @@ function resetMockState() {
     console.log('[MockLLM] State reset');
 }
 
-// Set global mock function for the server to use
+// Declare the reset function type for global access
 declare global {
-    var __pipaliMockLLM: ((query: string) => {
-        message?: string;
-        raw: Array<{ name: string; args: Record<string, unknown>; id: string }>;
-        thought?: string;
-        usage?: {
-            prompt_tokens: number;
-            completion_tokens: number;
-            cached_tokens?: number;
-            cost_usd: number;
-        };
-    }) | undefined;
     var __pipaliMockReset: typeof resetMockState | undefined;
 }
 

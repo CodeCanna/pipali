@@ -25,6 +25,7 @@ function createMockConfirmationContext(
         return {
             requestId: request.requestId,
             selectedOptionId: autoApprove ? CONFIRMATION_OPTIONS.YES : CONFIRMATION_OPTIONS.NO,
+            timestamp: new Date().toISOString(),
         };
     };
 
@@ -67,7 +68,7 @@ describe('Tool Protection - Sensitive Path Confirmation', () => {
             expect(capturedRequests.length).toBe(1);
             expect(capturedRequests[0]!.operation).toBe('read_sensitive_file');
             expect(capturedRequests[0]!.title).toBe('Confirm Sensitive File Access');
-            expect(capturedRequests[0]!.message).toContain('.ssh');
+            expect(capturedRequests[0]!.message).toContain('SSH');
 
             // Should return file content when approved
             expect(result.compiled).toContain('FAKE_SSH_KEY_CONTENT');
@@ -185,6 +186,7 @@ describe('Tool Protection - Sensitive Path Confirmation', () => {
                     return {
                         requestId: request.requestId,
                         selectedOptionId: CONFIRMATION_OPTIONS.YES_DONT_ASK,
+                        timestamp: new Date().toISOString(),
                     };
                 },
                 preferences,
@@ -233,7 +235,7 @@ describe('Tool Protection - Internal URL Confirmation', () => {
 
             // Should have requested confirmation
             expect(capturedRequests.length).toBe(1);
-            expect(capturedRequests[0]!.message).toContain('192.168.1.1');
+            expect(capturedRequests[0]!.message).toContain('private network');
         });
 
         test('should request confirmation for cloud metadata endpoints', async () => {
@@ -247,7 +249,7 @@ describe('Tool Protection - Internal URL Confirmation', () => {
 
             // Should have requested confirmation for cloud metadata
             expect(capturedRequests.length).toBe(1);
-            expect(capturedRequests[0]!.message).toContain('169.254.169.254');
+            expect(capturedRequests[0]!.message).toContain('cloud instance metadata');
         });
 
         test('should request confirmation for 127.0.0.1', async () => {
@@ -308,7 +310,7 @@ describe('Risk levels', () => {
             await readFile({ path: sensitiveFile }, { confirmationContext: context });
 
             expect(capturedRequests.length).toBe(1);
-            expect(capturedRequests[0]!.context.riskLevel).toBe('medium');
+            expect(capturedRequests[0]!.context?.riskLevel).toBe('medium');
         } finally {
             await fs.rm(testDir, { recursive: true, force: true });
         }
@@ -324,6 +326,6 @@ describe('Risk levels', () => {
         );
 
         expect(capturedRequests.length).toBe(1);
-        expect(capturedRequests[0]!.context.riskLevel).toBe('medium');
+        expect(capturedRequests[0]!.context?.riskLevel).toBe('medium');
     });
 });
