@@ -243,9 +243,15 @@ const App = () => {
             if (res.ok) {
                 const data = await res.json();
                 setAuthStatus(data);
+            } else {
+                // If auth status check fails, default to requiring login
+                console.error("Auth status check failed with status:", res.status);
+                setAuthStatus({ anonMode: false, authenticated: false, user: null });
             }
         } catch (e) {
+            // If we can't reach the server, default to requiring login
             console.error("Failed to fetch auth status", e);
+            setAuthStatus({ anonMode: false, authenticated: false, user: null });
         }
     };
 
@@ -1368,9 +1374,22 @@ const App = () => {
         setTimeout(() => refetchModels(), 3000);
     }, [refetchModels]);
 
+    // Show loading state while fetching auth status
+    // This prevents showing the home screen before we know if user needs to login
+    if (authStatus === null) {
+        return (
+            <div className="app-wrapper">
+                <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+                    <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                        Loading...
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // Show login page if not authenticated and not in anonymous mode
-    // Also show login after logout (authStatus is null or not authenticated)
-    if (authStatus !== null && !authStatus.authenticated && !authStatus.anonMode) {
+    if (!authStatus.authenticated && !authStatus.anonMode) {
         return <LoginPage onLoginSuccess={handleLoginSuccess} />;
     }
 
