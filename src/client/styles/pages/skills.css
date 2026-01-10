@@ -10,6 +10,11 @@
     width: 100%;
 }
 
+.skills-gallery ::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 .skills-header {
     display: flex;
     align-items: center;

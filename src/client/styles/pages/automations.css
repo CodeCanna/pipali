@@ -10,6 +10,11 @@
     width: 100%;
 }
 
+.automations-gallery ::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 .automations-header {
     display: flex;
     align-items: center;

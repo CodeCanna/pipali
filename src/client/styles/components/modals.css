@@ -23,6 +23,11 @@
     overflow-y: auto;
 }
 
+.modal ::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 .modal-header {
     display: flex;
     align-items: center;

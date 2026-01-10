@@ -8,6 +8,11 @@
     margin-bottom: 4px;
 }
 
+.thoughts-section ::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 .thoughts-toggle {
     display: inline-flex;
     align-items: center;

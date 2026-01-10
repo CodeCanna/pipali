@@ -10,6 +10,11 @@
     width: 100%;
 }
 
+.mcp-tools-gallery ::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 .mcp-tools-header {
     display: flex;
     align-items: center;
