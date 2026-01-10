@@ -1,0 +1,76 @@
+name: test
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - src/server/**
+      - src/client/**
+      - tests/**
+      - package.json
+      - bun.lock
+      - .github/workflows/test.yml
+  push:
+    branches:
+      - main
+    paths:
+      - src/server/**
+      - src/client/**
+      - tests/**
+      - package.json
+      - bun.lock
+      - .github/workflows/test.yml
+
+jobs:
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⤵️ Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 📦 Install Dependencies
+        run: bun install
+
+      - name: 🧪 Run Unit Tests
+        run: bun test
+        timeout-minutes: 5
+
+  e2e-tests:
+    name: 🎭 E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⤵️ Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 📦 Install Dependencies
+        run: bun install
+
+      - name: 🎭 Install Playwright Browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: 🧪 Run E2E Tests
+        run: bun run test:e2e
+        timeout-minutes: 10
+        env:
+          # Run in anonymous mode for tests (no platform auth needed)
+          PIPALI_ANON_MODE: "true"
+
+      - name: 📤 Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

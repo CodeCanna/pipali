@@ -69,6 +69,8 @@ export class TestServer {
             PIPALI_HOST: this.host,
             POSTGRES_DB: this.dbPath,
             PIPALI_TEST_MODE: 'true',
+            // Skip platform authentication for tests
+            PIPALI_ANON_MODE: 'true',
             // Use isolated skills directories for testing
             PIPALI_SKILLS_GLOBAL_DIR: this.skillsGlobalDir,
             PIPALI_SKILLS_LOCAL_DIR: this.skillsLocalDir,
