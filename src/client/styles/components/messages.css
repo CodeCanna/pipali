@@ -138,6 +138,19 @@
     margin: 6px 0;
 }
 
+.message-content a {
+    color: var(--color-link);
+    text-decoration: none;
+}
+
+.message-content a:visited {
+    color: var(--color-link-visited);
+}
+
+.message-content a:hover {
+    text-decoration: underline;
+}
+
 .message-content table {
     width: 100%;
     border-collapse: collapse;

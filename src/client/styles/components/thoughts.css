@@ -671,7 +671,7 @@
 
 .web-search-link {
     font-size: 10px;
-    color: var(--color-primary);
+    color: var(--color-link);
     margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
@@ -770,8 +770,12 @@
 }
 
 .webpage-content.webpage-markdown a {
-    color: var(--color-primary);
+    color: var(--color-link);
     text-decoration: none;
+}
+
+.webpage-content.webpage-markdown a:visited {
+    color: var(--color-link-visited);
 }
 
 .webpage-content.webpage-markdown a:hover {
