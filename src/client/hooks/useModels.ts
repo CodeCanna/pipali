@@ -57,11 +57,18 @@ export function useModels() {
         fetchUserModel();
     }, [fetchModels, fetchUserModel]);
 
+    // Refetch both models list and user's selected model
+    const refetchAll = useCallback(async () => {
+        await fetchModels();
+        await fetchUserModel();
+    }, [fetchModels, fetchUserModel]);
+
     return {
         models,
         selectedModel,
         selectModel,
         showModelDropdown,
         setShowModelDropdown,
+        refetchModels: refetchAll,
     };
 }

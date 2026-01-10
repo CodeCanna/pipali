@@ -108,7 +108,7 @@ const App = () => {
 
     // Hooks
     const { textareaRef, scheduleTextareaFocus } = useFocusManagement();
-    const { models, selectedModel, selectModel, showModelDropdown, setShowModelDropdown } = useModels();
+    const { models, selectedModel, selectModel, showModelDropdown, setShowModelDropdown, refetchModels } = useModels();
 
     // Initialize WebSocket and fetch data
     useEffect(() => {
@@ -1361,10 +1361,17 @@ const App = () => {
 
     // ===== Render =====
 
+    // Handle successful login - refetch auth status and models
+    const handleLoginSuccess = useCallback(async () => {
+        await fetchAuthStatus();
+        // Refetch models after a delay to allow server sync to complete
+        setTimeout(() => refetchModels(), 3000);
+    }, [refetchModels]);
+
     // Show login page if not authenticated and not in anonymous mode
     // Also show login after logout (authStatus is null or not authenticated)
     if (authStatus !== null && !authStatus.authenticated && !authStatus.anonMode) {
-        return <LoginPage onLoginSuccess={fetchAuthStatus} />;
+        return <LoginPage onLoginSuccess={handleLoginSuccess} />;
     }
 
     return (
