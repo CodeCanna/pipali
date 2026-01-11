@@ -69,15 +69,9 @@ export function CreateSkillModal({ onClose, onCreated }: CreateSkillModalProps) 
                             id="skill-name"
                             type="text"
                             value={name}
-                            onChange={(e) => setName(e.target.value.toLowerCase())}
+                            onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
                             placeholder="my-skill"
-                            className={name.length > 0 && !isValidName ? 'invalid' : ''}
                         />
-                        {name.length > 0 && !isValidName && (
-                            <span className="form-hint error">
-                                Use lowercase letters, numbers, and hyphens only
-                            </span>
-                        )}
                     </div>
 
                     <div className="form-group">
@@ -87,7 +81,7 @@ export function CreateSkillModal({ onClose, onCreated }: CreateSkillModalProps) 
                             type="text"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="What this skill does"
+                            placeholder="Describe what the skill does and when it should be used"
                         />
                     </div>
 

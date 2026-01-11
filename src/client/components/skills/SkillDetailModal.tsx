@@ -143,7 +143,7 @@ export function SkillDetailModal({ skill, onClose, onDeleted, onUpdated }: Skill
                             className="skill-detail-textarea skill-detail-description-input"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="What this skill does..."
+                            placeholder="Describe what the skill does and when it should be used"
                             rows={2}
                         />
                     </div>
