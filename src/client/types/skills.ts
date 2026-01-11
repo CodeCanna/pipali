@@ -4,7 +4,6 @@ export type SkillInfo = {
     name: string;
     description: string;
     location: string;
-    source: 'global' | 'local';
 };
 
 export type SkillLoadError = {

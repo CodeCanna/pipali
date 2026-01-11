@@ -444,12 +444,11 @@ const createSkillSchema = z.object({
     name: z.string().min(1).max(64),
     description: z.string().min(1).max(1024),
     instructions: z.string().optional(),
-    source: z.enum(['global', 'local']),
 });
 
 api.post('/skills', zValidator('json', createSkillSchema), async (c) => {
     const input = c.req.valid('json');
-    log.info(`✨ Creating skill "${input.name}" (${input.source})`);
+    log.info(`✨ Creating skill "${input.name}"`);
 
     const result = await createSkill(input);
 

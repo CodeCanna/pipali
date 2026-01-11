@@ -1,7 +1,7 @@
 // Modal for creating a new skill
 
 import React, { useState } from 'react';
-import { X, Loader2, Globe, FolderOpen } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../utils/api';
 
 interface CreateSkillModalProps {
@@ -13,7 +13,6 @@ export function CreateSkillModal({ onClose, onCreated }: CreateSkillModalProps) 
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [instructions, setInstructions] = useState('');
-    const [source, setSource] = useState<'global' | 'local'>('local');
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +30,7 @@ export function CreateSkillModal({ onClose, onCreated }: CreateSkillModalProps) 
             const res = await apiFetch('/api/skills', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, description, instructions, source }),
+                body: JSON.stringify({ name, description, instructions }),
             });
 
             if (res.ok) {
@@ -101,30 +100,6 @@ export function CreateSkillModal({ onClose, onCreated }: CreateSkillModalProps) 
                             placeholder="Detailed instructions for how to use this skill..."
                             rows={6}
                         />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Location</label>
-                        <div className="source-options">
-                            <button
-                                type="button"
-                                className={`source-option ${source === 'local' ? 'selected' : ''}`}
-                                onClick={() => setSource('local')}
-                            >
-                                <FolderOpen size={16} />
-                                <span>Local</span>
-                                <span className="source-hint">./.pipali/skills/</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={`source-option ${source === 'global' ? 'selected' : ''}`}
-                                onClick={() => setSource('global')}
-                            >
-                                <Globe size={16} />
-                                <span>Global</span>
-                                <span className="source-hint">~/.pipali/skills/</span>
-                            </button>
-                        </div>
                     </div>
 
                     {error && <div className="form-error">{error}</div>}

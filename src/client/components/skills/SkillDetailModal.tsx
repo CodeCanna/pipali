@@ -1,7 +1,7 @@
 // Modal for viewing and editing skill details with delete option
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Globe, FolderOpen, Trash2, FileText, Save } from 'lucide-react';
+import { X, Loader2, Trash2, FileText, Save } from 'lucide-react';
 import type { SkillInfo } from '../../types/skills';
 import { apiFetch } from '../../utils/api';
 
@@ -24,8 +24,6 @@ export function SkillDetailModal({ skill, onClose, onDeleted, onUpdated }: Skill
     const [instructions, setInstructions] = useState('');
     const [originalDescription, setOriginalDescription] = useState(skill.description);
     const [originalInstructions, setOriginalInstructions] = useState('');
-
-    const SourceIcon = skill.source === 'global' ? Globe : FolderOpen;
 
     // Check if there are unsaved changes
     const hasChanges = description !== originalDescription || instructions !== originalInstructions;
@@ -130,11 +128,7 @@ export function SkillDetailModal({ skill, onClose, onDeleted, onUpdated }: Skill
             <div className="modal skill-detail-modal">
                 <div className="modal-header">
                     <div className="skill-detail-header-content">
-                        <SourceIcon size={18} className="skill-detail-source-icon" />
                         <h2>{skill.name}</h2>
-                        <span className={`skill-detail-source-badge ${skill.source}`}>
-                            {skill.source}
-                        </span>
                     </div>
                     <button onClick={onClose} className="modal-close">
                         <X size={18} />

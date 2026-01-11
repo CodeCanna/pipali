@@ -119,7 +119,7 @@ export function SkillsPage() {
                         <div className="skills-cards">
                             {skills.map((skill) => (
                                 <SkillCard
-                                    key={`${skill.source}-${skill.name}`}
+                                    key={skill.name}
                                     skill={skill}
                                     onClick={() => setSelectedSkill(skill)}
                                 />

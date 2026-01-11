@@ -1,7 +1,7 @@
 // Individual skill card for skills page gallery
 
 import React from 'react';
-import { ChevronRight, Globe, FolderOpen } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { SkillInfo } from '../../types/skills';
 
 interface SkillCardProps {
@@ -10,8 +10,6 @@ interface SkillCardProps {
 }
 
 export function SkillCard({ skill, onClick }: SkillCardProps) {
-    const SourceIcon = skill.source === 'global' ? Globe : FolderOpen;
-
     return (
         <div
             className="skill-card"
@@ -25,11 +23,6 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
                 }
             }}
         >
-            <div className="skill-card-header">
-                <SourceIcon size={14} className="skill-source-icon" />
-                <span className="skill-source-badge">{skill.source}</span>
-            </div>
-
             <h3 className="skill-card-title">{skill.name}</h3>
 
             <p className="skill-card-description">{skill.description}</p>

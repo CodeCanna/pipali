@@ -5,8 +5,9 @@
 
 import path from 'path';
 import os from 'os';
+import type { Dirent } from 'fs';
 import { mkdir, rm, readdir, cp } from 'fs/promises';
-import { loadSkillsFromPaths, isValidSkillName, isValidDescription } from './loader';
+import { scanSkillsDirectory, isValidSkillName, isValidDescription } from './loader';
 import { formatSkillsForPrompt } from './utils';
 import type { Skill, SkillLoadResult } from './types';
 
@@ -29,7 +30,6 @@ export interface CreateSkillInput {
     name: string;
     description: string;
     instructions?: string;
-    source: 'global' | 'local';
 }
 
 export interface CreateSkillResult {
@@ -53,34 +53,27 @@ export interface UpdateSkillResult {
 let cachedSkills: Skill[] = [];
 
 /**
- * Get the global skills directory path
+ * Get the skills directory path (~/.pipali/skills)
  */
-export function getGlobalSkillsDir(): string {
-    return process.env.PIPALI_SKILLS_GLOBAL_DIR || path.join(os.homedir(), '.pipali', 'skills');
+export function getSkillsDir(): string {
+    return process.env.PIPALI_SKILLS_DIR || path.join(os.homedir(), '.pipali', 'skills');
 }
 
 /**
- * Get the local skills directory path
- */
-export function getLocalSkillsDir(): string {
-    return process.env.PIPALI_SKILLS_LOCAL_DIR || path.join(process.cwd(), '.pipali', 'skills');
-}
-
-/**
- * Install builtin skills to the global skills directory.
+ * Install builtin skills to the skills directory.
  * Only copies skills that don't already exist (won't overwrite user modifications).
  * Called on app startup/first run.
  */
 export async function installBuiltinSkills(): Promise<{ installed: string[]; skipped: string[] }> {
     const installed: string[] = [];
     const skipped: string[] = [];
-    const globalDir = getGlobalSkillsDir();
+    const skillsDir = getSkillsDir();
 
-    // Ensure global skills directory exists
-    await mkdir(globalDir, { recursive: true });
+    // Ensure skills directory exists
+    await mkdir(skillsDir, { recursive: true });
 
     // Read builtin skills directory
-    let builtinEntries: Awaited<ReturnType<typeof readdir>>;
+    let builtinEntries: Dirent[];
     try {
         builtinEntries = await readdir(BUILTIN_SKILLS_DIR, { withFileTypes: true });
     } catch (err) {
@@ -99,9 +92,9 @@ export async function installBuiltinSkills(): Promise<{ installed: string[]; ski
 
         const skillName = entry.name;
         const srcDir = path.join(BUILTIN_SKILLS_DIR, skillName);
-        const destDir = path.join(globalDir, skillName);
+        const destDir = path.join(skillsDir, skillName);
 
-        // Check if skill already exists in global directory
+        // Check if skill already exists
         const destSkillMd = Bun.file(path.join(destDir, 'SKILL.md'));
         if (await destSkillMd.exists()) {
             skipped.push(skillName);
@@ -121,25 +114,11 @@ export async function installBuiltinSkills(): Promise<{ installed: string[]; ski
 }
 
 /**
- * Get the paths to scan for skills
- * Returns global path (~/.pipali/skills) and local path (<cwd>/.pipali/skills)
- * Paths can be overridden via PIPALI_SKILLS_GLOBAL_DIR and PIPALI_SKILLS_LOCAL_DIR env vars
- */
-function getSkillsPaths(): { path: string; source: 'global' | 'local' }[] {
-    return [
-        { path: getGlobalSkillsDir(), source: 'global' },
-        { path: getLocalSkillsDir(), source: 'local' },
-    ];
-}
-
-/**
- * Load skills from global and local paths
+ * Load skills from the skills directory
  * Caches the result for later retrieval via getLoadedSkills()
- * Local skills override global skills with the same name
  */
 export async function loadSkills(): Promise<SkillLoadResult> {
-    const paths = getSkillsPaths();
-    const result = await loadSkillsFromPaths(paths);
+    const result = await scanSkillsDirectory(getSkillsDir());
     cachedSkills = result.skills;
     return result;
 }
@@ -153,10 +132,10 @@ export function getLoadedSkills(): Skill[] {
 }
 
 /**
- * Create a new skill by writing a SKILL.md file to the appropriate location
+ * Create a new skill by writing a SKILL.md file
  */
 export async function createSkill(input: CreateSkillInput): Promise<CreateSkillResult> {
-    const { name, description, instructions = '', source } = input;
+    const { name, description, instructions = '' } = input;
 
     // Validate name
     if (!isValidSkillName(name)) {
@@ -174,10 +153,7 @@ export async function createSkill(input: CreateSkillInput): Promise<CreateSkillR
         };
     }
 
-    // Determine the base path
-    const basePath = source === 'global' ? getGlobalSkillsDir() : getLocalSkillsDir();
-
-    const skillDir = path.join(basePath, name);
+    const skillDir = path.join(getSkillsDir(), name);
     const skillMdPath = path.join(skillDir, 'SKILL.md');
 
     // Check if skill already exists
@@ -222,7 +198,6 @@ ${instructions}
         name,
         description,
         location: skillMdPath,
-        source,
     };
 
     return {

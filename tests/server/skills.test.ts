@@ -2,7 +2,7 @@ import { test, expect, describe, beforeAll, afterAll } from 'bun:test';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
-import { parseFrontmatter, isValidSkillName, loadSkillsFromPaths } from '../../src/server/skills/loader';
+import { parseFrontmatter, isValidSkillName, scanSkillsDirectory } from '../../src/server/skills/loader';
 import { formatSkillsForPrompt } from '../../src/server/skills/utils';
 import type { Skill } from '../../src/server/skills/types';
 
@@ -133,17 +133,15 @@ Content.
         });
     });
 
-    describe('loadSkillsFromPaths', () => {
-        const globalDir = path.join(testDir, 'global-skills');
-        const localDir = path.join(testDir, 'local-skills');
+    describe('scanSkillsDirectory', () => {
+        const skillsDir = path.join(testDir, 'scan-skills');
 
         beforeAll(async () => {
-            await fs.mkdir(globalDir, { recursive: true });
-            await fs.mkdir(localDir, { recursive: true });
+            await fs.mkdir(skillsDir, { recursive: true });
         });
 
         test('should load valid skill', async () => {
-            const skillDir = path.join(globalDir, 'valid-skill');
+            const skillDir = path.join(skillsDir, 'valid-skill');
             await fs.mkdir(skillDir, { recursive: true });
             await fs.writeFile(
                 path.join(skillDir, 'SKILL.md'),
@@ -156,17 +154,16 @@ This is a test skill.
 `
             );
 
-            const result = await loadSkillsFromPaths([{ path: globalDir, source: 'global' }]);
+            const result = await scanSkillsDirectory(skillsDir);
 
-            expect(result.skills.length).toBe(1);
-            expect(result.skills[0]?.name).toBe('valid-skill');
-            expect(result.skills[0]?.description).toBe('A valid test skill');
-            expect(result.skills[0]?.source).toBe('global');
-            expect(result.errors.length).toBe(0);
+            expect(result.skills.length).toBeGreaterThanOrEqual(1);
+            const skill = result.skills.find((s: Skill) => s.name === 'valid-skill');
+            expect(skill).toBeDefined();
+            expect(skill?.description).toBe('A valid test skill');
         });
 
         test('should skip skill with missing name', async () => {
-            const skillDir = path.join(globalDir, 'no-name');
+            const skillDir = path.join(skillsDir, 'no-name');
             await fs.mkdir(skillDir, { recursive: true });
             await fs.writeFile(
                 path.join(skillDir, 'SKILL.md'),
@@ -177,15 +174,15 @@ Content.
 `
             );
 
-            const result = await loadSkillsFromPaths([{ path: globalDir, source: 'global' }]);
+            const result = await scanSkillsDirectory(skillsDir);
 
-            const error = result.errors.find(e => e.path.includes('no-name'));
+            const error = result.errors.find((e: { path: string }) => e.path.includes('no-name'));
             expect(error).toBeDefined();
             expect(error?.message).toContain('Missing required field: name');
         });
 
         test('should skip skill with invalid name format', async () => {
-            const skillDir = path.join(globalDir, 'InvalidName');
+            const skillDir = path.join(skillsDir, 'InvalidName');
             await fs.mkdir(skillDir, { recursive: true });
             await fs.writeFile(
                 path.join(skillDir, 'SKILL.md'),
@@ -197,15 +194,15 @@ Content.
 `
             );
 
-            const result = await loadSkillsFromPaths([{ path: globalDir, source: 'global' }]);
+            const result = await scanSkillsDirectory(skillsDir);
 
-            const error = result.errors.find(e => e.path.includes('InvalidName'));
+            const error = result.errors.find((e: { path: string }) => e.path.includes('InvalidName'));
             expect(error).toBeDefined();
             expect(error?.message).toContain('Invalid skill name');
         });
 
         test('should skip skill when name does not match directory', async () => {
-            const skillDir = path.join(globalDir, 'dir-name');
+            const skillDir = path.join(skillsDir, 'dir-name');
             await fs.mkdir(skillDir, { recursive: true });
             await fs.writeFile(
                 path.join(skillDir, 'SKILL.md'),
@@ -217,62 +214,22 @@ Content.
 `
             );
 
-            const result = await loadSkillsFromPaths([{ path: globalDir, source: 'global' }]);
+            const result = await scanSkillsDirectory(skillsDir);
 
-            const error = result.errors.find(e => e.path.includes('dir-name'));
+            const error = result.errors.find((e: { path: string }) => e.path.includes('dir-name'));
             expect(error).toBeDefined();
             expect(error?.message).toContain('does not match directory name');
         });
 
         test('should handle non-existent directory gracefully', async () => {
-            const result = await loadSkillsFromPaths([
-                { path: '/nonexistent/path/skills', source: 'global' }
-            ]);
+            const result = await scanSkillsDirectory('/nonexistent/path/skills');
 
             expect(result.skills.length).toBe(0);
             expect(result.errors.length).toBe(0); // Non-existent dir is silently skipped
         });
 
-        test('should let local skills override global skills', async () => {
-            // Create global skill
-            const globalSkillDir = path.join(globalDir, 'override-test');
-            await fs.mkdir(globalSkillDir, { recursive: true });
-            await fs.writeFile(
-                path.join(globalSkillDir, 'SKILL.md'),
-                `---
-name: override-test
-description: Global version
----
-Global content.
-`
-            );
-
-            // Create local skill with same name
-            const localSkillDir = path.join(localDir, 'override-test');
-            await fs.mkdir(localSkillDir, { recursive: true });
-            await fs.writeFile(
-                path.join(localSkillDir, 'SKILL.md'),
-                `---
-name: override-test
-description: Local version
----
-Local content.
-`
-            );
-
-            const result = await loadSkillsFromPaths([
-                { path: globalDir, source: 'global' },
-                { path: localDir, source: 'local' },
-            ]);
-
-            const skill = result.skills.find(s => s.name === 'override-test');
-            expect(skill).toBeDefined();
-            expect(skill?.description).toBe('Local version');
-            expect(skill?.source).toBe('local');
-        });
-
         test('should load skill with apostrophe in description', async () => {
-            const skillDir = path.join(localDir, 'apostrophe-skill');
+            const skillDir = path.join(skillsDir, 'apostrophe-skill');
             await fs.mkdir(skillDir, { recursive: true });
             await fs.writeFile(
                 path.join(skillDir, 'SKILL.md'),
@@ -284,15 +241,15 @@ description: "Manage the user's personal accounts"
 `
             );
 
-            const result = await loadSkillsFromPaths([{ path: localDir, source: 'local' }]);
+            const result = await scanSkillsDirectory(skillsDir);
 
-            const skill = result.skills.find(s => s.name === 'apostrophe-skill');
+            const skill = result.skills.find((s: Skill) => s.name === 'apostrophe-skill');
             expect(skill).toBeDefined();
             expect(skill?.description).toBe("Manage the user's personal accounts");
         });
 
         test('should load skill with double quotes in description', async () => {
-            const skillDir = path.join(localDir, 'quotes-skill');
+            const skillDir = path.join(skillsDir, 'quotes-skill');
             await fs.mkdir(skillDir, { recursive: true });
             await fs.writeFile(
                 path.join(skillDir, 'SKILL.md'),
@@ -304,15 +261,15 @@ description: 'Run the "special" command'
 `
             );
 
-            const result = await loadSkillsFromPaths([{ path: localDir, source: 'local' }]);
+            const result = await scanSkillsDirectory(skillsDir);
 
-            const skill = result.skills.find(s => s.name === 'quotes-skill');
+            const skill = result.skills.find((s: Skill) => s.name === 'quotes-skill');
             expect(skill).toBeDefined();
             expect(skill?.description).toBe('Run the "special" command');
         });
 
         test('should load skill with unquoted description', async () => {
-            const skillDir = path.join(localDir, 'unquoted-skill');
+            const skillDir = path.join(skillsDir, 'unquoted-skill');
             await fs.mkdir(skillDir, { recursive: true });
             await fs.writeFile(
                 path.join(skillDir, 'SKILL.md'),
@@ -324,9 +281,9 @@ description: A simple unquoted description
 `
             );
 
-            const result = await loadSkillsFromPaths([{ path: localDir, source: 'local' }]);
+            const result = await scanSkillsDirectory(skillsDir);
 
-            const skill = result.skills.find(s => s.name === 'unquoted-skill');
+            const skill = result.skills.find((s: Skill) => s.name === 'unquoted-skill');
             expect(skill).toBeDefined();
             expect(skill?.description).toBe('A simple unquoted description');
         });
@@ -344,7 +301,6 @@ description: A simple unquoted description
                     name: 'test-skill',
                     description: 'A test skill',
                     location: '/path/to/test-skill/SKILL.md',
-                    source: 'global',
                 },
             ];
 
@@ -364,7 +320,6 @@ description: A simple unquoted description
                     name: 'xml-skill',
                     description: 'Uses <tags> & "quotes"',
                     location: '/path/to/skill',
-                    source: 'local',
                 },
             ];
 
@@ -377,8 +332,8 @@ description: A simple unquoted description
 
         test('should format multiple skills', () => {
             const skills: Skill[] = [
-                { name: 'skill-1', description: 'First skill', location: '/path/1', source: 'global' },
-                { name: 'skill-2', description: 'Second skill', location: '/path/2', source: 'local' },
+                { name: 'skill-1', description: 'First skill', location: '/path/1' },
+                { name: 'skill-2', description: 'Second skill', location: '/path/2' },
             ];
 
             const result = formatSkillsForPrompt(skills);

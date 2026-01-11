@@ -94,10 +94,7 @@ export function isValidDescription(description: string): boolean {
 /**
  * Load a single skill from a directory
  */
-async function loadSkill(
-    skillDir: string,
-    source: 'global' | 'local'
-): Promise<{ skill?: Skill; error?: SkillLoadError }> {
+async function loadSkill(skillDir: string): Promise<{ skill?: Skill; error?: SkillLoadError }> {
     const skillMdPath = path.join(skillDir, 'SKILL.md');
     const dirName = path.basename(skillDir);
 
@@ -191,7 +188,6 @@ async function loadSkill(
             name: frontmatter.name,
             description: frontmatter.description,
             location: skillMdPath,
-            source,
         },
     };
 }
@@ -199,15 +195,10 @@ async function loadSkill(
 /**
  * Scan a skills directory and load all valid skills
  */
-async function scanSkillsDirectory(
-    skillsDir: string,
-    source: 'global' | 'local'
-): Promise<{ skills: Skill[]; errors: SkillLoadError[] }> {
+export async function scanSkillsDirectory(skillsDir: string): Promise<SkillLoadResult> {
     const skills: Skill[] = [];
     const errors: SkillLoadError[] = [];
 
-    // Check if directory exists
-    const dir = Bun.file(skillsDir);
     try {
         // Use readdir to list directories
         const { readdir } = await import('fs/promises');
@@ -224,7 +215,7 @@ async function scanSkillsDirectory(
             }
 
             const skillDir = path.join(skillsDir, entry.name);
-            const result = await loadSkill(skillDir, source);
+            const result = await loadSkill(skillDir);
 
             if (result.skill) {
                 skills.push(result.skill);
@@ -242,41 +233,8 @@ async function scanSkillsDirectory(
         }
     }
 
-    return { skills, errors };
-}
-
-/**
- * Load skills from multiple paths
- * Later paths take precedence (local overrides global)
- */
-export async function loadSkillsFromPaths(
-    paths: { path: string; source: 'global' | 'local' }[]
-): Promise<SkillLoadResult> {
-    const allSkills: Skill[] = [];
-    const allErrors: SkillLoadError[] = [];
-    const seenNames = new Map<string, Skill>();
-
-    for (const { path: skillsPath, source } of paths) {
-        const result = await scanSkillsDirectory(skillsPath, source);
-
-        for (const skill of result.skills) {
-            // Later paths override earlier ones (local > global)
-            seenNames.set(skill.name, skill);
-        }
-
-        allErrors.push(...result.errors);
-    }
-
-    // Collect unique skills
-    for (const skill of seenNames.values()) {
-        allSkills.push(skill);
-    }
-
     // Sort by name for consistent ordering
-    allSkills.sort((a, b) => a.name.localeCompare(b.name));
+    skills.sort((a, b) => a.name.localeCompare(b.name));
 
-    return {
-        skills: allSkills,
-        errors: allErrors,
-    };
+    return { skills, errors };
 }
