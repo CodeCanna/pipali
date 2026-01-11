@@ -5,10 +5,13 @@
 
 import path from 'path';
 import os from 'os';
-import { mkdir, rm } from 'fs/promises';
+import { mkdir, rm, readdir, cp } from 'fs/promises';
 import { loadSkillsFromPaths, isValidSkillName, isValidDescription } from './loader';
 import { formatSkillsForPrompt } from './utils';
 import type { Skill, SkillLoadResult } from './types';
+
+// Path to builtin skills shipped with the app
+const BUILTIN_SKILLS_DIR = path.join(import.meta.dir, 'builtin');
 
 export interface DeleteSkillResult {
     success: boolean;
@@ -61,6 +64,60 @@ export function getGlobalSkillsDir(): string {
  */
 export function getLocalSkillsDir(): string {
     return process.env.PIPALI_SKILLS_LOCAL_DIR || path.join(process.cwd(), '.pipali', 'skills');
+}
+
+/**
+ * Install builtin skills to the global skills directory.
+ * Only copies skills that don't already exist (won't overwrite user modifications).
+ * Called on app startup/first run.
+ */
+export async function installBuiltinSkills(): Promise<{ installed: string[]; skipped: string[] }> {
+    const installed: string[] = [];
+    const skipped: string[] = [];
+    const globalDir = getGlobalSkillsDir();
+
+    // Ensure global skills directory exists
+    await mkdir(globalDir, { recursive: true });
+
+    // Read builtin skills directory
+    let builtinEntries: Awaited<ReturnType<typeof readdir>>;
+    try {
+        builtinEntries = await readdir(BUILTIN_SKILLS_DIR, { withFileTypes: true });
+    } catch (err) {
+        // No builtin skills directory or can't read it
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { installed, skipped };
+        }
+        throw err;
+    }
+
+    for (const entry of builtinEntries) {
+        // Skip non-directories and hidden files
+        if (!entry.isDirectory() || entry.name.startsWith('.')) {
+            continue;
+        }
+
+        const skillName = entry.name;
+        const srcDir = path.join(BUILTIN_SKILLS_DIR, skillName);
+        const destDir = path.join(globalDir, skillName);
+
+        // Check if skill already exists in global directory
+        const destSkillMd = Bun.file(path.join(destDir, 'SKILL.md'));
+        if (await destSkillMd.exists()) {
+            skipped.push(skillName);
+            continue;
+        }
+
+        // Copy the skill directory
+        try {
+            await cp(srcDir, destDir, { recursive: true });
+            installed.push(skillName);
+        } catch (err) {
+            console.error(`Failed to install builtin skill "${skillName}":`, err);
+        }
+    }
+
+    return { installed, skipped };
 }
 
 /**

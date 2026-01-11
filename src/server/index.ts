@@ -6,7 +6,7 @@ import app from "./routes";
 import api from "./routes/api";
 import { initializeDatabase } from "./init";
 import { getMigrationsFolder } from "./utils";
-import { loadSkills } from "./skills";
+import { loadSkills, installBuiltinSkills } from "./skills";
 import { websocketHandler, type WebSocketData } from "./routes/ws";
 import {
     IS_COMPILED_BINARY,
@@ -156,6 +156,12 @@ async function main() {
         log.info('🔐 Using existing platform authentication');
     } else if (config.anon) {
         log.info('🔓 Running in anonymous mode (using local API keys)');
+    }
+
+    // Install builtin skills to global directory (skips if already exists)
+    const builtinResult = await installBuiltinSkills();
+    if (builtinResult.installed.length > 0) {
+        log.info(`📦 Installed builtin skill(s): ${builtinResult.installed.join(', ')}`);
     }
 
     // Load skills from global and local paths
