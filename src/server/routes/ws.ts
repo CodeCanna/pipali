@@ -58,6 +58,7 @@ const activeConnections = new WeakMap<ServerWebSocket<WebSocketData>, Connection
 // Message types from client - now with conversationId for routing
 type ClientMessage =
     | { type: 'message'; message: string; conversationId?: string }
+    | { type: 'fork'; message: string; sourceConversationId: string }
     | { type: 'pause'; conversationId: string }
     | { type: 'resume'; message?: string; conversationId: string }
     | { type: 'confirmation_response'; data: ConfirmationResponse; conversationId: string };
@@ -315,6 +316,66 @@ export const websocketHandler = {
             } else {
                 log.warn(`⚠️ Received confirmation response for unknown requestId: ${response.requestId} (conv: ${data.conversationId})`);
             }
+            return;
+        }
+
+        // Handle fork request - create a background task with chat history
+        if (data.type === 'fork') {
+            const { message: userQuery, sourceConversationId } = data;
+
+            if (!userQuery) {
+                log.warn(`Received fork request without message`);
+                return;
+            }
+
+            log.info(`\n${'='.repeat(60)}`);
+            log.info(`🔱 Fork request received`);
+            log.info(`Query: "${userQuery.slice(0, 100)}${userQuery.length > 100 ? '...' : ''}"`);
+            log.info(`Source conversation: ${sourceConversationId}`);
+
+            // Get the user
+            const [user] = await db.select().from(User).where(eq(User.email, getDefaultUser().email));
+            if (!user) {
+                log.error(`❌ User not found: ${getDefaultUser().email}`);
+                ws.send(JSON.stringify({ type: 'error', error: 'User not found' }));
+                return;
+            }
+
+            // Fork the conversation (creates new conversation with copied history)
+            const forkedConversation = await atifConversationService.forkConversation(
+                sourceConversationId,
+                user
+            );
+
+            // Extract history from forked trajectory for client
+            const history = forkedConversation.trajectory.steps
+                .filter(s => s.source === 'user' || s.source === 'agent')
+                .map(s => ({
+                    source: s.source,
+                    message: s.message,
+                    step_id: s.step_id,
+                    tool_calls: s.tool_calls,
+                    observation: s.observation,
+                    reasoning_content: s.reasoning_content,
+                }));
+
+            // Send conversationId and history to client immediately
+            sendToClient(ws, { type: 'conversation_created', history }, forkedConversation.id);
+
+            // Create session for this research
+            const session: ResearchSession = {
+                isPaused: false,
+                abortController: new AbortController(),
+                conversationId: forkedConversation.id,
+                user,
+                userMessage: userQuery,
+                confirmationPreferences: createEmptyPreferences(),
+                pendingConfirmations: new Map(),
+            };
+            sessions.set(forkedConversation.id, session);
+
+            // Start research in the background
+            runResearch(ws, session);
             return;
         }
 

@@ -597,6 +597,7 @@ const App = () => {
             const newConvId = message.conversationId;
             const isBackgroundTask = pendingBackgroundMessageRef.current !== null;
             const pendingMsg = pendingBackgroundMessageRef.current;
+            const serverHistory = (message as any).history; // History from forked conversation
             pendingBackgroundMessageRef.current = null; // Clear the pending message
 
             // For background tasks, don't switch to the new conversation
@@ -609,8 +610,63 @@ const App = () => {
 
             if (newConvId) {
                 if (isBackgroundTask && pendingMsg) {
-                    // For background task: create user message + streaming assistant message
-                    const initialMessages = [
+                    // For background task: parse history if present (forked conversation)
+                    const historyMessages: Message[] = [];
+                    if (serverHistory && Array.isArray(serverHistory)) {
+                        // Parse history same way as fetchHistory does
+                        let thoughts: Thought[] = [];
+                        let currentAgentMessage: Message | null = null;
+
+                        const finalizeAgent = () => {
+                            if (currentAgentMessage) {
+                                if (thoughts.length > 0) currentAgentMessage.thoughts = thoughts;
+                                historyMessages.push(currentAgentMessage);
+                            } else if (thoughts.length > 0) {
+                                historyMessages.push({ role: 'assistant', content: '', thoughts, id: generateUUID() });
+                            }
+                            thoughts = [];
+                            currentAgentMessage = null;
+                        };
+
+                        for (const msg of serverHistory) {
+                            if (msg.source === 'user') {
+                                finalizeAgent();
+                                historyMessages.push({
+                                    role: 'user',
+                                    content: typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message),
+                                    id: String(msg.step_id),
+                                });
+                            }
+                            if (msg.source === 'agent') {
+                                const hasMessage = msg.message && msg.message.trim() !== '';
+                                if (msg.reasoning_content) {
+                                    thoughts.push({ type: 'thought', content: msg.reasoning_content, id: generateUUID(), isInternalThought: true });
+                                }
+                                const toolResultsMap = new Map(
+                                    (msg.observation?.results || [])
+                                        .filter((r: any) => r.source_call_id && r.content)
+                                        .map((r: any) => [r.source_call_id, r.content])
+                                );
+                                if (msg.tool_calls?.length > 0) {
+                                    if (hasMessage) thoughts.push({ type: 'thought', content: msg.message, id: generateUUID() });
+                                    for (const tc of msg.tool_calls) {
+                                        thoughts.push({
+                                            type: 'tool_call', toolName: tc.function_name, toolArgs: tc.arguments,
+                                            toolResult: toolResultsMap.get(tc.tool_call_id) as string | undefined,
+                                            content: '', id: tc.tool_call_id,
+                                        });
+                                    }
+                                } else if (hasMessage) {
+                                    currentAgentMessage = { role: 'assistant', content: msg.message, id: String(msg.step_id) };
+                                }
+                            }
+                        }
+                        finalizeAgent();
+                    }
+
+                    // Add the new user message + streaming assistant
+                    const initialMessages: Message[] = [
+                        ...historyMessages,
                         { id: generateUUID(), role: 'user' as const, content: pendingMsg },
                         { id: generateUUID(), role: 'assistant' as const, content: '', thoughts: [], isStreaming: true },
                     ];
@@ -1436,8 +1492,18 @@ const App = () => {
         // Store pending message to associate when conversation_created arrives
         pendingBackgroundMessageRef.current = userMsg;
 
-        // Send as a new conversation (no conversationId forces new task)
-        wsRef.current?.send(JSON.stringify({ message: userMsg }));
+        // If we have a conversationId, fork it (includes chat history)
+        // Otherwise, create a new conversation from scratch
+        if (conversationId) {
+            wsRef.current?.send(JSON.stringify({
+                type: 'fork',
+                message: userMsg,
+                sourceConversationId: conversationId
+            }));
+        } else {
+            // No conversationId - create new conversation from scratch
+            wsRef.current?.send(JSON.stringify({ message: userMsg }));
+        }
 
         scheduleTextareaFocus();
     };

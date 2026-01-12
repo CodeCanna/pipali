@@ -273,6 +273,75 @@ export class ATIFConversationService {
     return newConversation as ConversationWithTrajectory;
   }
 
+  /**
+   * Forks an existing conversation with its complete history.
+   * Creates a new conversation with a copy of all steps from the source.
+   */
+  async forkConversation(
+    sourceConversationId: string,
+    user: typeof User.$inferSelect,
+    title?: string,
+  ): Promise<ConversationWithTrajectory> {
+    const sourceConversation = await this.getConversation(sourceConversationId);
+
+    if (!sourceConversation) {
+      throw new Error(`Source conversation ${sourceConversationId} not found`);
+    }
+
+    // Create a deep copy of the trajectory
+    const sourceTrajectory = sourceConversation.trajectory;
+    const newSessionId = uuidv4();
+    const newTrajectory: ATIFTrajectory = {
+      ...sourceTrajectory,
+      session_id: newSessionId,
+      steps: [...sourceTrajectory.steps], // Copy all steps including history
+      final_metrics: sourceTrajectory.final_metrics ? {
+        total_prompt_tokens: sourceTrajectory.final_metrics.total_prompt_tokens || 0,
+        total_completion_tokens: sourceTrajectory.final_metrics.total_completion_tokens || 0,
+        total_cached_tokens: sourceTrajectory.final_metrics.total_cached_tokens || 0,
+        total_cost_usd: sourceTrajectory.final_metrics.total_cost_usd,
+        total_steps: sourceTrajectory.final_metrics.total_steps,
+      } : undefined,
+    };
+
+    // Build insert data
+    const insertData: {
+      userId: number;
+      trajectory: ATIFTrajectory;
+      title?: string;
+    } = {
+      userId: user.id,
+      trajectory: newTrajectory,
+    };
+
+    if (title) {
+      insertData.title = title;
+    }
+
+    console.log('[ATIF Service] Forking conversation:', {
+      sourceId: sourceConversationId,
+      userId: insertData.userId,
+      stepCount: newTrajectory.steps.length,
+    });
+
+    try {
+      const [newConversation] = await db
+        .insert(Conversation)
+        .values(insertData)
+        .returning();
+
+      if (!newConversation) {
+        throw new Error('Failed to fork conversation');
+      }
+
+      console.log('[ATIF Service] ✅ Conversation forked:', newConversation.id);
+      return newConversation as ConversationWithTrajectory;
+    } catch (error) {
+      console.error('[ATIF Service] ❌ Error forking conversation:', error);
+      throw error;
+    }
+  }
+
 }
 
 // Export singleton instance
