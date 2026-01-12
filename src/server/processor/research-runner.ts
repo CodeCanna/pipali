@@ -44,6 +44,8 @@ export interface ResearchRunnerOptions {
     onIteration?: (iteration: ResearchIteration) => void;
     /** Callback to update reasoning/thought display */
     onReasoning?: (thought: string) => void;
+    /** Callback when user message is persisted to DB (provides step_id for deletion) */
+    onUserMessagePersisted?: (stepId: number) => void;
 }
 
 export interface ResearchRunnerResult {
@@ -53,6 +55,8 @@ export interface ResearchRunnerResult {
     iterationCount: number;
     /** The conversation ID */
     conversationId: string;
+    /** Step ID of the final response in ATIF trajectory */
+    stepId: number;
 }
 
 /**
@@ -95,6 +99,7 @@ export async function* runResearchWithConversation(
         onToolCallStart,
         onIteration,
         onReasoning,
+        onUserMessagePersisted,
     } = options;
 
     // Load conversation from DB
@@ -123,6 +128,10 @@ export async function* runResearchWithConversation(
                 userMessage,
             );
             trajectory.steps.push(userStep);
+            // Notify client of user message step_id for deletion support
+            if (onUserMessagePersisted) {
+                onUserMessagePersisted(userStep.step_id);
+            }
         }
     }
 
@@ -173,6 +182,10 @@ export async function* runResearchWithConversation(
                 const userStepIndex = trajectory.steps.findLastIndex(s => s.source === 'user');
                 if (userStepIndex >= 0) {
                     trajectory.steps[userStepIndex] = userStep;
+                }
+                // Notify client of user message step_id for deletion support
+                if (onUserMessagePersisted) {
+                    onUserMessagePersisted(userStep.step_id);
                 }
             }
             systemPromptPersisted = true;
@@ -228,10 +241,13 @@ export async function* runResearchWithConversation(
             );
             trajectory.steps.push(agentStep);
 
+            // Include the step_id in the iteration for the client to use as message identifier
+            const iterationWithStepId = { ...iteration, stepId: agentStep.step_id };
+
             if (onIteration) {
-                onIteration(iteration);
+                onIteration(iterationWithStepId);
             }
-            yield iteration;
+            yield iterationWithStepId;
         }
     }
 
@@ -241,7 +257,7 @@ export async function* runResearchWithConversation(
     }
 
     // Add final response as the last agent step
-    await atifConversationService.addStep(
+    const finalStep = await atifConversationService.addStep(
         conversationId,
         'agent',
         finalResponse,
@@ -256,6 +272,7 @@ export async function* runResearchWithConversation(
         response: finalResponse,
         iterationCount,
         conversationId,
+        stepId: finalStep.step_id,
     };
 }
 

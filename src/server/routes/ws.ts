@@ -176,6 +176,13 @@ async function runResearch(
                 // Update shared store with latest reasoning
                 updateSessionReasoning(conversationId, thought);
             },
+            onUserMessagePersisted: (stepId) => {
+                // Send user message step_id to client for deletion support
+                sendToClient(ws, {
+                    type: 'user_message_persisted',
+                    data: { stepId }
+                }, conversationId);
+            },
         });
 
         // Consume all iterations (callbacks handle the streaming)
@@ -208,7 +215,8 @@ async function runResearch(
             type: 'complete',
             data: {
                 response: result.response,
-                conversationId
+                conversationId,
+                stepId: result.stepId,
             }
         }, conversationId);
 

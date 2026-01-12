@@ -647,6 +647,44 @@ const App = () => {
             return;
         }
 
+        // Handle user message persisted - update user message ID for deletion support
+        if (message.type === 'user_message_persisted') {
+            const { data } = message;
+            const stepId = String(data.stepId);
+            const targetConvId = msgConversationId || conversationIdRef.current;
+
+            // Update the most recent user message ID
+            const updateUserMessageId = (msgs: Message[]): Message[] => {
+                // Find the last user message and update its ID
+                const lastUserMsgIndex = msgs.findLastIndex(m => m.role === 'user');
+                if (lastUserMsgIndex >= 0) {
+                    return msgs.map((msg, idx) =>
+                        idx === lastUserMsgIndex ? { ...msg, id: stepId } : msg
+                    );
+                }
+                return msgs;
+            };
+
+            if (targetConvId === conversationIdRef.current) {
+                setMessages(prev => updateUserMessageId(prev));
+            }
+
+            if (targetConvId) {
+                setConversationStates(prev => {
+                    const next = new Map(prev);
+                    const existing = next.get(targetConvId);
+                    if (existing) {
+                        next.set(targetConvId, {
+                            ...existing,
+                            messages: updateUserMessageId(existing.messages),
+                        });
+                    }
+                    return next;
+                });
+            }
+            return;
+        }
+
         if (message.type === 'confirmation_request') {
             const confirmationData = message.data as ConfirmationRequest;
             if (msgConversationId) {
@@ -773,9 +811,11 @@ const App = () => {
                         }
                         return thought;
                     });
+                    // Update message ID to stepId (from DB) for proper deletion support
+                    const newId = data.stepId !== undefined ? String(data.stepId) : lastMsg.id;
                     return msgs.map(msg =>
                         msg.id === lastMsg.id
-                            ? { ...msg, thoughts: updatedThoughts }
+                            ? { ...msg, id: newId, thoughts: updatedThoughts }
                             : msg
                     );
                 }
@@ -815,18 +855,20 @@ const App = () => {
         if (message.type === 'complete') {
             const { data } = message;
             const completedConvId = msgConversationId || data.conversationId;
+            // Use stepId from server for proper deletion support
+            const messageId = data.stepId !== undefined ? String(data.stepId) : generateUUID();
 
             const finalizeMessages = (msgs: Message[]): Message[] => {
                 const lastMsg = msgs[msgs.length - 1];
                 if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isStreaming) {
                     return msgs.map(msg =>
                         msg.id === lastMsg.id
-                            ? { ...msg, content: data.response, isStreaming: false }
+                            ? { ...msg, id: messageId, content: data.response, isStreaming: false }
                             : msg
                     );
                 }
                 return [...msgs, {
-                    id: generateUUID(),
+                    id: messageId,
                     role: 'assistant' as const,
                     content: data.response,
                     isStreaming: false,

@@ -34,6 +34,8 @@ export interface ResearchIteration {
     isToolCallStart?: boolean;
     /** System prompt used for this research session (only set on first iteration) */
     systemPrompt?: string;
+    /** Step ID from ATIF trajectory (set after persistence to DB) */
+    stepId?: number;
 }
 
 /**
