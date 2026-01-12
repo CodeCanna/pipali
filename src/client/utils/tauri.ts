@@ -61,3 +61,41 @@ export async function openInBrowser(url: string, options?: { newTab?: boolean })
         window.location.href = url;
     }
 }
+
+/**
+ * Open a file with the system's default application.
+ * In Tauri v2, uses the opener plugin's openPath function.
+ * Only works in the desktop app - no-op in web mode.
+ *
+ * @param filePath - The file path to open (can be file:// URL or absolute path)
+ * @returns true if the file was opened successfully, false otherwise
+ */
+export async function openFile(filePath: string): Promise<boolean> {
+    // Convert file:// URL to path if needed
+    let path = filePath;
+    if (filePath.startsWith('file://')) {
+        try {
+            path = decodeURIComponent(filePath.replace(/^file:\/\//, ''));
+        } catch {
+            path = filePath.replace(/^file:\/\//, '');
+        }
+    }
+
+    console.log('[openFile] Opening file:', path, { isTauri: isTauri(), isDesktop: isDesktopMode() });
+
+    if (!isTauri()) {
+        console.warn('[openFile] Not in Tauri environment, cannot open file');
+        return false;
+    }
+
+    try {
+        const { openPath } = await import('@tauri-apps/plugin-opener');
+        console.log('[openFile] Using Tauri opener plugin openPath...');
+        await openPath(path);
+        console.log('[openFile] File opened successfully');
+        return true;
+    } catch (err) {
+        console.error('[openFile] Failed to open file:', err);
+        return false;
+    }
+}
