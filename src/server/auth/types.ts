@@ -28,3 +28,8 @@ export interface AuthConfig {
     callbackPort?: number;  // Default: auto-find available port
     timeout?: number;       // Default: 5 minutes
 }
+
+export interface PlatformAuthCapabilities {
+    emailEnabled: boolean;
+    googleEnabled: boolean;
+}

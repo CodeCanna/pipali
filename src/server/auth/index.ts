@@ -9,7 +9,7 @@
 import { db } from '../db';
 import { PlatformAuth, User, AiModelApi, ChatModel, WebSearchProvider, WebScraper } from '../db/schema';
 import { eq, desc } from 'drizzle-orm';
-import type { AuthTokens, PlatformUserInfo } from './types';
+import type { AuthTokens, PlatformUserInfo, PlatformAuthCapabilities } from './types';
 import { createChildLogger } from '../logger';
 
 const log = createChildLogger({ component: 'auth' });
@@ -640,5 +640,30 @@ function detectModelType(modelName: string, ownedBy: string): 'openai' | 'google
     return 'openai';
 }
 
+/**
+ * Get authentication capabilities from the platform
+ * Returns which auth methods (email, Google) are enabled on the platform
+ */
+export async function getPlatformAuthCapabilities(): Promise<PlatformAuthCapabilities> {
+    try {
+        const response = await fetch(`${platformUrl}/auth/config`);
+
+        if (!response.ok) {
+            log.warn({ status: response.status }, 'Failed to fetch platform auth config, defaulting to all enabled');
+            return { emailEnabled: true, googleEnabled: true };
+        }
+
+        const data = await response.json();
+        return {
+            emailEnabled: data.emailEnabled ?? true,
+            googleEnabled: data.googleEnabled ?? true,
+        };
+    } catch (error) {
+        log.error({ err: error }, 'Failed to get platform auth capabilities');
+        // Default to showing all auth methods if we can't reach the platform
+        return { emailEnabled: true, googleEnabled: true };
+    }
+}
+
 // Re-export types
-export type { AuthTokens, PlatformUserInfo, OAuthFlowResult, AuthConfig } from './types';
+export type { AuthTokens, PlatformUserInfo, OAuthFlowResult, AuthConfig, PlatformAuthCapabilities } from './types';

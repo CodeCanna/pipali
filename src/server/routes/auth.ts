@@ -6,6 +6,7 @@ import {
     clearTokens,
     getPlatformUserInfo,
     getPlatformUrl,
+    getPlatformAuthCapabilities,
     syncPlatformModels,
     syncPlatformWebTools,
 } from '../auth';
@@ -107,6 +108,12 @@ auth.get('/oauth/google/url', async (c) => {
 // Get platform URL for email auth
 auth.get('/platform-url', async (c) => {
     return c.json({ url: getPlatformUrl() });
+});
+
+// Get platform auth capabilities (which auth methods are enabled)
+auth.get('/config', async (c) => {
+    const capabilities = await getPlatformAuthCapabilities();
+    return c.json(capabilities);
 });
 
 // HTML templates for OAuth callback
