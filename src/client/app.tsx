@@ -35,6 +35,7 @@ import { AutomationsPage } from "./components/automations";
 import { McpToolsPage } from "./components/mcp-tools";
 import { SettingsPage } from "./components/settings";
 import { LoginPage } from "./components/auth";
+import { FindInPage } from "./components/FindInPage";
 import type { AutomationPendingConfirmation } from "./types/automations";
 
 // Page types
@@ -93,6 +94,8 @@ const App = () => {
     const [automationConfirmations, setAutomationConfirmations] = useState<AutomationPendingConfirmation[]>([]);
     // Per-conversation state for tracking active tasks across all conversations
     const [conversationStates, setConversationStates] = useState<Map<string, ConversationState>>(new Map());
+    // Find in page state
+    const [showFindInPage, setShowFindInPage] = useState(false);
 
     // Refs
     const wsRef = useRef<WebSocket | null>(null);
@@ -212,6 +215,19 @@ const App = () => {
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, [isProcessing, isPaused, isConnected, conversationId]);
+
+    // Global Cmd/Ctrl+F listener for find in page
+    useEffect(() => {
+        const handleFindShortcut = (e: KeyboardEvent) => {
+            if (e.key === 'f' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+                setShowFindInPage(prev => !prev);
+            }
+        };
+
+        window.addEventListener('keydown', handleFindShortcut);
+        return () => window.removeEventListener('keydown', handleFindShortcut);
+    }, []);
 
     // ===== API Functions =====
 
@@ -1624,6 +1640,11 @@ const App = () => {
                 onDismiss={handleConfirmationDismiss}
                 onNavigateToConversation={selectConversation}
                 onNavigateToAutomations={goToAutomationsPage}
+            />
+
+            <FindInPage
+                isOpen={showFindInPage}
+                onClose={() => setShowFindInPage(false)}
             />
         </div>
     );

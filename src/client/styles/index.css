@@ -26,6 +26,7 @@
 @import './components/messages.css';
 @import './components/thoughts.css';
 @import './components/confirmations.css';
+@import './components/find-in-page.css';
 
 /* Pages */
 @import './pages/home.css';

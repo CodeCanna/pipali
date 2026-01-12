@@ -1,0 +1,136 @@
+/*
+ * Pipali Styles - Find in Page Component
+ */
+
+/* Find bar container */
+.find-in-page-bar {
+    position: fixed;
+    top: 56px; /* Below header */
+    right: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    z-index: var(--z-modal);
+    animation: slideDown var(--transition-fast);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Input wrapper */
+.find-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.find-icon {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.find-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--color-text);
+    outline: none;
+    min-width: 120px;
+}
+
+.find-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.find-count {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    padding: 2px 6px;
+    background: var(--color-bg-muted);
+    border-radius: var(--radius-sm);
+}
+
+/* Navigation and close buttons */
+.find-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-left: 1px solid var(--color-border-subtle);
+    padding-left: 8px;
+    margin-left: 4px;
+}
+
+.find-nav-button,
+.find-close-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.find-nav-button:hover:not(:disabled),
+.find-close-button:hover {
+    background: var(--bg-hover);
+    color: var(--color-text);
+}
+
+.find-nav-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.find-close-button:hover {
+    background: var(--color-error-bg);
+    color: var(--color-error);
+}
+
+/* Highlight styles - applied to matched text in the page */
+.find-highlight {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.find-highlight-active {
+    background: var(--color-warning);
+    color: white;
+    box-shadow: 0 0 0 2px var(--color-warning);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .find-in-page-bar {
+        left: 16px;
+        right: 16px;
+    }
+
+    .find-input-wrapper {
+        min-width: 100px;
+    }
+}
