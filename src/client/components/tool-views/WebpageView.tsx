@@ -2,9 +2,11 @@
 // Shows extracted webpage content in a scrollable box with markdown rendering
 
 import { Globe } from 'lucide-react';
+import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ExternalLink } from '../ExternalLink';
+import { makeMarkdownUrlTransform } from '../../utils/markdown';
 
 interface WebpageViewProps {
     result: string;
@@ -24,6 +26,10 @@ export function WebpageView({ result, url }: WebpageViewProps) {
     };
 
     const domain = getDomain(url);
+    const urlTransform = useMemo(
+        () => makeMarkdownUrlTransform({ baseUrl: url, allowRelative: true }),
+        [url]
+    );
 
     // Check for errors. Mark as false until we have better error detection.
     const isError = false;
@@ -35,7 +41,7 @@ export function WebpageView({ result, url }: WebpageViewProps) {
                 <span className="webpage-domain">{domain}</span>
             </div>
             <div className="webpage-content webpage-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={urlTransform} components={{ a: ExternalLink }}>
                     {result}
                 </ReactMarkdown>
             </div>

@@ -2,6 +2,8 @@
 // Shows search results with titles, links, and snippets in a scrollable box
 
 import { Search } from 'lucide-react';
+import { ExternalLink } from '../ExternalLink';
+import { safeMarkdownUrlTransform } from '../../utils/markdown';
 
 interface WebSearchViewProps {
     result: string;
@@ -56,7 +58,13 @@ export function WebSearchView({ result, query }: WebSearchViewProps) {
                 {results.map((result, idx) => (
                     <div key={idx} className="web-search-result">
                         <div className="web-search-title">{result.title}</div>
-                        <div className="web-search-link">{result.link}</div>
+                        <div className="web-search-link">
+                            {(() => {
+                                const safeLink = safeMarkdownUrlTransform(result.link);
+                                if (!safeLink) return result.link;
+                                return <ExternalLink href={safeLink}>{result.link}</ExternalLink>;
+                            })()}
+                        </div>
                         {result.snippet && (
                             <div className="web-search-snippet">{result.snippet}</div>
                         )}

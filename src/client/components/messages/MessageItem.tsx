@@ -10,6 +10,7 @@ import type { Message } from '../../types';
 import { ThoughtsSection } from '../thoughts/ThoughtsSection';
 import { StreamingIndicator } from './StreamingIndicator';
 import { ExternalLink } from '../ExternalLink';
+import { safeMarkdownUrlTransform } from '../../utils/markdown';
 
 interface MessageItemProps {
     message: Message;
@@ -54,6 +55,7 @@ export function MessageItem({ message, onDelete }: MessageItemProps) {
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
                         rehypePlugins={[rehypeKatex]}
+                        urlTransform={safeMarkdownUrlTransform}
                         components={{ a: ExternalLink }}
                     >
                         {message.content}

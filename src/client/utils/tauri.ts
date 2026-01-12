@@ -71,13 +71,25 @@ export async function openInBrowser(url: string, options?: { newTab?: boolean })
  * @returns true if the file was opened successfully, false otherwise
  */
 export async function openFile(filePath: string): Promise<boolean> {
-    // Convert file:// URL to path if needed
+    // Convert file:// URL to a local filesystem path if needed
     let path = filePath;
     if (filePath.startsWith('file://')) {
         try {
-            path = decodeURIComponent(filePath.replace(/^file:\/\//, ''));
+            const url = new URL(filePath);
+            // Typical macOS file URLs are file:///Users/...
+            // URL.pathname is already decoded for most characters, but keep it explicit.
+            path = decodeURIComponent(url.pathname);
+            // Windows drive paths come through as /C:/Users/...; strip the leading slash.
+            if (/^\/[a-zA-Z]:\//.test(path)) {
+                path = path.slice(1);
+            }
         } catch {
-            path = filePath.replace(/^file:\/\//, '');
+            // Fallback: strip scheme prefix
+            try {
+                path = decodeURIComponent(filePath.replace(/^file:\/\//, ''));
+            } catch {
+                path = filePath.replace(/^file:\/\//, '');
+            }
         }
     }
 
@@ -95,7 +107,18 @@ export async function openFile(filePath: string): Promise<boolean> {
         console.log('[openFile] File opened successfully');
         return true;
     } catch (err) {
-        console.error('[openFile] Failed to open file:', err);
+        console.error('[openFile] openPath failed:', err);
+    }
+
+    // Fallback: reveal the file in its folder (better than doing nothing)
+    try {
+        const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+        console.log('[openFile] Falling back to revealItemInDir...');
+        await revealItemInDir(path);
+        console.log('[openFile] revealItemInDir succeeded');
+        return true;
+    } catch (err) {
+        console.error('[openFile] revealItemInDir fallback failed:', err);
         return false;
     }
 }
