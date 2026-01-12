@@ -49,7 +49,3 @@ body {
   color: var(--color-selection-text);
 }
 
-/* KaTeX - hide HTML version */
-.katex-html {
-  display: none;
-}
