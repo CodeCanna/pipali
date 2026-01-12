@@ -26,8 +26,7 @@ export class TestServer {
     private port: number;
     private host: string;
     private dbPath: string;
-    private skillsGlobalDir: string;
-    private skillsLocalDir: string;
+    private skillsDir: string;
     private mockScenarios: MockScenario[];
 
     constructor(config: TestServerConfig) {
@@ -35,32 +34,23 @@ export class TestServer {
         this.host = config.host || '127.0.0.1';
         const testId = Date.now();
         this.dbPath = `/tmp/pipali/pipali-test-${testId}`;
-        this.skillsGlobalDir = `/tmp/pipali/pipali-test-${testId}-skills-global`;
-        this.skillsLocalDir = `/tmp/pipali/pipali-test-${testId}-skills-local`;
+        this.skillsDir = `/tmp/pipali/pipali-test-${testId}-skills`;
         this.mockScenarios = config.mockScenarios || [];
     }
 
     /**
-     * Get the global skills directory for this test server
+     * Get the skills directory for this test server
      */
-    getSkillsGlobalDir(): string {
-        return this.skillsGlobalDir;
-    }
-
-    /**
-     * Get the local skills directory for this test server
-     */
-    getSkillsLocalDir(): string {
-        return this.skillsLocalDir;
+    getSkillsDir(): string {
+        return this.skillsDir;
     }
 
     async start(): Promise<void> {
         console.log(`[TestServer] Starting on ${this.host}:${this.port}...`);
 
-        // Create isolated skills directories for testing
-        await mkdir(this.skillsGlobalDir, { recursive: true });
-        await mkdir(this.skillsLocalDir, { recursive: true });
-        console.log(`[TestServer] Created test skills dirs: global=${this.skillsGlobalDir}, local=${this.skillsLocalDir}`);
+        // Create isolated skills directory for testing
+        await mkdir(this.skillsDir, { recursive: true });
+        console.log(`[TestServer] Created test skills dir: ${this.skillsDir}`);
 
         // Set environment variables for the test server
         const env: NodeJS.ProcessEnv = {
@@ -71,9 +61,8 @@ export class TestServer {
             PIPALI_TEST_MODE: 'true',
             // Skip platform authentication for tests
             PIPALI_ANON_MODE: 'true',
-            // Use isolated skills directories for testing
-            PIPALI_SKILLS_GLOBAL_DIR: this.skillsGlobalDir,
-            PIPALI_SKILLS_LOCAL_DIR: this.skillsLocalDir,
+            // Use isolated skills directory for testing
+            PIPALI_SKILLS_DIR: this.skillsDir,
         };
 
         // Pass mock scenarios if provided
@@ -149,12 +138,11 @@ export class TestServer {
             console.log('[TestServer] Stopped');
         }
 
-        // Clean up test database and skills directories
+        // Clean up test database and skills directory
         try {
             await rm(this.dbPath, { recursive: true, force: true });
-            await rm(this.skillsGlobalDir, { recursive: true, force: true });
-            await rm(this.skillsLocalDir, { recursive: true, force: true });
-            console.log('[TestServer] Cleaned up test database and skills directories');
+            await rm(this.skillsDir, { recursive: true, force: true });
+            console.log('[TestServer] Cleaned up test database and skills directory');
         } catch {
             // Ignore cleanup errors
         }

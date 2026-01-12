@@ -2,7 +2,7 @@
  * Skills Page E2E Tests
  *
  * Tests for the skills page functionality including:
- * - Viewing skills from local and global directories
+ * - Viewing skills
  * - Opening skill details
  * - Editing skills
  * - Deleting skills
@@ -14,32 +14,23 @@ import { SkillsPage } from '../helpers/page-objects';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 
-// Test skill directory paths - use isolated test directories set by global-setup
-// These are temp directories that get cleaned up after tests
-function getLocalSkillsDir(): string {
-    const dir = process.env.TEST_SKILLS_LOCAL_DIR;
+// Test skill directory path - use isolated test directory set by global-setup
+// This is a temp directory that gets cleaned up after tests
+function getSkillsDir(): string {
+    const dir = process.env.TEST_SKILLS_DIR;
     if (!dir) {
-        throw new Error('TEST_SKILLS_LOCAL_DIR not set - global-setup may not have run');
-    }
-    return dir;
-}
-
-function getGlobalSkillsDir(): string {
-    const dir = process.env.TEST_SKILLS_GLOBAL_DIR;
-    if (!dir) {
-        throw new Error('TEST_SKILLS_GLOBAL_DIR not set - global-setup may not have run');
+        throw new Error('TEST_SKILLS_DIR not set - global-setup may not have run');
     }
     return dir;
 }
 
 // Helper to create a test skill on disk
 async function createTestSkill(
-    basePath: string,
     name: string,
     description: string,
     instructions: string = ''
 ): Promise<void> {
-    const skillDir = join(basePath, name);
+    const skillDir = join(getSkillsDir(), name);
     await mkdir(skillDir, { recursive: true });
 
     const content = `---
@@ -54,8 +45,8 @@ ${instructions}
 }
 
 // Helper to delete a test skill from disk
-async function deleteTestSkill(basePath: string, name: string): Promise<void> {
-    const skillDir = join(basePath, name);
+async function deleteTestSkill(name: string): Promise<void> {
+    const skillDir = join(getSkillsDir(), name);
     await rm(skillDir, { recursive: true, force: true });
 }
 
@@ -69,35 +60,31 @@ test.describe('Skills Page', () => {
 
     // Set up test skills before all tests
     test.beforeAll(async () => {
-        // Ensure skills directories exist (they should already from test-server setup)
-        await ensureDir(getLocalSkillsDir());
-        await ensureDir(getGlobalSkillsDir());
+        // Ensure skills directory exists (it should already from test-server setup)
+        await ensureDir(getSkillsDir());
 
         // Create test skills
         await createTestSkill(
-            getLocalSkillsDir(),
-            'test-local-skill',
-            'A test skill in local directory',
-            'These are instructions for the local test skill.'
+            'test-skill-one',
+            'A test skill for E2E tests',
+            'These are instructions for the first test skill.'
         );
         await createTestSkill(
-            getGlobalSkillsDir(),
-            'test-global-skill',
-            'A test skill in global directory',
-            'These are instructions for the global test skill.'
+            'test-skill-two',
+            'Another test skill',
+            'These are instructions for the second test skill.'
         );
     });
 
     // Clean up test skills after all tests
     test.afterAll(async () => {
-        await deleteTestSkill(getLocalSkillsDir(), 'test-local-skill');
-        await deleteTestSkill(getGlobalSkillsDir(), 'test-global-skill');
+        await deleteTestSkill('test-skill-one');
+        await deleteTestSkill('test-skill-two');
         // Clean up any skills created during tests
-        await deleteTestSkill(getLocalSkillsDir(), 'new-test-skill');
-        await deleteTestSkill(getGlobalSkillsDir(), 'new-test-skill');
-        await deleteTestSkill(getLocalSkillsDir(), 'skill-to-delete');
-        await deleteTestSkill(getLocalSkillsDir(), 'skill-to-edit');
-        await deleteTestSkill(getLocalSkillsDir(), 'fs-added-skill');
+        await deleteTestSkill('new-test-skill');
+        await deleteTestSkill('skill-to-delete');
+        await deleteTestSkill('skill-to-edit');
+        await deleteTestSkill('fs-added-skill');
     });
 
     test.beforeEach(async ({ page }) => {
@@ -121,92 +108,65 @@ test.describe('Skills Page', () => {
             await expect(skillsPage.reloadBtn).toBeVisible();
         });
 
-        test('should display local skills from local skills directory', async () => {
-            const localSkillCard = skillsPage.getSkillCardByName('test-local-skill');
-            await expect(localSkillCard).toBeVisible();
-
-            // Verify source badge shows 'local'
-            const sourceBadge = localSkillCard.locator('.skill-source-badge');
-            await expect(sourceBadge).toHaveText('local');
-        });
-
-        test('should display global skills from global skills directory', async () => {
-            const globalSkillCard = skillsPage.getSkillCardByName('test-global-skill');
-            await expect(globalSkillCard).toBeVisible();
-
-            // Verify source badge shows 'global'
-            const sourceBadge = globalSkillCard.locator('.skill-source-badge');
-            await expect(sourceBadge).toHaveText('global');
-        });
-
-        test('should display skills with correct source badges', async () => {
-            const skills = await skillsPage.getAllSkillsWithSource();
-
-            // Find our test skills
-            const localSkill = skills.find(s => s.name === 'test-local-skill');
-            const globalSkill = skills.find(s => s.name === 'test-global-skill');
-
-            expect(localSkill).toBeDefined();
-            expect(localSkill?.source).toBe('local');
-
-            expect(globalSkill).toBeDefined();
-            expect(globalSkill?.source).toBe('global');
+        test('should display skills from the skills directory', async () => {
+            const skillCard = skillsPage.getSkillCardByName('test-skill-one');
+            await expect(skillCard).toBeVisible();
         });
 
         test('should display skill description on card', async () => {
-            const localSkillCard = skillsPage.getSkillCardByName('test-local-skill');
-            const description = localSkillCard.locator('.skill-card-description');
-            await expect(description).toHaveText('A test skill in local directory');
+            const skillCard = skillsPage.getSkillCardByName('test-skill-one');
+            const description = skillCard.locator('.skill-card-description');
+            await expect(description).toHaveText('A test skill for E2E tests');
         });
 
         test('should display skill location on card', async () => {
-            const localSkillCard = skillsPage.getSkillCardByName('test-local-skill');
-            const location = localSkillCard.locator('.skill-location');
+            const skillCard = skillsPage.getSkillCardByName('test-skill-one');
+            const location = skillCard.locator('.skill-location');
             await expect(location).toBeVisible();
             // Location should show last 2 path segments
             const locationText = await location.textContent();
-            expect(locationText).toContain('test-local-skill');
+            expect(locationText).toContain('test-skill-one');
         });
     });
 
     test.describe('Skill Details', () => {
         test('should open skill detail modal when clicking on skill card', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
+            await skillsPage.openSkillDetail('test-skill-one');
 
             await expect(skillsPage.detailModal).toBeVisible();
         });
 
         test('should display skill name in detail modal header', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
+            await skillsPage.openSkillDetail('test-skill-one');
 
             const title = await skillsPage.getDetailModalTitle();
-            expect(title).toBe('test-local-skill');
+            expect(title).toBe('test-skill-one');
         });
 
         test('should display skill description in detail modal', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
+            await skillsPage.openSkillDetail('test-skill-one');
 
             const description = await skillsPage.getDetailDescription();
-            expect(description).toBe('A test skill in local directory');
+            expect(description).toBe('A test skill for E2E tests');
         });
 
         test('should load and display skill instructions in detail modal', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
+            await skillsPage.openSkillDetail('test-skill-one');
 
             const instructions = await skillsPage.getDetailInstructions();
-            expect(instructions).toBe('These are instructions for the local test skill.');
+            expect(instructions).toBe('These are instructions for the first test skill.');
         });
 
         test('should display skill location in detail modal', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
+            await skillsPage.openSkillDetail('test-skill-one');
 
             const location = await skillsPage.getDetailLocationText();
-            expect(location).toContain('test-local-skill');
+            expect(location).toContain('test-skill-one');
             expect(location).toContain('SKILL.md');
         });
 
         test('should close detail modal when clicking close button', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
+            await skillsPage.openSkillDetail('test-skill-one');
             await expect(skillsPage.detailModal).toBeVisible();
 
             await skillsPage.closeModal();
@@ -214,18 +174,11 @@ test.describe('Skills Page', () => {
         });
 
         test('should close detail modal when pressing Escape', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
+            await skillsPage.openSkillDetail('test-skill-one');
             await expect(skillsPage.detailModal).toBeVisible();
 
             await skillsPage.closeModalWithEscape();
             await expect(skillsPage.detailModal).not.toBeVisible();
-        });
-
-        test('should show source badge in detail modal', async () => {
-            await skillsPage.openSkillDetail('test-local-skill');
-
-            const sourceBadge = skillsPage.detailModal.locator('.skill-detail-source-badge');
-            await expect(sourceBadge).toHaveText('local');
         });
     });
 
@@ -233,7 +186,6 @@ test.describe('Skills Page', () => {
         test.beforeEach(async () => {
             // Create a skill specifically for editing tests
             await createTestSkill(
-                getLocalSkillsDir(),
                 'skill-to-edit',
                 'Original description',
                 'Original instructions'
@@ -242,7 +194,7 @@ test.describe('Skills Page', () => {
         });
 
         test.afterEach(async () => {
-            await deleteTestSkill(getLocalSkillsDir(), 'skill-to-edit');
+            await deleteTestSkill('skill-to-edit');
         });
 
         test('should have save button disabled when no changes made', async () => {
@@ -314,7 +266,6 @@ test.describe('Skills Page', () => {
         test.beforeEach(async () => {
             // Create a skill specifically for deletion tests
             await createTestSkill(
-                getLocalSkillsDir(),
                 'skill-to-delete',
                 'This skill will be deleted',
                 'Instructions for skill to delete'
@@ -381,7 +332,6 @@ test.describe('Skills Page', () => {
 
             // Add a new skill directly to the filesystem
             await createTestSkill(
-                getLocalSkillsDir(),
                 'fs-added-skill',
                 'Skill added directly to filesystem',
                 'Instructions for fs-added skill'
@@ -402,13 +352,12 @@ test.describe('Skills Page', () => {
             await expect(newSkillCard).toBeVisible();
 
             // Clean up
-            await deleteTestSkill(getLocalSkillsDir(), 'fs-added-skill');
+            await deleteTestSkill('fs-added-skill');
         });
 
         test('should detect skill removed from filesystem on reload', async () => {
             // Create a skill to be removed
             await createTestSkill(
-                getLocalSkillsDir(),
                 'fs-removed-skill',
                 'Skill to be removed from filesystem',
                 'Instructions'
@@ -422,7 +371,7 @@ test.describe('Skills Page', () => {
             const initialCount = await skillsPage.getSkillCount();
 
             // Remove the skill from filesystem
-            await deleteTestSkill(getLocalSkillsDir(), 'fs-removed-skill');
+            await deleteTestSkill('fs-removed-skill');
 
             // Click reload button
             await skillsPage.reloadSkills();
@@ -475,8 +424,7 @@ test.describe('Skills Page', () => {
     test.describe('Create Skill', () => {
         test.afterEach(async () => {
             // Clean up any created skills
-            await deleteTestSkill(getLocalSkillsDir(), 'new-test-skill');
-            await deleteTestSkill(getGlobalSkillsDir(), 'new-test-skill');
+            await deleteTestSkill('new-test-skill');
         });
 
         test('should open create skill modal when clicking create button', async () => {
@@ -485,14 +433,7 @@ test.describe('Skills Page', () => {
             await expect(skillsPage.createModal).toBeVisible();
         });
 
-        test('should have local source selected by default', async () => {
-            await skillsPage.openCreateModal();
-
-            const selectedOption = skillsPage.page.locator('.source-option.selected');
-            await expect(selectedOption).toContainText('Local');
-        });
-
-        test('should create a new local skill', async () => {
+        test('should create a new skill', async () => {
             const initialCount = await skillsPage.getSkillCount();
 
             await skillsPage.openCreateModal();
@@ -500,7 +441,6 @@ test.describe('Skills Page', () => {
                 name: 'new-test-skill',
                 description: 'A newly created test skill',
                 instructions: 'Instructions for the new skill',
-                source: 'local',
             });
             await skillsPage.submitCreateForm();
 
@@ -511,50 +451,24 @@ test.describe('Skills Page', () => {
             const newSkillCard = skillsPage.getSkillCardByName('new-test-skill');
             await expect(newSkillCard).toBeVisible();
 
-            // Source should be local
-            const sourceBadge = newSkillCard.locator('.skill-source-badge');
-            await expect(sourceBadge).toHaveText('local');
-
             // Count should increase
             const newCount = await skillsPage.getSkillCount();
             expect(newCount).toBe(initialCount + 1);
         });
 
-        test('should create a new global skill', async () => {
+        test('should disable submit button when name is empty', async () => {
             await skillsPage.openCreateModal();
-            await skillsPage.fillCreateForm({
-                name: 'new-test-skill',
-                description: 'A newly created global skill',
-                instructions: 'Global skill instructions',
-                source: 'global',
-            });
-            await skillsPage.submitCreateForm();
-
-            // New skill should appear with global source
-            const newSkillCard = skillsPage.getSkillCardByName('new-test-skill');
-            await expect(newSkillCard).toBeVisible();
-
-            const sourceBadge = newSkillCard.locator('.skill-source-badge');
-            await expect(sourceBadge).toHaveText('global');
-        });
-
-        test('should validate skill name format', async ({ page }) => {
-            await skillsPage.openCreateModal();
-
-            // Try invalid name starting with hyphen (regex requires alphanumeric start)
-            await skillsPage.skillNameInput.fill('-invalid-name');
-
-            // Should show validation hint
-            const formHint = page.locator('.form-hint.error');
-            await expect(formHint).toBeVisible();
-            await expect(formHint).toContainText('lowercase');
-        });
-
-        test('should disable submit button for invalid name', async () => {
-            await skillsPage.openCreateModal();
-            // Name ending with hyphen is invalid
-            await skillsPage.skillNameInput.fill('invalid-name-');
+            // Description filled but no name
             await skillsPage.createDescriptionInput.fill('Some description');
+
+            const submitBtn = skillsPage.createModal.locator('button[type="submit"]');
+            await expect(submitBtn).toBeDisabled();
+        });
+
+        test('should disable submit button when description is empty', async () => {
+            await skillsPage.openCreateModal();
+            // Name filled but no description
+            await skillsPage.skillNameInput.fill('valid-name');
 
             const submitBtn = skillsPage.createModal.locator('button[type="submit"]');
             await expect(submitBtn).toBeDisabled();
@@ -578,58 +492,6 @@ test.describe('Skills Page', () => {
             await page.locator('.modal-backdrop').click({ position: { x: 10, y: 10 } });
 
             await expect(skillsPage.createModal).not.toBeVisible();
-        });
-    });
-
-    test.describe('Empty State', () => {
-        test.beforeEach(async () => {
-            // Remove all test skills to get empty state
-            await deleteTestSkill(getLocalSkillsDir(), 'test-local-skill');
-            await deleteTestSkill(getGlobalSkillsDir(), 'test-global-skill');
-        });
-
-        test.afterEach(async () => {
-            // Recreate test skills for other tests
-            await createTestSkill(
-                getLocalSkillsDir(),
-                'test-local-skill',
-                'A test skill in local directory',
-                'These are instructions for the local test skill.'
-            );
-            await createTestSkill(
-                getGlobalSkillsDir(),
-                'test-global-skill',
-                'A test skill in global directory',
-                'These are instructions for the global test skill.'
-            );
-        });
-
-        test('should show empty state when no skills exist', async ({ page }) => {
-            const freshSkillsPage = new SkillsPage(page);
-            await freshSkillsPage.goto();
-            await freshSkillsPage.reloadSkills();
-
-            // Empty state should be visible
-            await expect(freshSkillsPage.skillsEmpty).toBeVisible();
-
-            // Should show helpful message
-            const emptyMessage = freshSkillsPage.skillsEmpty.locator('h2');
-            await expect(emptyMessage).toContainText('No Skills Found');
-        });
-
-        test('should show instructions for creating skills in empty state', async ({ page }) => {
-            const freshSkillsPage = new SkillsPage(page);
-            await freshSkillsPage.goto();
-            await freshSkillsPage.reloadSkills();
-
-            // Should show path instructions
-            const paths = freshSkillsPage.skillsEmpty.locator('.skills-paths li');
-            expect(await paths.count()).toBe(2);
-
-            // Should mention both global and local paths
-            const pathsText = await freshSkillsPage.skillsEmpty.locator('.skills-paths').textContent();
-            expect(pathsText).toContain('~/.pipali/skills');
-            expect(pathsText).toContain('./.pipali/skills');
         });
     });
 });

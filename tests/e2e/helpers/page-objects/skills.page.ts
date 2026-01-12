@@ -35,7 +35,6 @@ export class SkillsPage {
     readonly skillNameInput: Locator;
     readonly createDescriptionInput: Locator;
     readonly createInstructionsInput: Locator;
-    readonly sourceOptions: Locator;
 
     // Modal common elements
     readonly modalBackdrop: Locator;
@@ -74,7 +73,6 @@ export class SkillsPage {
         this.skillNameInput = page.locator(Selectors.skillNameInput);
         this.createDescriptionInput = page.locator(Selectors.createSkillDescriptionInput);
         this.createInstructionsInput = page.locator(Selectors.createSkillInstructionsInput);
-        this.sourceOptions = page.locator(Selectors.sourceOptions);
 
         // Modal common
         this.modalBackdrop = page.locator(Selectors.modalBackdrop);
@@ -136,13 +134,6 @@ export class SkillsPage {
      */
     getSkillCardByName(name: string): Locator {
         return this.page.locator(`${Selectors.skillCard}:has(${Selectors.skillCardTitle}:text-is("${name}"))`);
-    }
-
-    /**
-     * Get skill card by source (global or local)
-     */
-    getSkillCardsBySource(source: 'global' | 'local'): Locator {
-        return this.page.locator(`${Selectors.skillCard}:has(${Selectors.skillSourceBadge}:text-is("${source}"))`);
     }
 
     /**
@@ -285,18 +276,12 @@ export class SkillsPage {
         name: string;
         description: string;
         instructions?: string;
-        source?: 'global' | 'local';
     }): Promise<void> {
         await this.skillNameInput.fill(options.name);
         await this.createDescriptionInput.fill(options.description);
 
         if (options.instructions) {
             await this.createInstructionsInput.fill(options.instructions);
-        }
-
-        if (options.source) {
-            const sourceBtn = this.page.locator(`.source-option:has-text("${options.source === 'global' ? 'Global' : 'Local'}")`);
-            await sourceBtn.click();
         }
     }
 
@@ -345,25 +330,6 @@ export class SkillsPage {
         }
 
         return names;
-    }
-
-    /**
-     * Get all skills with their sources
-     */
-    async getAllSkillsWithSource(): Promise<{ name: string; source: string }[]> {
-        const skills: { name: string; source: string }[] = [];
-        const count = await this.skillCards.count();
-
-        for (let i = 0; i < count; i++) {
-            const card = this.skillCards.nth(i);
-            const name = await card.locator(Selectors.skillCardTitle).textContent();
-            const source = await card.locator(Selectors.skillSourceBadge).textContent();
-            if (name && source) {
-                skills.push({ name, source });
-            }
-        }
-
-        return skills;
     }
 
     /**
