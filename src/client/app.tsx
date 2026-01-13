@@ -24,6 +24,7 @@ import { useFocusManagement, useModels, useSidecar } from "./hooks";
 // Utils
 import { formatToolCallsForSidebar } from "./utils/formatting";
 import { setApiBaseUrl, apiFetch } from "./utils/api";
+import { initNotifications, notifyConfirmationRequest, setupNotificationClickHandler } from "./utils/notifications";
 
 // Components
 import { Header, Sidebar, InputArea } from "./components/layout";
@@ -137,6 +138,22 @@ const App = () => {
                 wsRef.current.close();
             }
             clearInterval(pollInterval);
+        };
+    }, []);
+
+    // Initialize native OS notifications (Tauri desktop app only)
+    useEffect(() => {
+        let unlistenNotification: (() => void) | undefined;
+
+        const init = async () => {
+            await initNotifications();
+            unlistenNotification = await setupNotificationClickHandler();
+        };
+
+        init();
+
+        return () => {
+            unlistenNotification?.();
         };
     }, []);
 
@@ -766,6 +783,10 @@ const App = () => {
                     // Add to queue (avoid duplicates by checking requestId)
                     if (!existing.some(c => c.requestId === confirmationData.requestId)) {
                         next.set(msgConversationId, [...existing, confirmationData]);
+
+                        // Trigger native OS notification if window not focused
+                        const conv = conversations.find(c => c.id === msgConversationId);
+                        notifyConfirmationRequest(confirmationData, conv?.title);
                     }
                     return next;
                 });
