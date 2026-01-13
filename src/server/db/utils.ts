@@ -1,6 +1,7 @@
+import { getDatabaseDir } from '../paths';
+
 function getDbName() {
-    const defaultDbPath = `${process.cwd()}/pipali.db`;
-    return process.env.POSTGRES_DB || defaultDbPath;
+    return process.env.POSTGRES_DB || getDatabaseDir();
 }
 
 // Import PGlite WASM files to embed in binary

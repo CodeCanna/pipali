@@ -4,13 +4,13 @@
  */
 
 import path from 'path';
-import os from 'os';
 import type { Dirent } from 'fs';
 import { mkdir, rm, readdir, cp } from 'fs/promises';
 import { scanSkillsDirectory, isValidSkillName, isValidDescription } from './loader';
 import { formatSkillsForPrompt } from './utils';
 import type { Skill, SkillLoadResult } from './types';
 import { IS_COMPILED_BINARY, EMBEDDED_BUILTIN_SKILLS } from '../embedded-assets';
+import { getSkillsDir as getSkillsDirFromPaths } from '../paths';
 
 // Path to builtin skills shipped with the app (used in development mode)
 const BUILTIN_SKILLS_DIR = path.join(import.meta.dir, 'builtin');
@@ -57,7 +57,7 @@ let cachedSkills: Skill[] = [];
  * Get the skills directory path (~/.pipali/skills)
  */
 export function getSkillsDir(): string {
-    return process.env.PIPALI_SKILLS_DIR || path.join(os.homedir(), '.pipali', 'skills');
+    return getSkillsDirFromPaths();
 }
 
 /**
@@ -99,6 +99,7 @@ async function installEmbeddedSkills(
     for (const [filePath, { content, binary }] of Object.entries(EMBEDDED_BUILTIN_SKILLS)) {
         const parts = filePath.split(path.sep);
         const skillName = parts[0];
+        if (!skillName) continue;
         const relativePath = parts.slice(1).join(path.sep);
 
         if (!skillFiles.has(skillName)) {

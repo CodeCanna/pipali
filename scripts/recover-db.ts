@@ -14,8 +14,9 @@ import { $ } from "bun";
 import { PGlite } from "@electric-sql/pglite";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { getDatabaseDir } from "../src/server/paths";
 
-const DB_PATH = "./pipali.db";
+const DB_PATH = getDatabaseDir();
 const DRIZZLE_DIR = "./drizzle";
 const PG_RESETWAL = "/opt/homebrew/opt/libpq/bin/pg_resetwal";
 
