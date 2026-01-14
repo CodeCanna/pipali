@@ -24,7 +24,7 @@ import { useFocusManagement, useModels, useSidecar } from "./hooks";
 // Utils
 import { formatToolCallsForSidebar } from "./utils/formatting";
 import { setApiBaseUrl, apiFetch } from "./utils/api";
-import { initNotifications, notifyConfirmationRequest, notifyTaskComplete, setupNotificationClickHandler } from "./utils/notifications";
+import { initNotifications, notifyConfirmationRequest, notifyTaskComplete } from "./utils/notifications";
 import { onWindowShown } from "./utils/tauri";
 
 // Components
@@ -142,20 +142,9 @@ const App = () => {
         };
     }, []);
 
-    // Initialize native OS notifications (Tauri desktop app only)
+    // Initialize native OS notifications
     useEffect(() => {
-        let unlistenNotification: (() => void) | undefined;
-
-        const init = async () => {
-            await initNotifications();
-            unlistenNotification = await setupNotificationClickHandler();
-        };
-
-        init();
-
-        return () => {
-            unlistenNotification?.();
-        };
+        initNotifications();
     }, []);
 
     // Focus chat input when window is shown via shortcut or tray (Tauri desktop app only)

@@ -152,7 +152,7 @@ export async function notifyConfirmationRequest(
     if (isTauri()) {
         try {
             const { sendNotification } = await import('@tauri-apps/plugin-notification');
-            await sendNotification({ title, body });
+            sendNotification({ title, body });
         } catch (err) {
             console.warn('[notifications] Failed to send Tauri notification:', err);
         }
@@ -203,7 +203,7 @@ export async function notifyTaskComplete(
     if (isTauri()) {
         try {
             const { sendNotification } = await import('@tauri-apps/plugin-notification');
-            await sendNotification({ title, body });
+            sendNotification({ title, body });
         } catch (err) {
             console.warn('[notifications] Failed to send Tauri notification:', err);
         }
@@ -229,17 +229,15 @@ function truncate(text: string, maxLength: number): string {
 
 /**
  * Focus the app window.
- * In Tauri, uses native window APIs. In browser, uses window.focus().
+ * In Tauri, uses the focus_window command to properly show window and add to dock.
+ * In browser, uses window.focus().
  */
 export async function focusAppWindow(): Promise<void> {
-    // Tauri path - use native window APIs
+    // Tauri path - use focus_window command which handles dock visibility
     if (isTauri()) {
         try {
-            const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-            const appWindow = getCurrentWebviewWindow();
-            await appWindow.unminimize();
-            await appWindow.show();
-            await appWindow.setFocus();
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('focus_window');
         } catch (err) {
             console.warn('[notifications] Failed to focus Tauri window:', err);
         }
@@ -250,31 +248,3 @@ export async function focusAppWindow(): Promise<void> {
     window.focus();
 }
 
-/**
- * Set up notification click handler to focus the app window.
- * Returns an unlisten function to clean up the listener.
- */
-export async function setupNotificationClickHandler(): Promise<() => void> {
-    // Tauri path - use Tauri notification action handler
-    if (isTauri()) {
-        try {
-            const { onAction } = await import('@tauri-apps/plugin-notification');
-            const listener = await onAction(() => {
-                focusAppWindow();
-            });
-            return () => listener.unregister();
-        } catch (err) {
-            console.warn('[notifications] Failed to setup Tauri click handler:', err);
-            return () => {};
-        }
-    }
-
-    // Web path - click handlers are set up per-notification in sendWebNotification()
-    // Return a cleanup function that closes all active notifications
-    return () => {
-        activeWebNotifications.forEach(notification => {
-            notification.close();
-        });
-        activeWebNotifications.clear();
-    };
-}

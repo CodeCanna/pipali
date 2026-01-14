@@ -334,7 +334,8 @@ pub fn run() {
             commands::get_sidecar_port,
             commands::get_sidecar_host,
             commands::get_sidecar_config,
-            commands::restart_sidecar
+            commands::restart_sidecar,
+            commands::focus_window
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

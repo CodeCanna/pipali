@@ -2,7 +2,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
-use crate::{start_sidecar, stop_sidecar, SidecarState};
+use crate::{show_window, start_sidecar, stop_sidecar, SidecarState};
 
 #[derive(Serialize)]
 pub struct SidecarConfig {
@@ -38,4 +38,10 @@ pub async fn restart_sidecar(app: AppHandle) -> Result<(), String> {
     // Small delay to ensure clean shutdown
     std::thread::sleep(Duration::from_millis(500));
     start_sidecar(&app)
+}
+
+/// Show the app window and add it to the dock (exposed to frontend)
+#[tauri::command]
+pub fn focus_window(app: AppHandle) {
+    show_window(&app);
 }
