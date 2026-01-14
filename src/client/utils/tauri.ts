@@ -63,6 +63,31 @@ export async function openInBrowser(url: string, options?: { newTab?: boolean })
 }
 
 /**
+ * Listen for window-shown events from Tauri.
+ * Used to focus the chat input when the app window is shown via shortcut or tray.
+ *
+ * @param callback - Function to call when the window is shown
+ * @returns Cleanup function to unsubscribe from the event
+ */
+export async function onWindowShown(callback: () => void): Promise<() => void> {
+    if (!isTauri()) {
+        return () => {};
+    }
+
+    try {
+        const { listen } = await import('@tauri-apps/api/event');
+        const unlisten = await listen('window-shown', () => {
+            console.log('[onWindowShown] Window shown event received');
+            callback();
+        });
+        return unlisten;
+    } catch (err) {
+        console.warn('[onWindowShown] Failed to setup listener:', err);
+        return () => {};
+    }
+}
+
+/**
  * Open a file with the system's default application.
  * In Tauri v2, uses the opener plugin's openPath function.
  * Only works in the desktop app - no-op in web mode.

@@ -25,6 +25,7 @@ import { useFocusManagement, useModels, useSidecar } from "./hooks";
 import { formatToolCallsForSidebar } from "./utils/formatting";
 import { setApiBaseUrl, apiFetch } from "./utils/api";
 import { initNotifications, notifyConfirmationRequest, notifyTaskComplete, setupNotificationClickHandler } from "./utils/notifications";
+import { onWindowShown } from "./utils/tauri";
 
 // Components
 import { Header, Sidebar, InputArea } from "./components/layout";
@@ -157,13 +158,27 @@ const App = () => {
         };
     }, []);
 
+    // Focus chat input when window is shown via shortcut or tray (Tauri desktop app only)
+    useEffect(() => {
+        let unlisten: (() => void) | undefined;
+
+        onWindowShown(() => {
+            scheduleTextareaFocus();
+        }).then((unlistenFn) => {
+            unlisten = unlistenFn;
+        });
+
+        return () => {
+            unlisten?.();
+        };
+    }, [scheduleTextareaFocus]);
+
     // Keep conversationIdRef in sync with state (for WebSocket handler)
     useEffect(() => {
         conversationIdRef.current = conversationId;
     }, [conversationId]);
 
     // Focus textarea on various state changes
-    useEffect(() => { scheduleTextareaFocus(); }, []);
     useEffect(() => { scheduleTextareaFocus(); }, [conversationId]);
     useEffect(() => {
         if (!isConnected) return;

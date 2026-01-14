@@ -75,6 +75,7 @@ export function InputArea({
                         placeholder={isPaused ? "Type to resume with a message, or click play..." : isProcessing ? "Type to interrupt with a message..." : "Ask anything..."}
                         rows={1}
                         disabled={!isConnected}
+                        autoFocus
                     />
                     <div className="input-buttons">
                         {/* Single action button: Send / Pause / Play */}

@@ -34,6 +34,8 @@ fn show_window(app: &AppHandle) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+        // Emit event so frontend can focus the chat input
+        let _ = app.emit("window-shown", ());
     }
 }
 
