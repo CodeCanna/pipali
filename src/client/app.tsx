@@ -463,11 +463,13 @@ const App = () => {
                     historyMessages.push(currentAgentMessage);
                 } else if (thoughts.length > 0) {
                     // Use the first agent step_id for orphaned thoughts so deletion works
+                    const msgId = firstAgentStepId ?? generateUUID();
                     historyMessages.push({
                         role: 'assistant',
                         content: '',
                         thoughts: thoughts,
-                        id: firstAgentStepId ?? generateUUID(),
+                        id: msgId,
+                        stableId: msgId,
                     });
                 }
                 thoughts = [];
@@ -482,6 +484,7 @@ const App = () => {
                         role: 'user',
                         content: typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message),
                         id: msg.step_id,
+                        stableId: msg.step_id,
                     });
                 }
 
@@ -537,6 +540,7 @@ const App = () => {
                             role: 'assistant',
                             content: msg.message,
                             id: msg.step_id,
+                            stableId: msg.step_id,
                         };
                     }
                 }
@@ -551,8 +555,10 @@ const App = () => {
                 pendingQueryAfterHistoryRef.current = null;
 
                 // Add the new message to the loaded history
-                const userMsg: Message = { id: generateUUID(), role: 'user', content: pendingQuery };
-                const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+                const userMsgId = generateUUID();
+                const assistantMsgId = generateUUID();
+                const userMsg: Message = { id: userMsgId, stableId: userMsgId, role: 'user', content: pendingQuery };
+                const assistantMsg: Message = { id: assistantMsgId, stableId: assistantMsgId, role: 'assistant', content: '', thoughts: [], isStreaming: true };
                 setMessages(prev => [...prev, userMsg, assistantMsg]);
                 setIsProcessing(true);
                 wsRef.current.send(JSON.stringify({ message: pendingQuery, conversationId: id }));
@@ -635,8 +641,10 @@ const App = () => {
                     setCurrentPage('chat');
                 } else {
                     // No conversationId, start fresh conversation immediately
-                    const userMsg: Message = { id: generateUUID(), role: 'user', content: initialQuery };
-                    const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+                    const userMsgId = generateUUID();
+                    const assistantMsgId = generateUUID();
+                    const userMsg: Message = { id: userMsgId, stableId: userMsgId, role: 'user', content: initialQuery };
+                    const assistantMsg: Message = { id: assistantMsgId, stableId: assistantMsgId, role: 'assistant', content: '', thoughts: [], isStreaming: true };
                     setMessages([userMsg, assistantMsg]);
                     setIsProcessing(true);
                     setCurrentPage('chat');
@@ -678,8 +686,10 @@ const App = () => {
             if (!msgConversationId || msgConversationId === conversationIdRef.current) {
                 setIsProcessing(false);
                 setIsPaused(false);
+                const errorMsgId = generateUUID();
                 setMessages(prev => [...prev, {
-                    id: generateUUID(),
+                    id: errorMsgId,
+                    stableId: errorMsgId,
                     role: 'assistant',
                     content: `Error: ${message.error}`,
                 }]);
@@ -695,8 +705,10 @@ const App = () => {
                     let msgs = existing?.messages || [];
                     const lastMsg = msgs[msgs.length - 1];
                     if (!lastMsg || !lastMsg.isStreaming) {
+                        const researchMsgId = generateUUID();
                         msgs = [...msgs, {
-                            id: generateUUID(),
+                            id: researchMsgId,
+                            stableId: researchMsgId,
                             role: 'assistant' as const,
                             content: '',
                             isStreaming: true,
@@ -768,7 +780,8 @@ const App = () => {
                                 if (thoughts.length > 0) currentAgentMessage.thoughts = thoughts;
                                 historyMessages.push(currentAgentMessage);
                             } else if (thoughts.length > 0) {
-                                historyMessages.push({ role: 'assistant', content: '', thoughts, id: generateUUID() });
+                                const msgId = generateUUID();
+                                historyMessages.push({ role: 'assistant', content: '', thoughts, id: msgId, stableId: msgId });
                             }
                             thoughts = [];
                             currentAgentMessage = null;
@@ -777,10 +790,12 @@ const App = () => {
                         for (const msg of serverHistory) {
                             if (msg.source === 'user') {
                                 finalizeAgent();
+                                const msgId = String(msg.step_id);
                                 historyMessages.push({
                                     role: 'user',
                                     content: typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message),
-                                    id: String(msg.step_id),
+                                    id: msgId,
+                                    stableId: msgId,
                                 });
                             }
                             if (msg.source === 'agent') {
@@ -803,7 +818,8 @@ const App = () => {
                                         });
                                     }
                                 } else if (hasMessage) {
-                                    currentAgentMessage = { role: 'assistant', content: msg.message, id: String(msg.step_id) };
+                                    const msgId = String(msg.step_id);
+                                    currentAgentMessage = { role: 'assistant', content: msg.message, id: msgId, stableId: msgId };
                                 }
                             }
                         }
@@ -811,10 +827,12 @@ const App = () => {
                     }
 
                     // Add the new user message + streaming assistant
+                    const userMsgId = generateUUID();
+                    const assistantMsgId = generateUUID();
                     const initialMessages: Message[] = [
                         ...historyMessages,
-                        { id: generateUUID(), role: 'user' as const, content: pendingMsg },
-                        { id: generateUUID(), role: 'assistant' as const, content: '', thoughts: [], isStreaming: true },
+                        { id: userMsgId, stableId: userMsgId, role: 'user' as const, content: pendingMsg },
+                        { id: assistantMsgId, stableId: assistantMsgId, role: 'assistant' as const, content: '', thoughts: [], isStreaming: true },
                     ];
                     setConversationStates(prevStates => {
                         const next = new Map(prevStates);
@@ -1075,6 +1093,7 @@ const App = () => {
                 }
                 return [...msgs, {
                     id: messageId,
+                    stableId: messageId,
                     role: 'assistant' as const,
                     content: data.response,
                     isStreaming: false,
@@ -1535,8 +1554,10 @@ const App = () => {
             const resumeMsg = input.trim();
             setInput("");
 
-            const userMsg: Message = { id: generateUUID(), role: 'user', content: resumeMsg };
-            const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+            const userMsgId = generateUUID();
+            const assistantMsgId = generateUUID();
+            const userMsg: Message = { id: userMsgId, stableId: userMsgId, role: 'user', content: resumeMsg };
+            const assistantMsg: Message = { id: assistantMsgId, stableId: assistantMsgId, role: 'assistant', content: '', thoughts: [], isStreaming: true };
 
             const calcNewMessages = (prev: Message[]) => {
                 const updated = prev.map(msg => msg.isStreaming ? { ...msg, isStreaming: false } : msg);
@@ -1573,8 +1594,10 @@ const App = () => {
 
             wsRef.current?.send(JSON.stringify({ type: 'pause', conversationId }));
 
-            const userMsg: Message = { id: generateUUID(), role: 'user', content: interruptMsg };
-            const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+            const userMsgId = generateUUID();
+            const assistantMsgId = generateUUID();
+            const userMsg: Message = { id: userMsgId, stableId: userMsgId, role: 'user', content: interruptMsg };
+            const assistantMsg: Message = { id: assistantMsgId, stableId: assistantMsgId, role: 'assistant', content: '', thoughts: [], isStreaming: true };
 
             const calcNewMessages = (prev: Message[]) => {
                 const updated = prev.map(msg => msg.isStreaming ? { ...msg, isStreaming: false } : msg);
@@ -1606,8 +1629,10 @@ const App = () => {
         }
 
         // Normal send
-        const userMsg: Message = { id: generateUUID(), role: 'user', content: input };
-        const assistantMsg: Message = { id: generateUUID(), role: 'assistant', content: '', thoughts: [], isStreaming: true };
+        const userMsgId = generateUUID();
+        const assistantMsgId = generateUUID();
+        const userMsg: Message = { id: userMsgId, stableId: userMsgId, role: 'user', content: input };
+        const assistantMsg: Message = { id: assistantMsgId, stableId: assistantMsgId, role: 'assistant', content: '', thoughts: [], isStreaming: true };
 
         const newMessages = [...messages, userMsg, assistantMsg];
         setMessages(newMessages);

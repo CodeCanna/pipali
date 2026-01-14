@@ -2,6 +2,7 @@
 
 export type Message = {
     id: string;
+    stableId: string; // Never changes, used as React key to prevent remounting
     role: 'user' | 'assistant';
     content: string;
     thoughts?: Thought[];

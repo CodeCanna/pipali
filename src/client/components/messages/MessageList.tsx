@@ -106,7 +106,7 @@ export function MessageList({ messages, conversationId, onDeleteMessage }: Messa
                 ) : (
                     <div className="messages">
                         {messages.map((msg, index) => (
-                            <div key={msg.id} ref={index === lastUserMessageIndex ? lastUserMessageRef : undefined}>
+                            <div key={msg.stableId} ref={index === lastUserMessageIndex ? lastUserMessageRef : undefined}>
                                 <MessageItem message={msg} onDelete={onDeleteMessage} />
                             </div>
                         ))}

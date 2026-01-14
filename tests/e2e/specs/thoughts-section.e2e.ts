@@ -109,7 +109,7 @@ test.describe('Train of Thought Section', () => {
         expect(foundStepNumber).toBe(true);
     });
 
-    test('should accumulate thoughts as task progresses', async ({ page }) => {
+    test('should accumulate thoughts as task progresses and stay expanded', async ({ page }) => {
         await chatPage.sendMessage('analyze my codebase slowly');
 
         // Wait for processing to start
@@ -121,10 +121,15 @@ test.describe('Train of Thought Section', () => {
         // Expand thoughts during processing
         if (await chatPage.thoughtsSection.isVisible()) {
             await chatPage.expandThoughts();
+            expect(await chatPage.isThoughtsExpanded()).toBe(true);
+
             const initialCount = await chatPage.getThoughtCount();
 
             // Wait for more thoughts
             await page.waitForTimeout(1500);
+
+            // Dropdown should still be expanded after new steps arrived
+            expect(await chatPage.isThoughtsExpanded()).toBe(true);
 
             const laterCount = await chatPage.getThoughtCount();
 
@@ -134,6 +139,9 @@ test.describe('Train of Thought Section', () => {
 
         // Wait for completion
         await chatPage.waitForAssistantResponse();
+
+        // Dropdown should remain expanded after completion
+        expect(await chatPage.isThoughtsExpanded()).toBe(true);
     });
 
     test('should preserve thoughts toggle state across interactions', async () => {
