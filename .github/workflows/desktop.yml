@@ -130,11 +130,6 @@ jobs:
           export APPLE_SIGNING_IDENTITY="$CERT_ID"
           bun run ${{ inputs.debug_build && 'tauri:build:debug' || 'tauri:build' }}
 
-      - name: 🧹 Cleanup Apple Signing Keychain
-        if: github.event_name != 'pull_request'
-        run: |
-          security delete-keychain build.keychain || true
-
       - name: 📦 Package macOS App Bundle
         run: |
           BUILD_TYPE=${{ inputs.debug_build == true && 'debug' || 'release' }}
@@ -146,6 +141,70 @@ jobs:
           cd src-tauri/target/${BUILD_TYPE}/bundle/macos
           tar -cvf Pipali-macos-arm64.tar Pipali.app
 
+      # Create DMG with proper layout using create-dmg
+      - name: 💿 Create DMG
+        run: |
+          set -euo pipefail
+          BUILD_TYPE=${{ inputs.debug_build == true && 'debug' || 'release' }}
+          APP_PATH="src-tauri/target/${BUILD_TYPE}/bundle/macos/Pipali.app"
+          DMG_DIR="src-tauri/target/${BUILD_TYPE}/bundle/dmg"
+          DMG_PATH="${DMG_DIR}/Pipali-macos-arm64.dmg"
+
+          # Install create-dmg
+          brew install create-dmg
+
+          # Create output directory
+          mkdir -p "$DMG_DIR"
+
+          # Create DMG with proper layout
+          create-dmg \
+            --volname "Pipali" \
+            --volicon "src-tauri/icons/icon.icns" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 80 \
+            --icon "Pipali.app" 180 170 \
+            --hide-extension "Pipali.app" \
+            --app-drop-link 480 170 \
+            "$DMG_PATH" \
+            "$APP_PATH"
+
+          echo "=== DMG created ==="
+          ls -la "$DMG_DIR"
+
+      # Sign and notarize DMG (non-PR builds only)
+      - name: 🔏 Sign and Notarize DMG
+        if: github.event_name != 'pull_request'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          BUILD_TYPE=${{ inputs.debug_build == true && 'debug' || 'release' }}
+          DMG_PATH="src-tauri/target/${BUILD_TYPE}/bundle/dmg/Pipali-macos-arm64.dmg"
+
+          echo "Signing DMG with certificate: ${CERT_ID}"
+          codesign --force --sign "$CERT_ID" "$DMG_PATH"
+
+          echo "Submitting DMG for notarization..."
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          echo "Stapling notarization ticket to DMG..."
+          xcrun stapler staple "$DMG_PATH"
+
+          echo "=== DMG signed and notarized ==="
+          codesign -dv --verbose=4 "$DMG_PATH" || true
+
+      - name: 🧹 Cleanup Apple Signing Keychain
+        if: github.event_name != 'pull_request'
+        run: |
+          security delete-keychain build.keychain || true
+
       - name: ⏫ Upload macOS App Bundle
         uses: actions/upload-artifact@v4
         with:
@@ -153,12 +212,12 @@ jobs:
           path: src-tauri/target/${{ inputs.debug_build && 'debug' || 'release' }}/bundle/macos/Pipali-macos-arm64.tar
           if-no-files-found: error
 
-      - name: ⏫ Upload macOS DMG (if built)
+      - name: ⏫ Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: pipali-macos-arm64${{ inputs.debug_build && '-debug' || '' }}.dmg
+          name: Pipali-macos-arm64${{ inputs.debug_build && '-debug' || '' }}.dmg
           path: src-tauri/target/${{ inputs.debug_build && 'debug' || 'release' }}/bundle/dmg/*.dmg
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   build-linux:
     if: false # Disabled for now
@@ -306,7 +365,7 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            artifacts/**/*.app
+            artifacts/**/*.tar
             artifacts/**/*.dmg
             artifacts/**/*.deb
             artifacts/**/*.AppImage

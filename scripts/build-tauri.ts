@@ -112,7 +112,7 @@ async function buildTauri(debug: boolean, platform: Platform) {
     console.log(`🚀 Building Tauri app (${debug ? "debug" : "release"})...`);
 
     // Determine which bundles to build based on platform
-    // macOS: app bundle only (skip dmg which requires additional setup)
+    // macOS: app bundle only (DMG created separately via create-dmg for proper layout)
     // Windows: msi and exe
     // Linux: deb and appimage
     let bundles: string[];
