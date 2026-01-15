@@ -2,40 +2,69 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { McpServerConfig, McpToolInfo, McpToolCallResult, McpClientStatus, McpContentType } from './types';
+import os from 'os';
 
 // Cache the shell PATH to avoid repeated shell invocations
 let cachedShellPath: string | null = null;
 
+/** Get the user's home directory reliably (even when HOME env var is empty/unset in desktop apps) */
+function getHomeDir(): string {
+    if (process.env.HOME && process.env.HOME.length > 0) {
+        return process.env.HOME;
+    }
+    return os.homedir();
+}
+
 /**
  * Get the PATH from the user's login shell.
- * Desktop apps often don't inherit the full PATH that includes tools like npx from nvm/volta.
- * This function queries the shell to get the complete PATH.
+ * Desktop apps launched from Finder don't inherit the full PATH that includes tools like bunx.
+ * This queries the login shell to get the complete PATH.
  */
 async function getShellPath(): Promise<string | undefined> {
     if (cachedShellPath !== null) {
         return cachedShellPath || undefined;
     }
 
-    try {
-        const isWindows = process.platform === 'win32';
-        const shellCmd = isWindows
-            ? ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', 'echo $env:PATH']
-            : ['/bin/bash', '-lc', 'echo $PATH'];
+    if (process.platform === 'win32') {
+        try {
+            const proc = Bun.spawn({
+                cmd: ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', 'echo $env:PATH'],
+                stdout: 'pipe',
+                stderr: 'pipe',
+                timeout: 5000,
+            });
+            if (await proc.exited === 0) {
+                const path = (await new Response(proc.stdout).text()).trim();
+                if (path) {
+                    cachedShellPath = path;
+                    return path;
+                }
+            }
+        } catch { /* fall through */ }
+        cachedShellPath = '';
+        return undefined;
+    }
 
+    // macOS/Linux: use login shell to get PATH with user's profile sourced
+    // HOME must be set correctly for shell profiles (~/.zshrc, ~/.zprofile) to work
+    const home = getHomeDir();
+    const userShell = process.env.SHELL || '/bin/zsh';
+
+    try {
         const proc = Bun.spawn({
-            cmd: shellCmd,
+            cmd: [userShell, '-lc', 'echo $PATH'],
             stdout: 'pipe',
             stderr: 'pipe',
             timeout: 5000,
+            env: { ...process.env, HOME: home, USER: process.env.USER || os.userInfo().username },
         });
 
-        const exitCode = await proc.exited;
-        if (exitCode === 0) {
-            const shellPath = (await new Response(proc.stdout).text()).trim();
-            if (shellPath) {
-                cachedShellPath = shellPath;
-                console.log('[MCP] Resolved shell PATH:', shellPath.substring(0, 100) + '...');
-                return shellPath;
+        if (await proc.exited === 0) {
+            const path = (await new Response(proc.stdout).text()).trim();
+            if (path) {
+                cachedShellPath = path;
+                console.log('[MCP] Resolved shell PATH:', path.substring(0, 100) + '...');
+                return path;
             }
         }
     } catch (error) {
@@ -119,12 +148,13 @@ export class McpClient {
         const { command, args } = this.parseStdioCommand();
 
         // Build environment with user-specified overrides
-        // Use shell PATH to ensure tools like npx are found (important for desktop apps)
+        // Use shell PATH to ensure tools like bunx are found (important for desktop apps)
         const defaultEnv = getDefaultEnvironment();
         const shellPath = await getShellPath();
 
         const env = {
             ...defaultEnv,
+            HOME: getHomeDir(),
             ...(shellPath ? { PATH: shellPath } : {}),
             ...this.config.env,
         };
