@@ -20,6 +20,42 @@ import { createChildLogger } from '../../logger';
 
 const log = createChildLogger({ component: 'director' });
 
+/** Maximum characters for tool output text content before truncation */
+export const MAX_TOOL_OUTPUT_CHARS = 100_000;
+
+/**
+ * Truncate tool output content to prevent context window blowup and DB bloat.
+ * - For strings: truncate to MAX_TOOL_OUTPUT_CHARS
+ * - For arrays: truncate text items, preserve binary data (images/audio)
+ */
+export function truncateToolOutput(
+    content: ATIFObservationResult['content']
+): ATIFObservationResult['content'] {
+    if (typeof content === 'string') {
+        if (content.length <= MAX_TOOL_OUTPUT_CHARS) {
+            return content;
+        }
+        return content.slice(0, MAX_TOOL_OUTPUT_CHARS) +
+            `\n\n[Output truncated: showing first ${MAX_TOOL_OUTPUT_CHARS.toLocaleString()} of ${content.length.toLocaleString()} characters]`;
+    }
+
+    // For multimodal arrays, truncate text items only
+    return content.map(item => {
+        if (item.type === 'text' && typeof item.text === 'string') {
+            if (item.text.length <= MAX_TOOL_OUTPUT_CHARS) {
+                return item;
+            }
+            return {
+                ...item,
+                text: item.text.slice(0, MAX_TOOL_OUTPUT_CHARS) +
+                    `\n\n[Output truncated: showing first ${MAX_TOOL_OUTPUT_CHARS.toLocaleString()} of ${item.text.length.toLocaleString()} characters]`,
+            };
+        }
+        // Preserve non-text items (images, audio) as-is
+        return item;
+    });
+}
+
 /** Returns a human-readable time of day based on the hour */
 function getTimeOfDay(date: Date): string {
     const hour = date.getHours();
@@ -581,7 +617,7 @@ async function executeToolsInParallel(
         toolCalls.map(async (toolCall) => {
             // executeTool will throw ResearchPausedError if paused, which propagates through Promise.all
             const result = await executeTool(toolCall, context);
-            return { source_call_id: toolCall.tool_call_id, content: result };
+            return { source_call_id: toolCall.tool_call_id, content: truncateToolOutput(result) };
         })
     );
     return results;
