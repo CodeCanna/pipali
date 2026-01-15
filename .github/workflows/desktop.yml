@@ -68,8 +68,72 @@ jobs:
       - name: ⤵️ Install Tauri Frontend Dependencies
         run: cd src-tauri-frontend && bun install
 
-      - name: 🔨 Build Desktop App
+      # macOS Code Signing: Import Apple Developer Certificate
+      - name: 🔑 Import Apple Developer Certificate
+        if: github.event_name != 'pull_request'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          # Create a temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+
+          # Import certificate
+          printf '%s' "$APPLE_CERTIFICATE" | base64 -D > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+
+          # Allow codesign to access the imported key without interactive prompts.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          # Resolve the signing identity deterministically.
+          echo "Available identities in build.keychain:"
+          security find-identity -v -p codesigning build.keychain || true
+
+          CERT_ID=$(security find-identity -v -p codesigning build.keychain \
+            | grep "Developer ID Application" \
+            | head -n 1 \
+            | awk -F'"' '{print $2}')
+
+          if [ -z "${CERT_ID:-}" ]; then
+            echo "ERROR: Could not find a 'Developer ID Application' identity in build.keychain"
+            exit 1
+          fi
+
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported: $CERT_ID"
+
+          # Best-effort cleanup of the temporary file; keep keychain for subsequent signing steps.
+          rm -f certificate.p12
+
+      # PR builds: build unsigned (secrets aren't available for fork PRs anyway)
+      - name: 🔨 Build Desktop App (macOS) (Unsigned)
+        if: github.event_name == 'pull_request'
         run: bun run ${{ inputs.debug_build && 'tauri:build:debug' || 'tauri:build' }}
+
+      # Release, Main build
+      - name: 🔨 Build Desktop App (macOS) (Signed, Notarized)
+        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          echo "Building with certificate: ${CERT_ID}"
+          export APPLE_SIGNING_IDENTITY="$CERT_ID"
+          bun run ${{ inputs.debug_build && 'tauri:build:debug' || 'tauri:build' }}
+
+      - name: 🧹 Cleanup Apple Signing Keychain
+        if: github.event_name != 'pull_request'
+        run: |
+          security delete-keychain build.keychain || true
 
       - name: 📦 Package macOS App Bundle
         run: |
@@ -136,7 +200,7 @@ jobs:
         run: cd src-tauri-frontend && bun install
 
       - name: 🔨 Build Desktop App
-        run: bun run tauri:build:linux-x64
+        run: bun run tauri:build
 
       - name: 📁 List Build Artifacts
         run: |
