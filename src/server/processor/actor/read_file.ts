@@ -43,6 +43,16 @@ export interface ReadFileOptions {
 /** Default maximum lines to read when no limit is specified */
 const DEFAULT_LINE_LIMIT = 50;
 
+/**
+ * Sanitize text to remove problematic Unicode escape sequences that PostgreSQL JSON parser rejects.
+ * This includes null bytes (\u0000) and other control characters that can appear in PDF text extraction.
+ */
+function sanitizeTextForJson(text: string): string {
+    // Remove null bytes and other problematic control characters (U+0000 to U+001F except common whitespace)
+    // Keep \t (0x09), \n (0x0A), \r (0x0D)
+    return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+}
+
 // Supported image formats
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
@@ -303,7 +313,9 @@ export async function readFile(
                     };
                 }
 
-                const pdfText = docs.map(doc => doc.pageContent).join('\n\n');
+                const rawPdfText = docs.map(doc => doc.pageContent).join('\n\n');
+                // Sanitize to remove problematic Unicode characters that break PostgreSQL JSON storage
+                const pdfText = sanitizeTextForJson(rawPdfText);
                 const pageCount = (docs[0]?.metadata as any)?.pdf?.totalPages || docs.length;
                 console.log(`[PDF] Extracted ${pdfText.length} characters from ${pageCount} page(s)`);
 
@@ -344,7 +356,8 @@ export async function readFile(
                     };
                 }
 
-                const docText = docs.map(doc => doc.pageContent).join('\n\n');
+                const rawDocText = docs.map(doc => doc.pageContent).join('\n\n');
+                const docText = sanitizeTextForJson(rawDocText);
                 console.log(`[DOCX] Extracted ${docText.length} characters`);
 
                 const filterResult = applyLineFilter(docText, offset, limit);
@@ -435,7 +448,8 @@ export async function readFile(
                     };
                 }
 
-                const pptText = docs.map(doc => doc.pageContent).join('\n\n');
+                const rawPptText = docs.map(doc => doc.pageContent).join('\n\n');
+                const pptText = sanitizeTextForJson(rawPptText);
                 console.log(`[PPT] Extracted ${pptText.length} characters`);
 
                 const filterResult = applyLineFilter(pptText, offset, limit);
