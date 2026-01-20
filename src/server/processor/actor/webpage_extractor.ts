@@ -7,6 +7,9 @@
 
 import { sendMessageToModel } from '../conversation/index';
 import type { MetricsAccumulator } from '../director/types';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'webpage_extractor' });
 
 // System prompt for content extraction
 const EXTRACTION_SYSTEM_PROMPT = `As a professional analyst, your job is to extract all pertinent information from a webpage to help answer a user's query.
@@ -74,7 +77,7 @@ export async function extractRelevantContent(
         // Build the extraction prompt
         const extractionPrompt = buildExtractionPrompt(webpageContent, query);
 
-        console.log(`[WebpageExtractor] Extracting content for query: "${query.slice(0, 50)}..."`);
+        log.debug(`Extracting content for query: "${query.slice(0, 50)}..."`);
 
         // Use sendMessageToModel abstraction layer. Handles model selection automatically
         const response = await sendMessageToModel(
@@ -84,7 +87,7 @@ export async function extractRelevantContent(
         );
 
         if (!response || !response.message) {
-            console.warn('[WebpageExtractor] No response from model');
+            log.warn('No response from model');
             return webpageContent.slice(0, 5000) + (webpageContent.length > 5000 ? '\n\n[Content truncated...]' : '');
         }
 
@@ -94,13 +97,13 @@ export async function extractRelevantContent(
             metricsAccumulator.completion_tokens += response.usage.completion_tokens;
             metricsAccumulator.cached_tokens += response.usage.cached_tokens || 0;
             metricsAccumulator.cost_usd += response.usage.cost_usd;
-            console.log(`[WebpageExtractor] Added usage: ${response.usage.prompt_tokens} prompt, ${response.usage.completion_tokens} completion, $${response.usage.cost_usd.toFixed(6)}`);
+            log.debug(`Added usage: ${response.usage.prompt_tokens} prompt, ${response.usage.completion_tokens} completion, $${response.usage.cost_usd.toFixed(6)}`);
         }
 
         return response.message.trim();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[WebpageExtractor] Extraction failed: ${errorMessage}`);
+        log.error({ err: error }, `Extraction failed: ${errorMessage}`);
 
         // Fallback to truncated raw content on error
         return webpageContent.slice(0, 5000) + (webpageContent.length > 5000 ? '\n\n[Content truncated...]' : '');

@@ -2,6 +2,9 @@ import path from 'path';
 import fs from 'fs/promises';
 import { minimatch } from 'minimatch';
 import { clampInt, resolvePath, walkFilePaths } from './actor.utils';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'list_files' });
 
 /**
  * Arguments for the list_files tool.
@@ -138,7 +141,7 @@ export async function listFiles(args: ListFilesArgs): Promise<FileListResult> {
         };
     } catch (error) {
         const errorMsg = `Error listing files: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(errorMsg, error);
+        log.error({ err: error }, errorMsg);
 
         return {
             query: generateQuery(0, searchPath, pattern, config.maxResults),

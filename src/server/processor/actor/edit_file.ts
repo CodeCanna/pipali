@@ -7,6 +7,9 @@ import {
     requestOperationConfirmation,
 } from '../confirmation';
 import { isPathWithinAllowedWrite } from '../../sandbox';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'edit_file' });
 
 /**
  * Arguments for the edit_file tool.
@@ -197,7 +200,7 @@ export async function editFile(
         const replacementCount = replace_all ? occurrences : 1;
         const message = `Successfully replaced ${replacementCount} occurrence${replacementCount > 1 ? 's' : ''} in ${file_path}`;
 
-        console.log(`[Edit] ${message}`);
+        log.debug({ file: file_path, replacements: replacementCount }, message);
 
         return {
             query,
@@ -207,7 +210,7 @@ export async function editFile(
         };
     } catch (error) {
         const errorMsg = `Error editing file ${file_path}: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(errorMsg, error);
+        log.error({ err: error }, errorMsg);
 
         return {
             query,

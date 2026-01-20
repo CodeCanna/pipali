@@ -24,6 +24,9 @@ import {
   exportATIFTrajectory,
   importATIFTrajectory,
 } from './atif.utils';
+import { createChildLogger } from '../../../logger';
+
+const log = createChildLogger({ component: 'atif' });
 
 export interface ConversationWithTrajectory {
   id: string;
@@ -72,11 +75,11 @@ export class ATIFConversationService {
       insertData.title = title;
     }
 
-    console.log('[ATIF Service] Creating conversation:', {
+    log.debug({
       userId: insertData.userId,
       hasTrajectory: !!insertData.trajectory,
       trajectoryValid: validateATIFTrajectory(insertData.trajectory).valid,
-    });
+    }, 'Creating conversation');
 
     try {
       const [newConversation] = await db
@@ -88,10 +91,10 @@ export class ATIFConversationService {
         throw new Error('Failed to create conversation');
       }
 
-      console.log('[ATIF Service] ✅ Conversation created:', newConversation.id);
+      log.debug({ conversationId: newConversation.id }, 'Conversation created');
       return newConversation as ConversationWithTrajectory;
     } catch (error) {
-      console.error('[ATIF Service] ❌ Error creating conversation:', error);
+      log.error({ err: error }, 'Error creating conversation');
       throw error;
     }
   }
@@ -318,11 +321,11 @@ export class ATIFConversationService {
       insertData.title = title;
     }
 
-    console.log('[ATIF Service] Forking conversation:', {
+    log.debug({
       sourceId: sourceConversationId,
       userId: insertData.userId,
       stepCount: newTrajectory.steps.length,
-    });
+    }, 'Forking conversation');
 
     try {
       const [newConversation] = await db
@@ -334,10 +337,10 @@ export class ATIFConversationService {
         throw new Error('Failed to fork conversation');
       }
 
-      console.log('[ATIF Service] ✅ Conversation forked:', newConversation.id);
+      log.debug({ conversationId: newConversation.id }, 'Conversation forked');
       return newConversation as ConversationWithTrajectory;
     } catch (error) {
-      console.error('[ATIF Service] ❌ Error forking conversation:', error);
+      log.error({ err: error }, 'Error forking conversation');
       throw error;
     }
   }

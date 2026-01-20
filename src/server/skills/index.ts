@@ -11,6 +11,9 @@ import { formatSkillsForPrompt } from './utils';
 import type { Skill, SkillLoadResult } from './types';
 import { IS_COMPILED_BINARY, EMBEDDED_BUILTIN_SKILLS } from '../embedded-assets';
 import { getSkillsDir as getSkillsDirFromPaths } from '../paths';
+import { createChildLogger } from '../logger';
+
+const log = createChildLogger({ component: 'skills' });
 
 // Path to builtin skills shipped with the app (used in development mode)
 const BUILTIN_SKILLS_DIR = path.join(import.meta.dir, 'builtin');
@@ -134,7 +137,7 @@ async function installEmbeddedSkills(
             }
             installed.push(skillName);
         } catch (err) {
-            console.error(`Failed to install builtin skill "${skillName}":`, err);
+            log.error({ err, skillName }, `Failed to install builtin skill "${skillName}"`);
         }
     }
 
@@ -183,7 +186,7 @@ async function installFilesystemSkills(
             await cp(srcDir, destDir, { recursive: true });
             installed.push(skillName);
         } catch (err) {
-            console.error(`Failed to install builtin skill "${skillName}":`, err);
+            log.error({ err, skillName }, `Failed to install builtin skill "${skillName}"`);
         }
     }
 

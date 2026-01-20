@@ -9,6 +9,9 @@ import {
     wrapCommandWithSandbox,
     annotateStderrWithSandboxFailures,
 } from '../../sandbox';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'shell' });
 
 /**
  * Operation type indicating whether command modifies state
@@ -162,7 +165,7 @@ export async function shellCommand(
 
     // Log if sandbox was requested but unavailable
     if (requestedMode === 'sandbox' && !sandboxAvailable) {
-        console.log(`[Shell] Sandbox mode requested but unavailable, falling back to direct mode (requires confirmation)`);
+        log.debug(`Sandbox mode requested but unavailable, falling back to direct mode (requires confirmation)`);
     }
 
     // Request user confirmation if using direct mode (not sandboxed)
@@ -206,16 +209,16 @@ export async function shellCommand(
         if (isWindows) {
             // Windows: no sandbox support, use PowerShell directly
             shellCmd = ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', command];
-            console.log(`[Shell] Executing (no sandbox): ${command} in ${workingDir}`);
+            log.debug(`Executing (no sandbox): ${command} in ${workingDir}`);
         } else if (useSandbox) {
             // Unix with sandbox: wrap the command
             const sandboxedCommand = await wrapCommandWithSandbox(command);
             shellCmd = ['/bin/bash', '-c', sandboxedCommand];
-            console.log(`[Shell] Executing (sandboxed): ${command} in ${workingDir}`);
+            log.debug(`Executing (sandboxed): ${command} in ${workingDir}`);
         } else {
             // Unix without sandbox
             shellCmd = ['/bin/bash', '-c', command];
-            console.log(`[Shell] Executing (no sandbox): ${command} in ${workingDir}`);
+            log.debug(`Executing (no sandbox): ${command} in ${workingDir}`);
         }
 
         // Set up environment - use /tmp/pipali as TMPDIR for sandboxed commands
@@ -280,10 +283,10 @@ export async function shellCommand(
             output += `\n\n[Sandbox violation: The command attempted an operation outside the allowed sandbox paths. ` +
                 `Write operations are only allowed in /tmp/pipali and ~/.pipali. ` +
                 `Use execution_mode: "direct" if you need full filesystem access (requires user confirmation).]`;
-            console.error(`[Shell] Sandbox violation detected for command: ${command}`);
+            log.error(`Sandbox violation detected for command: ${command}`);
         }
 
-        console.log(`[Shell] Command completed with exit code ${exitCode}${isSandboxViolation ? ' (sandbox violation)' : ''}`);
+        log.debug(`Command completed with exit code ${exitCode}${isSandboxViolation ? ' (sandbox violation)' : ''}`);
 
         return {
             query,
@@ -295,7 +298,7 @@ export async function shellCommand(
         // Handle timeout specifically
         if (error instanceof Error && error.message.includes('timed out')) {
             const errorMsg = `Command timed out after ${effectiveTimeout}ms: ${command}`;
-            console.error(`[Shell] ${errorMsg}`);
+            log.error(`${errorMsg}`);
             return {
                 query,
                 file: workingDir,
@@ -305,7 +308,7 @@ export async function shellCommand(
         }
 
         const errorMsg = `Error executing command: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(`[Shell] ${errorMsg}`, error);
+        log.error({ err: error }, errorMsg);
 
         return {
             query,

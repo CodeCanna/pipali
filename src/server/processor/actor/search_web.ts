@@ -9,6 +9,9 @@ import { db } from '../../db';
 import { WebSearchProvider } from '../../db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getValidAccessToken } from '../../auth';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'search_web' });
 
 // Timeout for web search requests (in milliseconds)
 const SEARCH_REQUEST_TIMEOUT = 30000;
@@ -98,7 +101,7 @@ async function getEnabledWebSearchProviders(): Promise<(typeof WebSearchProvider
             .orderBy(desc(WebSearchProvider.priority));
         return providers;
     } catch (error) {
-        console.log('[WebSearch] No web search providers configured in database, using environment variables');
+        log.debug('No web search providers configured in database, using environment variables');
         return [];
     }
 }
@@ -123,7 +126,7 @@ async function searchWithSerper(
     // Truncate query if it exceeds maximum length
     let effectiveQuery = query;
     if (query.length > SERPER_MAX_QUERY_LENGTH) {
-        console.warn(`[WebSearch] Truncating query. Length ${query.length} exceeds ${SERPER_MAX_QUERY_LENGTH}`);
+        log.warn(`Truncating query. Length ${query.length} exceeds ${SERPER_MAX_QUERY_LENGTH}`);
         effectiveQuery = query.slice(0, SERPER_MAX_QUERY_LENGTH);
     }
 
@@ -139,7 +142,7 @@ async function searchWithSerper(
         num: maxResults,
     };
 
-    console.log(`[WebSearch] Searching Serper for: "${effectiveQuery.slice(0, 100)}${effectiveQuery.length > 100 ? '...' : ''}"`);
+    log.debug(`Searching Serper for: "${effectiveQuery.slice(0, 100)}${effectiveQuery.length > 100 ? '...' : ''}"`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SEARCH_REQUEST_TIMEOUT);
@@ -230,7 +233,7 @@ async function searchWithPlatform(
         country_code: countryCode,
     };
 
-    console.log(`[WebSearch] Search using Pipali Platform for: "${query.slice(0, 100)}${query.length > 100 ? '...' : ''}"`);
+    log.debug(`Search using Pipali Platform for: "${query.slice(0, 100)}${query.length > 100 ? '...' : ''}"`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SEARCH_REQUEST_TIMEOUT);
@@ -318,7 +321,7 @@ async function searchWithExa(
         },
     };
 
-    console.log(`[WebSearch] Searching Exa for: "${query}"`);
+    log.debug(`Searching Exa for: "${query}"`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SEARCH_REQUEST_TIMEOUT);
@@ -421,12 +424,12 @@ export async function webSearch(args: WebSearchArgs): Promise<WebSearchResult> {
                 }
 
                 if (extendedResult && extendedResult.organic.length > 0) {
-                    console.log(`[WebSearch] Found ${extendedResult.organic.length} results using ${provider.name}`);
+                    log.debug(`Found ${extendedResult.organic.length} results using ${provider.name}`);
                     break;
                 }
             } catch (error) {
                 lastError = error instanceof Error ? error : new Error(String(error));
-                console.warn(`[WebSearch] Failed with ${provider.name}: ${lastError.message}`);
+                log.warn(`Failed with ${provider.name}: ${lastError.message}`);
             }
         }
 
@@ -435,22 +438,22 @@ export async function webSearch(args: WebSearchArgs): Promise<WebSearchResult> {
             // Try Serper first (better results with answer boxes, knowledge graph)
             if (getSerperApiKey()) {
                 try {
-                    console.log('[WebSearch] Trying Serper with environment variable API key');
+                    log.debug('Trying Serper with environment variable API key');
                     extendedResult = await searchWithSerper(query, effectiveMaxResults, country_code);
                 } catch (error) {
                     lastError = error instanceof Error ? error : new Error(String(error));
-                    console.warn(`[WebSearch] Serper env fallback failed: ${lastError.message}`);
+                    log.warn(`Serper env fallback failed: ${lastError.message}`);
                 }
             }
 
             // Then try Exa
             if ((!extendedResult || extendedResult.organic.length === 0) && getExaApiKey()) {
                 try {
-                    console.log('[WebSearch] Trying Exa with environment variable API key');
+                    log.debug('Trying Exa with environment variable API key');
                     extendedResult = await searchWithExa(query, effectiveMaxResults, country_code);
                 } catch (error) {
                     lastError = error instanceof Error ? error : new Error(String(error));
-                    console.warn(`[WebSearch] Exa env fallback failed: ${lastError.message}`);
+                    log.warn(`Exa env fallback failed: ${lastError.message}`);
                 }
             }
         }
@@ -519,7 +522,7 @@ export async function webSearch(args: WebSearchArgs): Promise<WebSearchResult> {
         };
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[WebSearch] Error: ${errorMessage}`);
+        log.error(`Error: ${errorMessage}`);
 
         return {
             query: `**Web search for**: "${query}"`,

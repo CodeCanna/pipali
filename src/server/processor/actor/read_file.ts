@@ -11,6 +11,9 @@ import {
     requestOperationConfirmation,
 } from '../confirmation';
 import { isPathDeniedForRead } from '../../sandbox';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'read_file' });
 
 /**
  * Arguments for the read_file tool.
@@ -259,11 +262,11 @@ export async function readFile(
         // Check if file is an image
         if (isImageFile(resolvedPath)) {
             try {
-                console.log(`[Image] Reading: ${resolvedPath}`);
+                log.debug(`[Image] Reading: ${resolvedPath}`);
                 const arrayBuffer = await file.arrayBuffer();
                 const base64 = Buffer.from(arrayBuffer).toString('base64');
                 const mimeType = getMimeType(resolvedPath);
-                console.log(`[Image] Encoded: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB as ${mimeType}`);
+                log.debug(`[Image] Encoded: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB as ${mimeType}`);
 
                 // Return multimodal content for vision-enabled models
                 return {
@@ -285,7 +288,7 @@ export async function readFile(
                     isImage: true,
                 };
             } catch (imageError) {
-                console.error(`[Image] Error reading ${filePath}:`, imageError);
+                log.error({ err: imageError }, `Error reading image ${filePath}`);
                 return {
                     query,
                     file: filePath,
@@ -298,7 +301,7 @@ export async function readFile(
         // Check if file is a PDF
         if (isPdfFile(resolvedPath)) {
             try {
-                console.log(`[PDF] Reading: ${resolvedPath}`);
+                log.debug(`[PDF] Reading: ${resolvedPath}`);
                 const loader = new PDFLoader(resolvedPath, {
                     splitPages: false,
                 });
@@ -317,7 +320,7 @@ export async function readFile(
                 // Sanitize to remove problematic Unicode characters that break PostgreSQL JSON storage
                 const pdfText = sanitizeTextForJson(rawPdfText);
                 const pageCount = (docs[0]?.metadata as any)?.pdf?.totalPages || docs.length;
-                console.log(`[PDF] Extracted ${pdfText.length} characters from ${pageCount} page(s)`);
+                log.debug(`[PDF] Extracted ${pdfText.length} characters from ${pageCount} page(s)`);
 
                 const filterResult = applyLineFilter(pdfText, offset, limit);
                 const truncationMsg = formatTruncationMessage(filterResult, 'PDF');
@@ -330,7 +333,7 @@ export async function readFile(
                     compiled: filteredText,
                 };
             } catch (pdfError) {
-                console.error(`[PDF] Error reading ${filePath}:`, pdfError);
+                log.error({ err: pdfError }, `Error reading PDF ${filePath}`);
                 return {
                     query,
                     file: filePath,
@@ -343,7 +346,7 @@ export async function readFile(
         // Check if file is a Word document
         if (isWordDoc(resolvedPath)) {
             try {
-                console.log(`[DOCX] Reading: ${resolvedPath}`);
+                log.debug(`[DOCX] Reading: ${resolvedPath}`);
                 const loader = new DocxLoader(resolvedPath);
                 const docs = await loader.load();
 
@@ -358,7 +361,7 @@ export async function readFile(
 
                 const rawDocText = docs.map(doc => doc.pageContent).join('\n\n');
                 const docText = sanitizeTextForJson(rawDocText);
-                console.log(`[DOCX] Extracted ${docText.length} characters`);
+                log.debug(`[DOCX] Extracted ${docText.length} characters`);
 
                 const filterResult = applyLineFilter(docText, offset, limit);
                 const truncationMsg = formatTruncationMessage(filterResult, 'Document');
@@ -371,7 +374,7 @@ export async function readFile(
                     compiled: filteredText,
                 };
             } catch (docxError) {
-                console.error(`[DOCX] Error reading ${filePath}:`, docxError);
+                log.error({ err: docxError }, `Error reading Word document ${filePath}`);
                 return {
                     query,
                     file: filePath,
@@ -384,7 +387,7 @@ export async function readFile(
         // Check if file is an Excel spreadsheet
         if (isExcelFile(resolvedPath)) {
             try {
-                console.log(`[XLSX] Reading: ${resolvedPath}`);
+                log.debug(`[XLSX] Reading: ${resolvedPath}`);
                 const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
@@ -409,7 +412,7 @@ export async function readFile(
                 }
 
                 const xlsxText = sheetsText.join('\n\n');
-                console.log(`[XLSX] Extracted ${xlsxText.length} characters from ${sheetNames.length} sheet(s)`);
+                log.debug(`[XLSX] Extracted ${xlsxText.length} characters from ${sheetNames.length} sheet(s)`);
 
                 const filterResult = applyLineFilter(xlsxText, offset, limit);
                 const truncationMsg = formatTruncationMessage(filterResult, 'Spreadsheet');
@@ -422,7 +425,7 @@ export async function readFile(
                     compiled: filteredText,
                 };
             } catch (excelError) {
-                console.error(`[Excel] Error reading ${filePath}:`, excelError);
+                log.error({ err: excelError }, `Error reading Excel file ${filePath}`);
                 return {
                     query,
                     file: filePath,
@@ -435,7 +438,7 @@ export async function readFile(
         // Check if file is a PowerPoint presentation
         if (isPptFile(resolvedPath)) {
             try {
-                console.log(`[PPT] Reading: ${resolvedPath}`);
+                log.debug(`[PPT] Reading: ${resolvedPath}`);
                 const loader = new PPTXLoader(resolvedPath);
                 const docs = await loader.load();
 
@@ -450,7 +453,7 @@ export async function readFile(
 
                 const rawPptText = docs.map(doc => doc.pageContent).join('\n\n');
                 const pptText = sanitizeTextForJson(rawPptText);
-                console.log(`[PPT] Extracted ${pptText.length} characters`);
+                log.debug(`[PPT] Extracted ${pptText.length} characters`);
 
                 const filterResult = applyLineFilter(pptText, offset, limit);
                 const truncationMsg = formatTruncationMessage(filterResult, 'Presentation');
@@ -463,7 +466,7 @@ export async function readFile(
                     compiled: filteredText,
                 };
             } catch (pptError) {
-                console.error(`[PPT] Error reading ${filePath}:`, pptError);
+                log.error({ err: pptError }, `Error reading PowerPoint file ${filePath}`);
                 return {
                     query,
                     file: filePath,
@@ -487,7 +490,7 @@ export async function readFile(
         };
     } catch (error) {
         const errorMsg = `Error reading file ${filePath}: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(errorMsg, error);
+        log.error({ err: error }, errorMsg);
 
         return {
             query,

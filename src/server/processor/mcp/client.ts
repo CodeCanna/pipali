@@ -3,6 +3,9 @@ import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotoc
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { McpServerConfig, McpToolInfo, McpToolCallResult, McpClientStatus, McpContentType } from './types';
 import os from 'os';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'mcp' });
 
 // Cache the shell PATH to avoid repeated shell invocations
 let cachedShellPath: string | null = null;
@@ -63,12 +66,12 @@ async function getShellPath(): Promise<string | undefined> {
             const path = (await new Response(proc.stdout).text()).trim();
             if (path) {
                 cachedShellPath = path;
-                console.log('[MCP] Resolved shell PATH:', path.substring(0, 100) + '...');
+                log.debug({ path: path.substring(0, 100) + '...' }, 'Resolved shell PATH');
                 return path;
             }
         }
     } catch (error) {
-        console.warn('[MCP] Failed to get shell PATH:', error);
+        log.warn({ err: error }, 'Failed to get shell PATH');
     }
 
     cachedShellPath = '';

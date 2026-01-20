@@ -8,6 +8,9 @@ import {
     type ConfirmationContext,
     requestOperationConfirmation,
 } from '../confirmation';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'grep_files' });
 
 /**
  * Binary and image file extensions to exclude from grep searches.
@@ -345,7 +348,7 @@ export async function grepFiles(
         };
     } catch (error) {
         const errorMsg = `Error using grep files tool: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(errorMsg, error);
+        log.error({ err: error }, errorMsg);
 
         return {
             query: generateQuery(0, 0, searchPathArg, pattern, include, lines_before, lines_after, config.maxResults),

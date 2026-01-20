@@ -2,6 +2,9 @@ import type { ToolDefinition, ChatMessage } from "../conversation";
 import type { ToolDefinition as LcToolDefinition } from '@langchain/core/language_models/base';
 import { HumanMessage, ToolMessage } from '@langchain/core/messages';
 import type { Responses } from 'openai/resources/responses/responses';
+import { createChildLogger } from '../../../logger';
+
+const log = createChildLogger({ component: 'openai-formatter' });
 
 export function toOpenaiTools(tools?: ToolDefinition[]): LcToolDefinition[] | undefined {
     if (!tools) return undefined;
@@ -55,7 +58,7 @@ export function formatMessagesForOpenAI(messages: ChatMessage[]): ChatMessage[] 
                 );
 
                 if (hasImage) {
-                    console.log('[OpenAI Formatter] Converting ToolMessage with image to HumanMessage');
+                    log.debug('Converting ToolMessage with image to HumanMessage');
 
                     // Extract text description for the tool result acknowledgment
                     const textContent = content.find(isTextBlock);

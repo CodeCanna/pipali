@@ -6,6 +6,9 @@ import {
     requestOperationConfirmation,
 } from '../confirmation';
 import { isPathWithinAllowedWrite } from '../../sandbox';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'write_file' });
 
 /**
  * Arguments for the write_file tool.
@@ -127,7 +130,7 @@ export async function writeFile(
         const byteSize = Buffer.byteLength(content, 'utf-8');
         const message = `${action} ${file_path} (${lineCount} lines, ${byteSize} bytes)`;
 
-        console.log(`[Write] ${message}`);
+        log.debug({ file: file_path, lines: lineCount, bytes: byteSize }, message);
 
         return {
             query,
@@ -137,7 +140,7 @@ export async function writeFile(
         };
     } catch (error) {
         const errorMsg = `Error writing file ${file_path}: ${error instanceof Error ? error.message : String(error)}`;
-        console.error(errorMsg, error);
+        log.error({ err: error }, errorMsg);
 
         return {
             query,

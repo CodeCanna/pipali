@@ -17,6 +17,9 @@ import {
     type ConfirmationContext,
     requestOperationConfirmation,
 } from '../confirmation';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'read_webpage' });
 
 // Timeout for webpage fetch requests (in milliseconds)
 const FETCH_REQUEST_TIMEOUT = 60000;
@@ -75,7 +78,7 @@ async function getEnabledWebScrapers(): Promise<(typeof WebScraper.$inferSelect)
             .orderBy(desc(WebScraper.priority));
         return scrapers;
     } catch (error) {
-        console.log('[ReadWebpage] No web scrapers configured in database, using environment variables');
+        log.debug('No web scrapers configured in database, using environment variables');
         return [];
     }
 }
@@ -100,7 +103,7 @@ async function readWithPlatform(
         payload.query = query;
     }
 
-    console.log(`[ReadWebpage] Read using Pipali Platform: ${url}`);
+    log.debug(`Read using Pipali Platform: ${url}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_REQUEST_TIMEOUT);
@@ -165,7 +168,7 @@ async function readWithExa(
         livecrawlTimeout: 15000,
     };
 
-    console.log(`[ReadWebpage] Reading with Exa: ${url}`);
+    log.debug(`Reading with Exa: ${url}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_REQUEST_TIMEOUT);
@@ -207,7 +210,7 @@ async function readWithExa(
  * Fetches HTML and converts to text using simple HTML parsing
  */
 async function readWithDirectFetch(url: string): Promise<string | null> {
-    console.log(`[ReadWebpage] Reading with direct fetch: ${url}`);
+    log.debug(`Reading with direct fetch: ${url}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_REQUEST_TIMEOUT);
@@ -394,40 +397,40 @@ export async function readWebpage(
 
                 if (rawContent) {
                     usedProvider = scraper.type;
-                    console.log(`[ReadWebpage] Successfully read with ${scraper.type}`);
+                    log.debug(`Successfully read with ${scraper.type}`);
                     break;
                 }
             } catch (error) {
                 lastError = error instanceof Error ? error : new Error(String(error));
-                console.warn(`[ReadWebpage] Failed with ${scraper.type}: ${lastError.message}`);
+                log.warn(`Failed with ${scraper.type}: ${lastError.message}`);
             }
         }
 
         // Fallback to environment variable Exa if no database scrapers worked
         if (!rawContent && getExaApiKey()) {
             try {
-                console.log('[ReadWebpage] Trying Exa with environment variable API key');
+                log.debug('Trying Exa with environment variable API key');
                 rawContent = await readWithExa(url);
                 if (rawContent) {
                     usedProvider = 'Exa (env)';
                 }
             } catch (error) {
                 lastError = error instanceof Error ? error : new Error(String(error));
-                console.warn(`[ReadWebpage] Exa env fallback failed: ${lastError.message}`);
+                log.warn(`Exa env fallback failed: ${lastError.message}`);
             }
         }
 
         // Direct URL fetch as final fallback
         if (!rawContent) {
             try {
-                console.log('[ReadWebpage] Trying direct URL fetch');
+                log.debug('Trying direct URL fetch');
                 rawContent = await readWithDirectFetch(url);
                 if (rawContent) {
                     usedProvider = 'Direct fetch';
                 }
             } catch (error) {
                 lastError = error instanceof Error ? error : new Error(String(error));
-                console.warn(`[ReadWebpage] Direct fetch failed: ${lastError.message}`);
+                log.warn(`Direct fetch failed: ${lastError.message}`);
             }
         }
 
@@ -444,17 +447,17 @@ export async function readWebpage(
             };
         }
 
-        console.log(`[ReadWebpage] Got ${rawContent.length} chars of raw content from ${usedProvider}`);
+        log.debug(`Got ${rawContent.length} chars of raw content from ${usedProvider}`);
 
         // Extract relevant content using LLM if query is provided and not platform scraper
         let extractedContent: string;
         if (query && usedProvider !== 'platform') {
             try {
-                console.log(`[ReadWebpage] Extracting relevant content for query: "${query}"`);
+                log.debug(`Extracting relevant content for query: "${query}"`);
                 extractedContent = await extractRelevantContent(rawContent, query, opts.metricsAccumulator);
-                console.log(`[ReadWebpage] Extracted ${extractedContent.length} chars of relevant content`);
+                log.debug(`Extracted ${extractedContent.length} chars of relevant content`);
             } catch (error) {
-                console.warn(`[ReadWebpage] Content extraction failed, using raw content: ${error}`);
+                log.warn(`Content extraction failed, using raw content: ${error}`);
                 // Fallback to truncated raw content if extraction fails
                 extractedContent = rawContent.slice(0, 10000);
                 if (rawContent.length > 10000) {
@@ -477,7 +480,7 @@ export async function readWebpage(
         };
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[ReadWebpage] Error: ${errorMessage}`);
+        log.error(`Error: ${errorMessage}`);
 
         return {
             query: `**Reading webpage**: ${url}`,

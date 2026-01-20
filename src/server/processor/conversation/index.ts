@@ -5,6 +5,9 @@ import { generateChatmlMessagesWithContext } from './utils';
 import { sendMessageToGpt } from './openai';
 import type { ATIFTrajectory } from './atif/atif.types';
 import { getValidAccessToken } from '../../auth';
+import { createChildLogger } from '../../logger';
+
+const log = createChildLogger({ component: 'llm' });
 
 // Test mock interface - set by E2E test preload scripts via globalThis
 declare global {
@@ -26,21 +29,21 @@ export async function sendMessageToModel(
     // Check for test mock (E2E tests inject this via preload)
     if (globalThis.__pipaliMockLLM) {
         const actualQuery = query || history?.steps?.findLast(s => s.source === 'user')?.message || '';
-        console.log(`[LLM] 🧪 Using mock for: "${actualQuery.substring(0, 50)}..."`);
+        log.debug({ query: actualQuery.substring(0, 50) }, 'Using mock LLM');
         return globalThis.__pipaliMockLLM(actualQuery);
     }
 
     const chatModelWithApi: ChatModelWithApi | undefined = await getDefaultChatModel(user);
 
     if (!chatModelWithApi) {
-        console.error(`[LLM] ❌ No chat model configured`);
+        log.error('No chat model configured');
         throw new Error('No chat model configured.');
     }
 
     const modelName = chatModelWithApi.chatModel.friendlyName || chatModelWithApi.chatModel.name;
     const aiModelApiName = chatModelWithApi.aiModelApi?.name || 'Device';
     const aiModelType = chatModelWithApi.chatModel.modelType;
-    console.log(`[LLM] 🤖 Using ${modelName} via ${aiModelApiName} API`);
+    log.info({ model: modelName, provider: aiModelApiName }, 'Using model');
 
     const messages: ChatMessage[] = generateChatmlMessagesWithContext(
         query,
@@ -51,7 +54,7 @@ export async function sendMessageToModel(
         fastMode,
     );
 
-    console.log(`[LLM] Messages: ${messages.length}, Tools: ${tools?.length || 0}`);
+    log.debug({ messageCount: messages.length, toolCount: tools?.length || 0 }, 'Prepared messages');
 
     // Extract pricing from chat model for cost calculation
     const pricing = {
@@ -72,23 +75,28 @@ export async function sendMessageToModel(
             if (validToken) {
                 apiKey = validToken;
             } else {
-                console.error('[LLM] ❌ Failed to get valid platform access token');
+                log.error({ model: modelName, provider: aiModelApiName }, 'Platform authentication expired');
                 throw new Error('Platform authentication expired. Please sign in again.');
             }
         }
 
-        const response = await sendMessageToGpt(
-            messages,
-            chatModelWithApi.chatModel.name,
-            apiKey,
-            chatModelWithApi.aiModelApi?.apiBaseUrl,
-            tools,
-            toolChoice,
-            pricing,
-        );
-        console.log(`[LLM] ⏱️ Response received in ${(Date.now() - startTime) / 1000.0}ms`);
-        return response;
+        try {
+            const response = await sendMessageToGpt(
+                messages,
+                chatModelWithApi.chatModel.name,
+                apiKey,
+                chatModelWithApi.aiModelApi?.apiBaseUrl,
+                tools,
+                toolChoice,
+                pricing,
+            );
+            log.info({ model: modelName, durationMs: Date.now() - startTime }, 'Response received');
+            return response;
+        } catch (error) {
+            log.error({ err: error, model: modelName, provider: aiModelApiName }, 'LLM request failed');
+            throw error;
+        }
     }
 
-    console.warn(`[LLM] ⚠️ Unsupported model type: ${aiModelType}`);
+    log.warn({ modelType: aiModelType }, 'Unsupported model type');
 }
