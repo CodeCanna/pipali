@@ -283,17 +283,49 @@ pub fn run() {
             let host = state.host.clone();
             let port = state.port;
 
+            // Show app in dock immediately
+            show_in_dock(&handle);
+
+            // Splash window is defined in tauri.conf.json and shown automatically
+            log::info!("[App] Splash window should be visible");
+
             // Start sidecar during setup
             if let Err(e) = start_sidecar(&handle) {
                 log::error!("Failed to start sidecar: {}", e);
                 return Err(e.into());
             }
 
-            // Wait for sidecar to be ready before showing the window
-            if let Err(e) = wait_for_sidecar_ready(&host, port) {
-                log::error!("Sidecar not ready: {}", e);
-                // Don't fail - the UI will show connection error
-            }
+            // Spawn async task to wait for sidecar and transition windows
+            // This allows the event loop to start so windows can render
+            let app_handle = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                // Wait for sidecar to be ready
+                if let Err(e) = wait_for_sidecar_ready(&host, port) {
+                    log::error!("Sidecar not ready: {}", e);
+                    // Don't fail - the UI will show connection error
+                }
+
+                // Signal splash screen to start transformation animation
+                log::info!("[App] Server ready, triggering splash animation");
+                if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+                    // Call start() directly via JavaScript eval - more reliable than events
+                    let _ = splash.eval("start()");
+                }
+
+                // Wait for animation to complete (~2 seconds for the transformation)
+                std::thread::sleep(Duration::from_millis(2000));
+
+                // Close splash and show main window
+                if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+                    let _ = splash.close();
+                    log::info!("[App] Splash window closed");
+                }
+                if let Some(main_window) = app_handle.get_webview_window("main") {
+                    let _ = main_window.show();
+                    let _ = main_window.set_focus();
+                    log::info!("[App] Main window shown");
+                }
+            });
 
             // Setup system tray menu
             let show_item = MenuItemBuilder::with_id("show", "Show Pipali").build(app)?;
@@ -381,13 +413,15 @@ pub fn run() {
                     event: tauri::WindowEvent::CloseRequested { api, .. },
                     ..
                 } => {
-                    // Hide window to tray instead of closing
-                    api.prevent_close();
-                    if let Some(window) = app_handle.get_webview_window(&label) {
-                        let _ = window.hide();
+                    // Only hide main window to tray, let splashscreen close normally
+                    if label == "main" {
+                        api.prevent_close();
+                        if let Some(window) = app_handle.get_webview_window(&label) {
+                            let _ = window.hide();
+                        }
+                        hide_from_dock(app_handle);
+                        log::info!("[App] Window '{}' hidden to tray", label);
                     }
-                    hide_from_dock(app_handle);
-                    log::info!("[App] Window '{}' hidden to tray", label);
                 }
                 tauri::RunEvent::ExitRequested { .. } => {
                     // Graceful shutdown on app exit (Cmd+Q, etc.)

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+        <title>Pipali</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            :root {
+                color-scheme: light dark;
+                --splash-bg: #fafafa;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --splash-bg: #121212;
+                }
+            }
+            html, body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background-color: var(--splash-bg);
+            }
+            #loading-animation {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            canvas {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="loading-animation"></div>
+        <script src="three.min.js"></script>
+        <script src="loading-animation.js"></script>
+    </body>
+</html>
