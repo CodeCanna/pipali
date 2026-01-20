@@ -86,16 +86,28 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
     // Use NODE_USE_SYSTEM_CA=1 to ensure Bun uses the OS certificate store for SSL verification.
     // This handles corporate proxies, custom CAs, and system-trusted certificates properly.
     // See: https://bun.com/blog/bun-v1.2.23
+    //
+    // Also pass PIPALI_PLATFORM_URL if set (used for connecting to remote platform instances)
+    let platform_url = std::env::var("PIPALI_PLATFORM_URL").ok();
+
+    // Build args - include platform URL if set
+    let mut args = vec![
+        "--port".to_string(),
+        port.to_string(),
+        "--host".to_string(),
+        host.clone(),
+    ];
+    if let Some(ref url) = platform_url {
+        log::info!("[Sidecar] Using platform URL: {}", url);
+        args.push("--platform-url".to_string());
+        args.push(url.clone());
+    }
+
     let sidecar_command = app
         .shell()
         .sidecar("pipali-server")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
-        .args([
-            "--port",
-            &port.to_string(),
-            "--host",
-            &host,
-        ])
+        .args(&args)
         .env("NODE_USE_SYSTEM_CA", "1")
         .current_dir(data_dir);
 
