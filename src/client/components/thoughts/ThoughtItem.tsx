@@ -4,6 +4,7 @@ import React from 'react';
 import type { Thought } from '../../types';
 import { formatToolArgs, getFriendlyToolName } from '../../utils/formatting';
 import { getToolResultStatus } from '../../utils/toolStatus';
+import { MessageCircleMoreIcon } from 'lucide-react';
 import { ThoughtDiffView } from '../tool-views/ThoughtDiffView';
 import { ThoughtWriteView } from '../tool-views/ThoughtWriteView';
 import { GrepResultView } from '../tool-views/GrepResultView';
@@ -20,14 +21,25 @@ interface ThoughtItemProps {
     isPreview?: boolean;
 }
 
+// Parse markdown bold (**text**) into React elements
+function formatBoldText(text: string): React.ReactNode[] {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <b key={i}>{part.slice(2, -2)}</b>;
+        }
+        return part;
+    });
+}
+
 export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtItemProps) {
     if (thought.type === 'thought' && thought.content) {
         return (
             <div className={`thought-item reasoning ${thought.isInternalThought ? 'internal' : ''} ${isPreview ? 'preview' : ''}`}>
-                <div className="thought-step">💭</div>
+                <div className="thought-step"><MessageCircleMoreIcon size={12} /></div>
                 <div className="thought-content">
                     <div className={`thought-reasoning ${thought.isInternalThought ? 'italic' : ''}`}>
-                        {thought.content.trim()}
+                        {formatBoldText(thought.content.trim())}
                     </div>
                 </div>
             </div>
