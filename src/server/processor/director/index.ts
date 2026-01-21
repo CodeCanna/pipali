@@ -81,6 +81,8 @@ interface ResearchConfig {
     abortSignal?: AbortSignal;
     // For user confirmation on dangerous operations
     confirmationContext?: ConfirmationContext;
+    // Step count when iteration threshold was first reached, for stable warning injection
+    thresholdStepCount?: number;
 }
 
 // Built-in tool definitions for the research agent
@@ -374,7 +376,7 @@ async function getAllTools(): Promise<ToolDefinition[]> {
 async function pickNextTool(
     config: ResearchConfig
 ): Promise<ResearchIteration> {
-    const { currentDate, dayOfWeek, location, username, personality, currentIteration = 0, maxIterations } = config;
+    const { currentDate, dayOfWeek, location, username, personality, currentIteration = 0, maxIterations, thresholdStepCount } = config;
     const lastUserIndex = config.chatHistory.steps.findLastIndex(s => s.source === 'user') || 0;
     const isLast = currentIteration >= maxIterations - 1;
     const previousIterations = config.chatHistory.steps.slice(lastUserIndex + 1);
@@ -402,14 +404,44 @@ async function pickNextTool(
         location: location ?? 'Unknown',
         username: username ?? 'User',
         os_info: `${process.platform} ${process.arch}`,
-        max_iterations: String(config.maxIterations)
     });
 
     // Check if this is the first agent iteration
     const hasSystemStep = config.chatHistory.steps.some(s => s.source === 'system');
     const isFirstIteration = !hasSystemStep;
 
-    const messages: ATIFTrajectory = config.chatHistory;
+    // Inject iteration warning when at 90%+ of max iterations
+    // Warning is stably inserted after threshold step to preserve context cache.
+    // Warning is only shown to model, not persisted in DB
+    const iterationThreshold = Math.floor(maxIterations * 0.9) - 1;
+    let messages: ATIFTrajectory = config.chatHistory;
+
+    if (currentIteration >= iterationThreshold && thresholdStepCount !== undefined) {
+        const remainingIterations = maxIterations - iterationThreshold;
+        const iterationWarning = await prompts.iterationWarning.format({
+            current_iteration: String(iterationThreshold),
+            max_iterations: String(maxIterations),
+            remaining_iterations: String(remainingIterations),
+        });
+
+        const warningStep = {
+            step_id: -1, // Ephemeral, not persisted
+            timestamp: now.toISOString(),
+            source: 'user' as const,
+            message: iterationWarning,
+        };
+
+        // Insert at the stable position captured when threshold was first reached
+        messages = {
+            ...config.chatHistory,
+            steps: [
+                ...config.chatHistory.steps.slice(0, thresholdStepCount),
+                warningStep,
+                ...config.chatHistory.steps.slice(thresholdStepCount),
+            ],
+        };
+    }
+
     try {
         // Send message to model to pick next tool
         const response = await sendMessageToModel(
@@ -626,13 +658,21 @@ export class ResearchPausedError extends Error {
  * Supports pause via abortSignal. Resume is handled by reloading chat history from DB.
  */
 export async function* research(config: ResearchConfig): AsyncGenerator<ResearchIteration> {
+    const iterationThreshold = Math.floor(config.maxIterations * 0.9) - 1;
+    let thresholdStepCount: number | undefined = config.thresholdStepCount;
+
     for (let i = 0; i < config.maxIterations; i++) {
         // Check if paused before starting new iteration
         if (config.abortSignal?.aborted) {
             throw new ResearchPausedError();
         }
 
-        const iteration = await pickNextTool({ ...config, currentIteration: i });
+        // Capture step count when we first hit the threshold
+        if (i === iterationThreshold && thresholdStepCount === undefined) {
+            thresholdStepCount = config.chatHistory.steps.length;
+        }
+
+        const iteration = await pickNextTool({ ...config, currentIteration: i, thresholdStepCount });
 
         // Stop research if no tool calls
         if (iteration.toolCalls.length === 0) {
