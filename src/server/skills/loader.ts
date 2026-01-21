@@ -38,19 +38,21 @@ export function parseFrontmatter(content: string): SkillFrontmatter | null {
         result.name = nameMatch[1].trim();
     }
 
-    // Parse description field - handles quoted (with inner quotes), unquoted, and multiline values
-    // Try double-quoted format first (allows inner single quotes)
-    let descMatch = yaml.match(/^description:\s*"(.+?)"\s*$/m);
+    // Parse description field - handles quoted (with escapes), unquoted, and multiline values
+    // Try double-quoted format first (supports escaped quotes like \")
+    let descMatch = yaml.match(/^description:\s*"((?:[^"\\]|\\.)*)"\s*$/m);
     if (descMatch && descMatch[1]) {
-        result.description = descMatch[1].trim();
+        // Unescape escaped characters
+        result.description = descMatch[1].replace(/\\(.)/g, '$1').trim();
     } else {
-        // Try single-quoted format (allows inner double quotes)
-        descMatch = yaml.match(/^description:\s*'(.+?)'\s*$/m);
+        // Try single-quoted format (supports escaped quotes like \')
+        descMatch = yaml.match(/^description:\s*'((?:[^'\\]|\\.)*)'\s*$/m);
         if (descMatch && descMatch[1]) {
-            result.description = descMatch[1].trim();
+            // Unescape escaped characters
+            result.description = descMatch[1].replace(/\\(.)/g, '$1').trim();
         } else {
-            // Try unquoted format (no quotes allowed in value)
-            descMatch = yaml.match(/^description:\s*([^"'\n]+?)\s*$/m);
+            // Try unquoted format (any characters until end of line)
+            descMatch = yaml.match(/^description:\s*([^\n]+?)\s*$/m);
             if (descMatch && descMatch[1]) {
                 result.description = descMatch[1].trim();
             } else {

@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
 import { parseFrontmatter, isValidSkillName, scanSkillsDirectory } from '../../src/server/skills/loader';
-import { formatSkillsForPrompt } from '../../src/server/skills/utils';
+import { formatSkillsForPrompt, escapeYamlValue } from '../../src/server/skills/utils';
 import type { Skill } from '../../src/server/skills/types';
 
 describe('skills', () => {
@@ -68,6 +68,30 @@ Content here.
             const result = parseFrontmatter(content);
             expect(result).not.toBeNull();
             expect(result?.description).toBe('A "quoted" word inside');
+        });
+
+        test('should parse description with escaped quotes in double quotes', () => {
+            const content = `---
+name: escaped-skill
+description: "Say \\"hello\\" to the user"
+---
+Content here.
+`;
+            const result = parseFrontmatter(content);
+            expect(result).not.toBeNull();
+            expect(result?.description).toBe('Say "hello" to the user');
+        });
+
+        test('should parse unquoted description with apostrophe', () => {
+            const content = `---
+name: user-skill
+description: Read the user's notes and tasks
+---
+Content here.
+`;
+            const result = parseFrontmatter(content);
+            expect(result).not.toBeNull();
+            expect(result?.description).toBe("Read the user's notes and tasks");
         });
 
         test('should return null for missing frontmatter', () => {
@@ -286,6 +310,81 @@ description: A simple unquoted description
             const skill = result.skills.find((s: Skill) => s.name === 'unquoted-skill');
             expect(skill).toBeDefined();
             expect(skill?.description).toBe('A simple unquoted description');
+        });
+
+        test('should load skill with unquoted description containing apostrophe', async () => {
+            const skillDir = path.join(skillsDir, 'unquoted-apostrophe');
+            await fs.mkdir(skillDir, { recursive: true });
+            await fs.writeFile(
+                path.join(skillDir, 'SKILL.md'),
+                `---
+name: unquoted-apostrophe
+description: Manage the user's notes and tasks
+---
+# Unquoted Apostrophe Skill
+`
+            );
+
+            const result = await scanSkillsDirectory(skillsDir);
+
+            const skill = result.skills.find((s: Skill) => s.name === 'unquoted-apostrophe');
+            expect(skill).toBeDefined();
+            expect(skill?.description).toBe("Manage the user's notes and tasks");
+        });
+    });
+
+    describe('escapeYamlValue', () => {
+        test('should not escape simple values', () => {
+            expect(escapeYamlValue('A simple description')).toBe('A simple description');
+        });
+
+        test('should escape values with apostrophes', () => {
+            expect(escapeYamlValue("Manage the user's notes")).toBe('"Manage the user\'s notes"');
+        });
+
+        test('should escape values with double quotes', () => {
+            expect(escapeYamlValue('Run the "special" command')).toBe('"Run the \\"special\\" command"');
+        });
+
+        test('should escape values with colons', () => {
+            expect(escapeYamlValue('Format: JSON')).toBe('"Format: JSON"');
+        });
+
+        test('should escape values starting with special characters', () => {
+            expect(escapeYamlValue('- list item')).toBe('"- list item"');
+            expect(escapeYamlValue('#comment')).toBe('"#comment"');
+        });
+
+        test('should handle values with backslashes', () => {
+            expect(escapeYamlValue('Path: C:\\Users')).toBe('"Path: C:\\\\Users"');
+        });
+
+        test('escaped value should round-trip through parseFrontmatter', () => {
+            const description = "Manage the user's notes and tasks";
+            const escaped = escapeYamlValue(description);
+            const content = `---
+name: test-skill
+description: ${escaped}
+---
+Content here.
+`;
+            const result = parseFrontmatter(content);
+            expect(result).not.toBeNull();
+            expect(result?.description).toBe(description);
+        });
+
+        test('escaped value with double quotes should round-trip', () => {
+            const description = 'Run the "special" command';
+            const escaped = escapeYamlValue(description);
+            const content = `---
+name: test-skill
+description: ${escaped}
+---
+Content here.
+`;
+            const result = parseFrontmatter(content);
+            expect(result).not.toBeNull();
+            expect(result?.description).toBe(description);
         });
     });
 

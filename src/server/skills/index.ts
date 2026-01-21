@@ -7,7 +7,7 @@ import path from 'path';
 import type { Dirent } from 'fs';
 import { mkdir, rm, readdir, cp } from 'fs/promises';
 import { scanSkillsDirectory, isValidSkillName, isValidDescription } from './loader';
-import { formatSkillsForPrompt } from './utils';
+import { formatSkillsForPrompt, escapeYamlValue } from './utils';
 import type { Skill, SkillLoadResult } from './types';
 import { IS_COMPILED_BINARY, EMBEDDED_BUILTIN_SKILLS } from '../embedded-assets';
 import { getSkillsDir as getSkillsDirFromPaths } from '../paths';
@@ -258,7 +258,7 @@ export async function createSkill(input: CreateSkillInput): Promise<CreateSkillR
     // Generate SKILL.md content
     const content = `---
 name: ${name}
-description: ${description}
+description: ${escapeYamlValue(description)}
 ---
 
 ${instructions}
@@ -383,7 +383,7 @@ export async function updateSkill(name: string, input: UpdateSkillInput): Promis
     // Generate updated SKILL.md content
     const content = `---
 name: ${name}
-description: ${description}
+description: ${escapeYamlValue(description)}
 ---
 
 ${instructions}

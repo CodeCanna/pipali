@@ -5,6 +5,23 @@
 import type { Skill } from './types';
 
 /**
+ * Escape a value for YAML frontmatter.
+ * If the value contains quotes or special YAML characters, wrap in double quotes and escape inner quotes.
+ */
+export function escapeYamlValue(value: string): string {
+    // Check if value needs quoting (contains quotes, colons, or starts/ends with special chars)
+    const needsQuoting = /["':]|^[\s#\-\[\]{}>|*&!%@`]|[\s]$/.test(value);
+
+    if (!needsQuoting) {
+        return value;
+    }
+
+    // Wrap in double quotes and escape any double quotes inside
+    const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return `"${escaped}"`;
+}
+
+/**
  * Escape special XML characters
  */
 function escapeXml(str: string): string {
