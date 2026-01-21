@@ -84,7 +84,6 @@ export function formatToolCallsForSidebar(toolCalls: any[]): string {
         "write_file": "Write",
         "shell_command": "Shell",
         "read_file": "Read",
-        "text": "Respond",
     };
 
     // Format each tool call with friendly name and key argument

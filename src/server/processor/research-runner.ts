@@ -206,10 +206,9 @@ export async function* runResearchWithConversation(
         // Count iterations (after tool execution completes)
         iterationCount++;
 
-        // Check for text tool (final response)
-        const textTool = iteration.toolCalls.find(tc => tc.function_name === 'text');
-        if (textTool) {
-            finalResponse = textTool.arguments.response || '';
+        // Check for final response (no tool calls means model is done)
+        if (iteration.toolCalls.length === 0) {
+            finalResponse = iteration.message || '';
             finalThought = iteration.thought;
             finalMetrics = iteration.metrics;
             finalRaw = iteration.raw;
@@ -227,8 +226,7 @@ export async function* runResearchWithConversation(
                 }
                 yield thoughtIteration;
             }
-            // Don't add the text tool as a step, we'll add it as the final response
-        } else if (iteration.toolCalls.length > 0 && iteration.toolResults) {
+        } else if (iteration.toolResults) {
             // Persist to DB and update in-memory trajectory so the director sees it in the next iteration
             const agentStep = await atifConversationService.addStep(
                 conversationId,

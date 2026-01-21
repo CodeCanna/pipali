@@ -353,20 +353,6 @@ Tips:
             required: ['title'],
         },
     },
-    {
-        name: 'text',
-        description: 'Use this when you have gathered enough information and are ready to respond to the user.',
-        schema: {
-            type: 'object',
-            properties: {
-                response: {
-                    type: 'string',
-                    description: 'Your final response to the user.',
-                },
-            },
-            required: ['response'],
-        },
-    },
 ];
 
 /**
@@ -455,18 +441,25 @@ async function pickNextTool(
 
         // Parse tool calls from raw output items (Responses API format)
         // Raw output contains items like: { type: 'reasoning', ... }, { type: 'message', ... }, { type: 'function_call', ... }
-        let toolCalls: ATIFToolCall[];
         const functionCalls = response.raw?.filter((item: any) => item.type === 'function_call') ?? [];
-        if (functionCalls.length > 0) {
-            toolCalls = functionCalls.map((fc: any) => ({
-                function_name: fc.name,
-                arguments: typeof fc.arguments === 'string' ? JSON.parse(fc.arguments) : fc.arguments,
-                tool_call_id: fc.call_id,
-            })) as ATIFToolCall[];
-        } else {
-            // No tool calls - model wants to respond directly
-            toolCalls = [{ function_name: 'text', arguments: { response: response.message }, tool_call_id: crypto.randomUUID() }] as ATIFToolCall[];
+
+        // No tool calls - model wants to respond directly
+        if (functionCalls.length === 0) {
+            return {
+                toolCalls: [],
+                thought: response.thought,
+                message: response.message,
+                metrics,
+                raw: response.raw,
+                systemPrompt: isFirstIteration ? systemPrompt : undefined,
+            };
         }
+
+        const toolCalls: ATIFToolCall[] = functionCalls.map((fc: any) => ({
+            function_name: fc.name,
+            arguments: typeof fc.arguments === 'string' ? JSON.parse(fc.arguments) : fc.arguments,
+            tool_call_id: fc.call_id,
+        }));
 
         // Check for repeated tool calls
         const previousToolKeys = new Set(
@@ -590,10 +583,6 @@ async function executeTool(
                 );
                 return result.compiled;
             }
-            case 'text': {
-                // This is the final response
-                return toolCall.arguments.response || '';
-            }
             default:
                 return `Unknown tool: ${toolCall.function_name}`;
         }
@@ -657,14 +646,6 @@ export async function* research(config: ResearchConfig): AsyncGenerator<Research
             iteration.toolResults = warningObservations;
             yield iteration;
             continue;
-        }
-
-        // Check if done (text tool = final response)
-        const textTool = iteration.toolCalls.find(tc => tc.function_name === 'text');
-        if (textTool) {
-            iteration.toolResults = [{ source_call_id: textTool.tool_call_id, content: textTool.arguments.response || '' }];
-            yield iteration;
-            break;
         }
 
         // Check if paused before executing tools
