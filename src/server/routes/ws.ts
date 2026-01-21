@@ -297,6 +297,11 @@ export const websocketHandler = {
                 // Create new abort controller for resumed session
                 session.abortController = new AbortController();
 
+                // Clear userMessage to prevent it from being added again by runResearchWithConversation.
+                // The new message (if any) was already added to DB above. The original userMessage
+                // from session creation should not be re-added on resume.
+                session.userMessage = undefined;
+
                 // Run research - it will reload history from DB
                 await runResearch(ws, session);
             }

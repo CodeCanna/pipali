@@ -92,14 +92,16 @@ test.describe('Pause/Resume Task', () => {
         );
     });
 
-    test('should resume task with additional message', async () => {
+    test('should resume task with additional message without duplicating messages', async () => {
+        const followUpMessage = 'focus on the tests folder';
+
         await chatPage.sendMessage(PAUSABLE_QUERY);
         await chatPage.waitForProcessing();
         await chatPage.pauseTask();
         await chatPage.playButton.waitFor({ state: 'visible' });
 
         // Type a message while paused and send
-        await chatPage.inputTextarea.fill('focus on the tests folder');
+        await chatPage.inputTextarea.fill(followUpMessage);
         await chatPage.sendButton.click();
 
         // Should resume - wait for processing or completion
@@ -112,6 +114,29 @@ test.describe('Pause/Resume Task', () => {
             '.action-button.pause',
             { timeout: 15000 }
         );
+
+        // Wait for state to settle, then pause again if still running
+        await chatPage.page.waitForTimeout(2000);
+        try {
+            await chatPage.pauseButton.waitFor({ state: 'visible', timeout: 2000 });
+            await chatPage.pauseTask();
+        } catch {
+            // Task completed
+        }
+
+        // Refresh page to load messages from DB (source of truth)
+        await chatPage.page.reload();
+        await chatPage.waitForConnection();
+        await chatPage.page.waitForTimeout(1000);
+
+        // Verify no duplicate messages after refresh
+        const userMessages = await chatPage.getUserMessages();
+        const firstMessageCount = userMessages.filter(m => m === PAUSABLE_QUERY).length;
+
+        expect(firstMessageCount).toBe(1);
+        expect(userMessages).toHaveLength(2);
+        expect(userMessages[0]).toBe(PAUSABLE_QUERY);
+        expect(userMessages[1]).toBe(followUpMessage);
     });
 
     test('should show send button instead of pause when input has text', async () => {
