@@ -1,8 +1,7 @@
-import { ChatOpenAI } from '@langchain/openai';
-import { AIMessageChunk } from '@langchain/core/messages';
+import OpenAI from 'openai';
 import type { Responses } from 'openai/resources/responses/responses';
 import type { ChatMessage, ResponseWithThought, ToolDefinition, UsageMetrics } from '../conversation';
-import { toOpenaiTools, formatMessagesForOpenAI, getReasoningText } from './utils';
+import { toOpenaiTools, getReasoningText } from './utils';
 import { calculateCost, type PricingConfig } from '../costs';
 import { createChildLogger } from '../../../logger';
 
@@ -17,55 +16,51 @@ export async function sendMessageToGpt(
     toolChoice: string = 'auto',
     pricing?: PricingConfig,
 ): Promise<ResponseWithThought> {
-    const formattedMessages = formatMessagesForOpenAI(messages);
-    const lcTools = toOpenaiTools(tools);
+    const openaiTools = toOpenaiTools(tools);
 
-    // Use Responses API
-    const chat = new ChatOpenAI({
+    const client = new OpenAI({
         apiKey: apiKey,
-        model: model,
-        useResponsesApi: true,
-        configuration: {
-            baseURL: apiBaseUrl,
-        },
-        __includeRawResponse: true,
-        streamUsage: true,
-    }).withConfig({
-        tools: lcTools,
-        tool_choice: lcTools ? toolChoice : undefined,
+        baseURL: apiBaseUrl ?? undefined,
     });
 
-    // Use streaming to avoid timeout issues - accumulate chunks into final response
-    const stream = await chat.stream(formattedMessages);
-    let response: AIMessageChunk | undefined;
-    for await (const chunk of stream) {
-        response = response ? response.concat(chunk) : chunk;
-    }
+    // Use streaming to avoid timeout issues
+    const stream = client.responses.stream({
+        model: model,
+        input: messages,
+        tools: openaiTools,
+        tool_choice: openaiTools ? toolChoice as Responses.ToolChoiceOptions : undefined,
+    });
+
+    const response = await stream.finalResponse();
 
     if (!response) {
         throw new Error('No response received from model');
     }
 
-    // Extract reasoning, raw response from LangChain response
-    const thought = getReasoningText(response.additional_kwargs?.reasoning as unknown as Responses.ResponseReasoningItem);
-    const rawOutput = response.response_metadata?.output as unknown as Responses.ResponseOutputItem[] | undefined;
+    // Extract reasoning from output items
+    const reasoningItem = response.output.find((item): item is Responses.ResponseReasoningItem => item.type === 'reasoning');
+    const thought = getReasoningText(reasoningItem);
 
-    // Extract usage metrics from response metadata
+    // Extract text from message output items
+    const outputText = (response.output as Responses.ResponseOutputItem[])
+        .filter((item): item is Responses.ResponseOutputMessage => item.type === 'message')
+        .flatMap(item => item.content)
+        .filter((content): content is Responses.ResponseOutputText => content.type === 'output_text')
+        .map(content => content.text)
+        .join('') || undefined;
+
+    // Extract usage metrics from response
     let usage: UsageMetrics | undefined;
-    if (response.usage_metadata) {
-        const usageData = response.usage_metadata;
+    if (response.usage) {
+        const usageData = response.usage;
         const promptTokens = usageData.input_tokens || 0;
         const completionTokens = usageData.output_tokens || 0;
-        const promptDetails = usageData.input_token_details;
-        const cachedReadTokens = promptDetails?.cache_read || 0;
-        const cacheWriteTokens = promptDetails?.cache_creation || 0;
+        const cachedReadTokens = usageData.input_tokens_details?.cached_tokens || 0;
+        // Note: cache_write_tokens not available in Responses API usage
+        const cacheWriteTokens = 0;
 
-        // Use cost from platform if available, else fallback to estimate it locally
-        // For Responses API streaming, metadata is in response_metadata.metadata (from response.completed event)
-        // For non-streaming or Chat Completions, it may be in additional_kwargs.__raw_response.metadata
-        const metadata: Record<string, any> =
-            (response.response_metadata?.metadata as Record<string, any>) ??
-            (response.additional_kwargs?.__raw_response as any)?.metadata;
+        // Use cost from platform metadata if available, else estimate locally
+        const metadata = (response as any).metadata;
         const rawCostUsd = metadata?.cost_usd ?? metadata?.["cost_usd"];
         const platformCostUsd = typeof rawCostUsd === 'number' ? rawCostUsd : (rawCostUsd ? parseFloat(rawCostUsd) : undefined);
         const costUsd = platformCostUsd || calculateCost(model, promptTokens, completionTokens, cachedReadTokens, cacheWriteTokens, 0, pricing);
@@ -80,5 +75,5 @@ export async function sendMessageToGpt(
         log.info(`Usage: ${promptTokens} prompt, ${completionTokens} completion, ${cachedReadTokens} cache read, ${cacheWriteTokens} cache write, $${costUsd.toFixed(6)}`);
     }
 
-    return { thought, message: response.text, raw: rawOutput, usage };
+    return { thought, message: outputText?.trim(), raw: response.output, usage };
 }

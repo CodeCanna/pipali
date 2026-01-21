@@ -1,7 +1,7 @@
-import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import type { Responses } from 'openai/resources/responses/responses';
 
-export type ChatMessage = HumanMessage | AIMessage | ToolMessage | SystemMessage;
+// OpenAI Responses API message types
+export type ChatMessage = Responses.EasyInputMessage | Responses.ResponseInputItem;
 
 /**
  * Token usage metrics from an LLM API call
@@ -26,7 +26,7 @@ export interface ResponseWithThought {
     raw?: Responses.ResponseOutputItem[];
     /** Token usage metrics from the API call */
     usage?: UsageMetrics;
-};
+}
 
 export interface ToolDefinition {
     schema: Record<string, any>;

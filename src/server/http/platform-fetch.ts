@@ -187,8 +187,7 @@ export async function platformFetch<T = unknown>(
 
 /**
  * Get a valid access token with automatic refresh if needed.
- * This is a re-export for convenience when callers need the token directly
- * (e.g., for LangChain which manages its own HTTP calls).
+ * Re-exported for convenience when callers need the token directly.
  */
 export { getValidAccessToken, refreshAccessToken };
 
@@ -197,7 +196,7 @@ export { getValidAccessToken, refreshAccessToken };
  * retrying with a fresh token if a 401 error occurs.
  *
  * This is useful for cases where you can't use platformFetch directly,
- * such as LangChain's ChatOpenAI which manages its own HTTP calls.
+ * such as the OpenAI client which manages its own HTTP calls.
  *
  * @param fn - Function that takes an access token and returns a promise
  * @param options - Options for the operation
@@ -207,8 +206,8 @@ export { getValidAccessToken, refreshAccessToken };
  * @example
  * ```ts
  * const response = await withTokenRefresh(async (token) => {
- *     const chat = new ChatOpenAI({ apiKey: token, ... });
- *     return chat.invoke(messages);
+ *     const client = new OpenAI({ apiKey: token, baseURL: '...' });
+ *     return client.responses.stream({ ... }).finalResponse();
  * });
  * ```
  */
