@@ -35,6 +35,6 @@ Assuming you can search through files and the web.
 {skills_context}
 `);
 
-export const personalityContext = PromptTemplate.fromTemplate(`Here's some additional context about you:
+export const personalityContext = PromptTemplate.fromTemplate(`Here's some additional context about the user:
 {personality}
 `);
