@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { Thought } from '../../types';
-import { formatToolArgs, getFriendlyToolName } from '../../utils/formatting';
+import { formatToolArgs, getFriendlyToolName, formatToolArgsRich } from '../../utils/formatting';
 import { getToolResultStatus } from '../../utils/toolStatus';
 import { MessageCircleMoreIcon } from 'lucide-react';
 import { ThoughtDiffView } from '../tool-views/ThoughtDiffView';
@@ -49,6 +49,7 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtI
     if (thought.type === 'tool_call') {
         const toolName = thought.toolName || '';
         const formattedArgs = formatToolArgs(toolName, thought.toolArgs);
+        const richArgs = formatToolArgsRich(toolName, thought.toolArgs);
         const friendlyToolName = getFriendlyToolName(toolName);
 
         // Check if this is a specific tool operation with special rendering
@@ -72,9 +73,20 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtI
                 <div className="thought-content">
                     <div className="thought-tool">
                         {friendlyToolName}
-                        {formattedArgs && (
+                        {richArgs ? (
+                            <span className="thought-args" title={richArgs.hoverText}>
+                                {' '}
+                                {richArgs.url ? (
+                                    <a href={richArgs.url} target="_blank" rel="noopener noreferrer" className="thought-args-link">
+                                        {richArgs.text}
+                                    </a>
+                                ) : (
+                                    richArgs.text
+                                )}
+                            </span>
+                        ) : formattedArgs ? (
                             <span className="thought-args"> {formattedArgs}</span>
-                        )}
+                        ) : null}
                     </div>
                     {/* Show diff view for edit operations */}
                     {isEditOp && (

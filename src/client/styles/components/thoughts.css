@@ -117,6 +117,18 @@
     font-size: 12px;
 }
 
+.thought-args-link {
+    color: var(--color-text-secondary);
+    text-decoration: underline;
+    text-decoration-color: var(--color-border);
+    text-underline-offset: 2px;
+}
+
+.thought-args-link:hover {
+    color: var(--color-text);
+    text-decoration-color: var(--color-text-secondary);
+}
+
 .thought-reasoning {
     font-size: 13px;
     color: var(--color-text-secondary);

@@ -21,15 +21,23 @@ export function WebSearchView({ result, query }: WebSearchViewProps) {
     const parseResults = (text: string): SearchResult[] => {
         const results: SearchResult[] = [];
 
-        // Match numbered results like "1. **Title**\n   link\n   snippet"
-        const resultPattern = /^\d+\.\s+\*\*(.+?)\*\*\n\s+(\S+)(?:\n\s+(.+))?/gm;
-        let match;
+        // Format: "1. **Title**\n   https://url\n   snippet (multiline until next number)"
+        // Use a pattern that captures everything between numbered items
+        const pattern = /(\d+)\.\s+\*\*(.+?)\*\*\n\s+(https?:\/\/\S+)\n?([\s\S]*?)(?=\n\d+\.\s+\*\*|$)/g;
 
-        while ((match = resultPattern.exec(text)) !== null) {
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+            const snippet = match[4]?.trim()
+                // Remove leading indentation from each line
+                .split('\n')
+                .map(line => line.replace(/^\s{2,}/, ''))
+                .join(' ')
+                .trim();
+
             results.push({
-                title: match[1] || '',
-                link: match[2] || '',
-                snippet: match[3]?.trim(),
+                title: match[2] || '',
+                link: match[3] || '',
+                snippet: snippet || undefined,
             });
         }
 
@@ -38,9 +46,12 @@ export function WebSearchView({ result, query }: WebSearchViewProps) {
 
     const results = parseResults(result);
 
-    // Check for errors or empty results
-    if (result.toLowerCase().includes('error') || results.length === 0) {
-        // Show as plain text if parsing failed
+    // Check for actual search errors (not just the word "error" in content)
+    // Search errors typically start with "Error:" or "Search failed"
+    const isSearchError = result.startsWith('Error:') || result.startsWith('Search failed');
+
+    // Show as plain text if parsing failed or actual error occurred
+    if (isSearchError || results.length === 0) {
         return (
             <div className="thought-web-search error">
                 <div className="web-search-content">{result}</div>

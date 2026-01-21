@@ -46,6 +46,15 @@ export function formatToolArgs(toolName: string, args: any): string {
         case 'shell_command':
             return args.justification || '';
 
+        case 'search_web':
+            return args.query ? `${args.query}` : '';
+
+        case 'read_webpage': {
+            const parts = [];
+            if (args.url) parts.push(args.url);
+            return parts.join(' ');
+        }
+
         default:
             // Generic formatting: show key values in a readable way
             return Object.entries(args)
@@ -76,20 +85,10 @@ export function getFileName(path: string): string {
 export function formatToolCallsForSidebar(toolCalls: any[]): string {
     if (!toolCalls || toolCalls.length === 0) return '';
 
-    const friendlyNames: Record<string, string> = {
-        "view_file": "Read",
-        "list_files": "List",
-        "grep_files": "Search",
-        "edit_file": "Edit",
-        "write_file": "Write",
-        "shell_command": "Shell",
-        "read_file": "Read",
-    };
-
     // Format each tool call with friendly name and key argument
     const formatted = toolCalls.map(tc => {
         const toolName = tc.function_name || '';
-        const friendly = friendlyNames[toolName] || formatToolName(toolName);
+        const friendly = getFriendlyToolName(toolName);
         const args = tc.arguments || {};
 
         // Get a concise description of what's being done
@@ -112,6 +111,19 @@ export function formatToolCallsForSidebar(toolCalls: any[]): string {
             case 'shell_command':
                 detail = args.justification ? ` ${args.justification}` : '';
                 break;
+            case 'search_web':
+                detail = args.query ? ` ${args.query}` : '';
+                break;
+            case 'read_webpage':
+                if (args.url) {
+                    try {
+                        const url = new URL(args.url);
+                        detail = ` ${url.hostname}`;
+                    } catch {
+                        detail = ` ${args.url}`;
+                    }
+                }
+                break;
         }
 
         return `${friendly}${detail}`;
@@ -132,6 +144,46 @@ export function getFriendlyToolName(toolName: string): string {
         "edit_file": "Edit",
         "write_file": "Write",
         "shell_command": "Shell",
+        "search_web": "Search",
+        "read_webpage": "Read",
     };
     return friendlyNames[toolName] || formatToolName(toolName);
+}
+
+/** Rich tool args with optional link and hover text */
+export interface RichToolArgs {
+    text: string;
+    url?: string;
+    hoverText?: string;
+}
+
+/**
+ * Format tool arguments with rich data for interactive display
+ */
+export function formatToolArgsRich(toolName: string, args: any): RichToolArgs | null {
+    if (!args || typeof args !== 'object') return null;
+
+    switch (toolName) {
+        case 'read_webpage': {
+            if (!args.url) return null;
+            let displayUrl = args.url;
+            try {
+                const url = new URL(args.url);
+                displayUrl = url.hostname + (url.pathname !== '/' ? url.pathname : '');
+            } catch { /* use full url */ }
+
+            const hoverParts = ["Read"];
+            if (args.query) hoverParts.push(`about "${args.query}" in`);
+            hoverParts.push(args.url);
+
+            return {
+                text: displayUrl,
+                url: args.url,
+                hoverText: hoverParts.join(' '),
+            };
+        }
+
+        default:
+            return null;
+    }
 }
