@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Test server configuration
-const TEST_PORT = 6465; // Different from dev port 6464
+const TEST_PORT = 6466; // Different from dev (6464), platform (6465) ports
 const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
 
 export default defineConfig({

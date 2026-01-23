@@ -7,7 +7,7 @@
 import type { FullConfig } from '@playwright/test';
 import { TestServer, setGlobalTestServer } from './fixtures/test-server';
 
-const TEST_PORT = 6465;
+const TEST_PORT = 6466;
 
 async function globalSetup(config: FullConfig): Promise<void> {
     console.log('\n[E2E Setup] Starting test server...');
