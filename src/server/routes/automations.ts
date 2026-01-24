@@ -54,7 +54,6 @@ const createAutomationSchema = z.object({
     prompt: z.string().min(1),
     triggerType: z.enum(['cron', 'file_watch']).optional(),
     triggerConfig: triggerConfigSchema.optional(),
-    maxIterations: z.number().min(1).max(50).optional(),
     maxExecutionsPerDay: z.number().min(1).optional(),
     maxExecutionsPerHour: z.number().min(1).optional(),
 });
@@ -148,7 +147,6 @@ automations.get('/', async (c) => {
         triggerConfig: automation.triggerConfig,
         status: automation.status,
         conversationId: automation.conversationId,
-        maxIterations: automation.maxIterations,
         maxExecutionsPerDay: automation.maxExecutionsPerDay,
         maxExecutionsPerHour: automation.maxExecutionsPerHour,
         lastExecutedAt: automation.lastExecutedAt?.toISOString(),
@@ -193,7 +191,6 @@ automations.post('/', zValidator('json', createAutomationSchema), async (c) => {
             prompt: data.prompt,
             triggerType: data.triggerType || null,
             triggerConfig: (data.triggerConfig as TriggerConfig) || null,
-            maxIterations: data.maxIterations || 15,
             maxExecutionsPerDay: data.maxExecutionsPerDay,
             maxExecutionsPerHour: data.maxExecutionsPerHour,
             status: 'active',

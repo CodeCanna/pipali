@@ -196,8 +196,10 @@ function getHeadingLevel(level: number): (typeof HeadingLevel)[keyof typeof Head
     return levels[level] || HeadingLevel.HEADING_1;
 }
 
-function getAlignment(align?: string): AlignmentType {
-    const alignments: Record<string, AlignmentType> = {
+type Alignment = (typeof AlignmentType)[keyof typeof AlignmentType];
+
+function getAlignment(align?: string): Alignment {
+    const alignments: Record<string, Alignment> = {
         left: AlignmentType.LEFT,
         center: AlignmentType.CENTER,
         right: AlignmentType.RIGHT,
@@ -520,22 +522,26 @@ function createTable(spec: TableSpec, defaultFont: string, defaultFontSize: numb
     });
 }
 
-async function createImage(spec: ImageSpec): Promise<Paragraph> {
+async function createImage(spec: ImageSpec): Promise<Paragraph[]> {
     const imagePath = spec.path;
 
     if (!fs.existsSync(imagePath)) {
         console.error(`Warning: Image not found: ${imagePath}`);
-        return new Paragraph({
-            children: [new TextRun({ text: `[Image not found: ${imagePath}]`, italics: true })],
-        });
+        return [
+            new Paragraph({
+                children: [new TextRun({ text: `[Image not found: ${imagePath}]`, italics: true })],
+            }),
+        ];
     }
 
     const imageBuffer = fs.readFileSync(imagePath);
     const ext = path.extname(imagePath).toLowerCase().slice(1);
 
     // Determine image type
-    type ImageType = 'png' | 'jpg' | 'jpeg' | 'gif' | 'bmp';
-    const imageType: ImageType = ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext) ? (ext as ImageType) : 'png';
+    type ImageType = 'png' | 'jpg' | 'gif' | 'bmp';
+    const normalizedExt = ext === 'jpeg' ? 'jpg' : ext;
+    const imageType: ImageType =
+        ['png', 'jpg', 'gif', 'bmp'].includes(normalizedExt) ? (normalizedExt as ImageType) : 'png';
 
     // Default dimensions if not specified
     const width = spec.width || 400;
@@ -561,7 +567,7 @@ async function createImage(spec: ImageSpec): Promise<Paragraph> {
         );
     }
 
-    return paragraphs[0];
+    return paragraphs;
 }
 
 function createPageBreak(): Paragraph {
@@ -587,7 +593,7 @@ async function processElement(
         case 'table':
             return [createTable(element, defaultFont, defaultFontSize)];
         case 'image':
-            return [await createImage(element)];
+            return await createImage(element);
         case 'pageBreak':
             return [createPageBreak()];
         default:
@@ -627,7 +633,7 @@ async function createDocument(spec: DocSpec): Promise<Document> {
             }
 
             if (section.footers?.default || section.footers?.pageNumbers) {
-                const footerChildren: (TextRun | PageNumber)[] = [];
+                const footerChildren: TextRun[] = [];
                 if (section.footers?.default) {
                     footerChildren.push(new TextRun({ text: section.footers.default + ' - ' }));
                 }
@@ -718,9 +724,9 @@ async function main() {
     // Parse arguments
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--spec' && args[i + 1]) {
-            specPath = args[++i];
+            specPath = args[++i]!;
         } else if (args[i] === '--output' && args[i + 1]) {
-            outputPath = args[++i];
+            outputPath = args[++i]!;
         } else if (args[i] === '--stdin') {
             useStdin = true;
         } else if (args[i] === '--help' || args[i] === '-h') {
