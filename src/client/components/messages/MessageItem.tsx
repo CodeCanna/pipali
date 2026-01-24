@@ -1,6 +1,6 @@
 // Individual message component
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -29,9 +29,6 @@ export function MessageItem({ message, platformUrl, onDelete }: MessageItemProps
     if (message.billingInfo && platformUrl) {
         return (
             <div className="message assistant-message">
-                <div className="message-header">
-                    <div className="message-label">Pipali</div>
-                </div>
                 <BillingMessage
                     code={message.billingInfo.code}
                     message={message.billingInfo.message}
@@ -47,20 +44,17 @@ export function MessageItem({ message, platformUrl, onDelete }: MessageItemProps
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <div className="message-header">
-                <div className="message-label">
-                    {isUser ? 'You' : 'Pipali'}
-                </div>
-                {canDelete && isHovered && (
+            {isHovered && canDelete && (
+                <div className="message-actions">
                     <button
-                        className="message-delete-btn"
+                        className="message-action-btn"
                         onClick={() => onDelete(message.id, message.role)}
                         title="Delete message"
                     >
                         <Trash2 size={14} />
                     </button>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Thoughts / Reasoning */}
             {message.thoughts && message.thoughts.length > 0 && (
