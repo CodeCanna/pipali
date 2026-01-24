@@ -17,7 +17,9 @@ import { getBundledRuntimes } from '../bundled-runtimes';
 const log = createChildLogger({ component: 'skills' });
 
 // Path to builtin skills shipped with the app (used in development mode)
-const BUILTIN_SKILLS_DIR = path.join(import.meta.dir, 'builtin');
+const BUILTIN_SKILLS_DIR = process.env.PIPALI_SERVER_RESOURCE_DIR
+    ? path.join(process.env.PIPALI_SERVER_RESOURCE_DIR, 'skills', 'builtin')
+    : path.join(import.meta.dir, 'builtin');
 
 export interface DeleteSkillResult {
     success: boolean;

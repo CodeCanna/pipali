@@ -285,9 +285,10 @@ async function copyRuntimesToBinaries(
 }
 
 /**
- * Build the server as a bundled JavaScript file using `bun build --target=bun`.
- * This bundles all dependencies into a single file that can be run with `bun run`.
- * Much smaller than copying node_modules (~5MB vs ~500MB).
+ * Build the server for Tauri bundling.
+ *
+ * We bundle the server into a single JS file and install only the external
+ * dependencies that must remain on disk (native/wasm).
  */
 async function buildServerBundle() {
     console.log("🔨 Building server bundle...");
@@ -362,6 +363,38 @@ async function buildServerBundle() {
         path.join(serverResourceDir, "drizzle")
     );
 
+    // Copy builtin skills (used at runtime)
+    console.log("   Copying builtin skills...");
+    await copyDir(
+        path.join(ROOT_DIR, "src", "server", "skills", "builtin"),
+        path.join(serverResourceDir, "skills", "builtin")
+    );
+
+    // Copy minimal frontend assets (index.html, public, dist)
+    console.log("   Copying frontend assets...");
+    const clientDest = path.join(serverResourceDir, "src", "client");
+    await fs.mkdir(clientDest, { recursive: true });
+    await fs.copyFile(
+        path.join(ROOT_DIR, "src", "client", "index.html"),
+        path.join(clientDest, "index.html")
+    );
+    await copyDir(
+        path.join(ROOT_DIR, "src", "client", "public"),
+        path.join(clientDest, "public"),
+        new Set()
+    );
+    await copyDir(
+        path.join(ROOT_DIR, "src", "client", "dist"),
+        path.join(clientDest, "dist"),
+        new Set()
+    );
+    const stylesDir = path.join(clientDest, "styles");
+    await fs.mkdir(stylesDir, { recursive: true });
+    await fs.copyFile(
+        path.join(ROOT_DIR, "src", "client", "dist", "index.css"),
+        path.join(stylesDir, "index.css")
+    );
+
     // Create a minimal package.json with only the external dependencies
     const minimalPackageJson = {
         name: "pipali-server",
@@ -388,6 +421,18 @@ async function buildServerBundle() {
         throw new Error(`Failed to install dependencies: exit code ${exitCode}`);
     }
 
+    // Copy PGlite WASM assets next to the bundled server
+    console.log("   Copying PGlite assets...");
+    const pgliteDist = path.join(serverResourceDir, "node_modules", "@electric-sql", "pglite", "dist");
+    await fs.copyFile(
+        path.join(pgliteDist, "pglite.wasm"),
+        path.join(serverResourceDir, "dist", "pglite.wasm")
+    );
+    await fs.copyFile(
+        path.join(pgliteDist, "pglite.data"),
+        path.join(serverResourceDir, "dist", "pglite.data")
+    );
+
     console.log("✅ Server bundle built successfully");
 }
 
@@ -402,7 +447,7 @@ const SKIP_DIRECTORIES = new Set([
 /**
  * Recursively copy a directory
  */
-async function copyDir(src: string, dest: string) {
+async function copyDir(src: string, dest: string, skipDirs: Set<string> = SKIP_DIRECTORIES) {
     await fs.mkdir(dest, { recursive: true });
 
     const entries = await fs.readdir(src, { withFileTypes: true });
@@ -412,7 +457,7 @@ async function copyDir(src: string, dest: string) {
         const destPath = path.join(dest, entry.name);
 
         // Skip unnecessary directories
-        if (SKIP_DIRECTORIES.has(entry.name)) {
+        if (skipDirs.has(entry.name)) {
             continue;
         }
 

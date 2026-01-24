@@ -63,6 +63,45 @@ fn get_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
         .map_err(|e| format!("Failed to get app data dir: {}", e))
 }
 
+#[cfg(target_os = "windows")]
+fn get_home_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os("USERPROFILE").map(std::path::PathBuf::from)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_home_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME").map(std::path::PathBuf::from)
+}
+
+fn get_legacy_data_dir() -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        return get_home_dir().map(|home| {
+            home.join("Library").join("Application Support").join("pipali")
+        });
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(appdata) = std::env::var_os("APPDATA") {
+            return Some(std::path::PathBuf::from(appdata).join("pipali"));
+        }
+        return get_home_dir().map(|home| home.join("AppData").join("Roaming").join("pipali"));
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        if let Some(xdg_data_home) = std::env::var_os("XDG_DATA_HOME") {
+            return Some(std::path::PathBuf::from(xdg_data_home).join("pipali"));
+        }
+        return get_home_dir().map(|home| home.join(".local").join("share").join("pipali"));
+    }
+}
+
+fn has_existing_data_dir(dir: &std::path::Path) -> bool {
+    dir.join("db").exists() || dir.join("pipali.db").exists()
+}
+
 /// Get the path to the bundled server source directory
 fn get_server_resource_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path()
@@ -88,7 +127,18 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
     }
 
     // Get and create the app data directory for the database
-    let data_dir = get_app_data_dir(app)?;
+    let app_data_dir = get_app_data_dir(app)?;
+    let legacy_data_dir = get_legacy_data_dir();
+    let data_dir = legacy_data_dir
+        .as_ref()
+        .filter(|dir| has_existing_data_dir(dir))
+        .cloned()
+        .unwrap_or(app_data_dir);
+
+    if legacy_data_dir.as_ref().is_some_and(|dir| dir == &data_dir) {
+        log::info!("[Sidecar] Using legacy data directory: {:?}", data_dir);
+    }
+
     std::fs::create_dir_all(&data_dir)
         .map_err(|e| format!("Failed to create app data dir: {}", e))?;
 
@@ -96,7 +146,7 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
     let server_dir = get_server_resource_dir(app)?;
     log::info!("[Sidecar] Server directory: {:?}", server_dir);
 
-    // Verify the bundled server entry point exists
+    // Verify the server entry point exists
     // The server is bundled into a single JS file at dist/index.js
     let entry_point = server_dir.join("dist").join("index.js");
     if !entry_point.exists() {
@@ -117,7 +167,7 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
     let platform_url = std::env::var("PIPALI_PLATFORM_URL").ok();
 
     // Build args for the server
-    // The bundled Bun will run: bun run src/server/index.ts --port ... --host ...
+    // The bundled Bun will run: bun run dist/index.js --port ... --host ...
     let mut args = vec![
         "run".to_string(),
         entry_point.to_string_lossy().to_string(),
@@ -147,8 +197,11 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| format!("Failed to create Bun sidecar command: {}", e))?
         .args(&args)
         .env("NODE_USE_SYSTEM_CA", "1")
+        .env("PIPALI_DATA_DIR", data_dir.to_string_lossy().to_string())
         // Set PIPALI_BUNDLED_RUNTIMES_DIR so the server knows where to find bundled uv/uvx
         .env("PIPALI_BUNDLED_RUNTIMES_DIR", binaries_dir.to_string_lossy().to_string())
+        // Provide the server resources root for migrations/assets
+        .env("PIPALI_SERVER_RESOURCE_DIR", server_dir.to_string_lossy().to_string())
         .current_dir(data_dir);
 
     let (mut rx, child) = sidecar_command

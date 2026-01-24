@@ -1,3 +1,5 @@
+import path from 'path';
+
 const maxIterations = parseInt(process.env.PIPALI_RESEARCH_ITERATIONS || '100', 10);
 
 function getDefaultUser() {
@@ -14,14 +16,10 @@ function getDefaultUser() {
 }
 
 function getMigrationsFolder(): string {
-    // In Tauri desktop app mode (detected by PIPALI_BUNDLED_RUNTIMES_DIR),
-    // the server is bundled at resources/server/dist/index.js
-    // and drizzle migrations are at resources/server/drizzle/
-    // So we need ../drizzle relative to the bundled script location.
-    // In development mode, it's relative to the current working directory.
-    if (process.env.PIPALI_BUNDLED_RUNTIMES_DIR) {
-        // Running in Tauri app - bundled at dist/index.js, drizzle at ../drizzle
-        return `${import.meta.dirname}/../drizzle`;
+    // In Tauri desktop app mode, the server resources directory is provided
+    // so we can read migrations from there.
+    if (process.env.PIPALI_SERVER_RESOURCE_DIR) {
+        return path.join(process.env.PIPALI_SERVER_RESOURCE_DIR, 'drizzle');
     }
     return `${process.cwd()}/drizzle`;
 }

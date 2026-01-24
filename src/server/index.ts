@@ -96,12 +96,18 @@ async function runEmbeddedMigrations() {
         )
     `);
 
+    await runTaggedMigrations(EMBEDDED_MIGRATIONS);
+}
+
+type TaggedMigration = { sql: string; tag: string };
+
+async function runTaggedMigrations(migrations: TaggedMigration[]) {
     // Get already applied migrations
     const applied = await db.execute(sql`SELECT hash FROM "__drizzle_migrations"`);
     const appliedHashes = new Set((applied.rows as any[]).map(r => r.hash));
 
     // Run each migration that hasn't been applied
-    for (const migration of EMBEDDED_MIGRATIONS) {
+    for (const migration of migrations) {
         const hash = migration.tag;
 
         if (appliedHashes.has(hash)) {
@@ -133,6 +139,34 @@ async function runEmbeddedMigrations() {
     log.info("Migrations complete.");
 }
 
+async function runBundledMigrations() {
+    const migrationsFolder = getMigrationsFolder();
+    const journalPath = `${migrationsFolder}/meta/_journal.json`;
+    const journal = await Bun.file(journalPath).json();
+    const migrations: TaggedMigration[] = [];
+
+    if (!journal?.entries || !Array.isArray(journal.entries)) {
+        throw new Error(`Invalid migration journal at ${journalPath}`);
+    }
+
+    for (const entry of journal.entries) {
+        const migrationPath = `${migrationsFolder}/${entry.tag}.sql`;
+        const sqlText = await Bun.file(migrationPath).text();
+        migrations.push({ tag: entry.tag, sql: sqlText });
+    }
+
+    log.info("Running bundled migrations...");
+    // Ensure migrations table exists (legacy tag-based tracking)
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
+            id SERIAL PRIMARY KEY,
+            hash text NOT NULL,
+            created_at bigint
+        )
+    `);
+    await runTaggedMigrations(migrations);
+}
+
 async function main() {
     // Parse CLI arguments
     const config = getServerConfig();
@@ -143,9 +177,11 @@ async function main() {
         anonMode: config.anon,
     });
 
-    // Run migrations - either embedded or from disk
+    // Run migrations - either embedded, bundled, or from disk
     if (IS_COMPILED_BINARY) {
         await runEmbeddedMigrations();
+    } else if (process.env.PIPALI_SERVER_RESOURCE_DIR) {
+        await runBundledMigrations();
     } else {
         await migrate(db, { migrationsFolder: getMigrationsFolder() });
     }
@@ -204,7 +240,7 @@ async function main() {
     });
 
     // Build frontend only in development mode (not when running as compiled binary)
-    if (!IS_COMPILED_BINARY) {
+    if (!IS_COMPILED_BINARY && !process.env.PIPALI_SERVER_RESOURCE_DIR) {
         log.info("Building frontend...");
         await Bun.build({
             entrypoints: ["src/client/app.tsx"],
@@ -214,8 +250,10 @@ async function main() {
             },
         });
         log.info("Frontend built.");
-    } else {
+    } else if (IS_COMPILED_BINARY) {
         log.info("Running in compiled mode - using embedded assets.");
+    } else {
+        log.info("Skipping frontend build (bundled server resources).");
     }
 
   // Disable development mode (hot reload) in test mode or compiled binary

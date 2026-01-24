@@ -1,3 +1,4 @@
+import path from 'path';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun'
 import {
@@ -47,15 +48,18 @@ if (IS_COMPILED_BINARY) {
         return c.html(EMBEDDED_INDEX_HTML);
     });
 } else {
+    const clientRoot = process.env.PIPALI_SERVER_RESOURCE_DIR
+        ? path.join(process.env.PIPALI_SERVER_RESOURCE_DIR, 'src', 'client')
+        : './src/client';
     // Development mode - serve from disk
-    app.get('/', serveStatic({ path: './src/client/index.html' }));
+    app.get('/', serveStatic({ path: path.join(clientRoot, 'index.html') }));
     // Serve public assets (icons, etc.)
-    app.get('/icons/*', serveStatic({ root: './src/client/public' }));
+    app.get('/icons/*', serveStatic({ root: path.join(clientRoot, 'public') }));
     // Serve static files (CSS, JS, etc.)
-    app.get('*', serveStatic({ root: './src/client' }));
+    app.get('*', serveStatic({ root: clientRoot }));
     // Fallback for SPA routing - serve index.html for any unmatched routes
     app.get('*', async (c) => {
-        const html = await Bun.file('./src/client/index.html').text();
+        const html = await Bun.file(path.join(clientRoot, 'index.html')).text();
         return c.html(html);
     });
 }
