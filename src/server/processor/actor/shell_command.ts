@@ -10,6 +10,7 @@ import {
     annotateStderrWithSandboxFailures,
 } from '../../sandbox';
 import { createChildLogger } from '../../logger';
+import { buildBundledRuntimeEnv } from '../../bundled-runtimes';
 
 const log = createChildLogger({ component: 'shell' });
 
@@ -223,9 +224,10 @@ export async function shellCommand(
 
         // Note: For sandboxed commands, TMPDIR is set by sandbox-runtime via CLAUDE_TMPDIR.
         // This env override is redundant for sandbox mode but kept for consistency.
-        const env = useSandbox
+        const baseEnv = useSandbox
             ? { ...process.env, TMPDIR: '/tmp/pipali' }
             : process.env;
+        const env = await buildBundledRuntimeEnv(baseEnv);
 
         const proc = Bun.spawn({
             cmd: shellCmd,

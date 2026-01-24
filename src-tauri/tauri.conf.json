@@ -57,8 +57,13 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "binaries/pipali-server"
+      "binaries/bun",
+      "binaries/uv",
+      "binaries/uvx"
     ],
+    "resources": {
+      "resources/server": "resources/server"
+    },
     "macOS": {
       "minimumSystemVersion": "10.15",
       "hardenedRuntime": true,

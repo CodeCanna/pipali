@@ -12,6 +12,7 @@ import type { Skill, SkillLoadResult } from './types';
 import { IS_COMPILED_BINARY, EMBEDDED_BUILTIN_SKILLS } from '../embedded-assets';
 import { getSkillsDir as getSkillsDirFromPaths } from '../paths';
 import { createChildLogger } from '../logger';
+import { getBundledRuntimes } from '../bundled-runtimes';
 
 const log = createChildLogger({ component: 'skills' });
 
@@ -55,6 +56,43 @@ export interface UpdateSkillResult {
 
 // Cached skills after loading
 let cachedSkills: Skill[] = [];
+
+/**
+ * Install npm dependencies for a skill if it has a package.json in scripts/
+ * Uses bundled Bun runtime when available (desktop app)
+ */
+async function installSkillDependencies(skillDir: string, skillName: string): Promise<void> {
+    const scriptsDir = path.join(skillDir, 'scripts');
+    const packageJsonPath = path.join(scriptsDir, 'package.json');
+
+    // Check if scripts/package.json exists
+    const packageJson = Bun.file(packageJsonPath);
+    if (!(await packageJson.exists())) {
+        return;
+    }
+
+    log.info({ skillName }, `Installing npm dependencies for skill "${skillName}"`);
+
+    try {
+        const runtimes = await getBundledRuntimes();
+
+        const proc = Bun.spawn([runtimes.bun, 'install'], {
+            cwd: scriptsDir,
+            stdout: 'pipe',
+            stderr: 'pipe',
+        });
+
+        const exitCode = await proc.exited;
+        if (exitCode !== 0) {
+            const stderr = await new Response(proc.stderr).text();
+            log.warn({ skillName, exitCode, stderr }, `Failed to install dependencies for skill "${skillName}"`);
+        } else {
+            log.info({ skillName }, `Dependencies installed for skill "${skillName}"`);
+        }
+    } catch (err) {
+        log.warn({ err, skillName }, `Failed to install dependencies for skill "${skillName}"`);
+    }
+}
 
 /**
  * Get the skills directory path (~/.pipali/skills)
@@ -135,6 +173,10 @@ async function installEmbeddedSkills(
                     await Bun.write(destPath, content);
                 }
             }
+
+            // Install npm dependencies if the skill has a scripts/package.json
+            await installSkillDependencies(destDir, skillName);
+
             installed.push(skillName);
         } catch (err) {
             log.error({ err, skillName }, `Failed to install builtin skill "${skillName}"`);
@@ -184,6 +226,10 @@ async function installFilesystemSkills(
         // Copy the skill directory
         try {
             await cp(srcDir, destDir, { recursive: true });
+
+            // Install npm dependencies if the skill has a scripts/package.json
+            await installSkillDependencies(destDir, skillName);
+
             installed.push(skillName);
         } catch (err) {
             log.error({ err, skillName }, `Failed to install builtin skill "${skillName}"`);

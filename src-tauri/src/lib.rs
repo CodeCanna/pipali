@@ -63,7 +63,19 @@ fn get_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
         .map_err(|e| format!("Failed to get app data dir: {}", e))
 }
 
+/// Get the path to the bundled server source directory
+fn get_server_resource_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .resource_dir()
+        .map(|p| p.join("resources").join("server"))
+        .map_err(|e| format!("Failed to get resource dir: {}", e))
+}
+
 /// Start the sidecar process
+///
+/// This starts the Pipali server using the bundled Bun runtime.
+/// The server source code is bundled in the resources directory,
+/// and we use the bundled Bun binary to run it.
 pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
     let state: State<SidecarState> = app.state();
     let host = state.host.clone();
@@ -80,6 +92,20 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
     std::fs::create_dir_all(&data_dir)
         .map_err(|e| format!("Failed to create app data dir: {}", e))?;
 
+    // Get the bundled server directory
+    let server_dir = get_server_resource_dir(app)?;
+    log::info!("[Sidecar] Server directory: {:?}", server_dir);
+
+    // Verify the bundled server entry point exists
+    // The server is bundled into a single JS file at dist/index.js
+    let entry_point = server_dir.join("dist").join("index.js");
+    if !entry_point.exists() {
+        return Err(format!(
+            "Server entry point not found: {:?}. The app bundle may be corrupted.",
+            entry_point
+        ));
+    }
+
     log::info!("[Sidecar] Starting on {}:{}...", host, port);
     log::info!("[Sidecar] Data directory: {:?}", data_dir);
 
@@ -90,8 +116,11 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
     // Also pass PIPALI_PLATFORM_URL if set (used for connecting to remote platform instances)
     let platform_url = std::env::var("PIPALI_PLATFORM_URL").ok();
 
-    // Build args - include platform URL if set
+    // Build args for the server
+    // The bundled Bun will run: bun run src/server/index.ts --port ... --host ...
     let mut args = vec![
+        "run".to_string(),
+        entry_point.to_string_lossy().to_string(),
         "--port".to_string(),
         port.to_string(),
         "--host".to_string(),
@@ -103,17 +132,28 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
         args.push(url.clone());
     }
 
+    // Get the directory containing the bundled binaries (sidecars)
+    // Tauri places sidecars next to the main executable
+    let binaries_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_default();
+
+    // Use the bundled Bun runtime to start the server
+    // The "bun" sidecar is registered in tauri.conf.json
     let sidecar_command = app
         .shell()
-        .sidecar("pipali-server")
-        .map_err(|e| format!("Failed to create sidecar command: {}", e))?
+        .sidecar("bun")
+        .map_err(|e| format!("Failed to create Bun sidecar command: {}", e))?
         .args(&args)
         .env("NODE_USE_SYSTEM_CA", "1")
+        // Set PIPALI_BUNDLED_RUNTIMES_DIR so the server knows where to find bundled uv/uvx
+        .env("PIPALI_BUNDLED_RUNTIMES_DIR", binaries_dir.to_string_lossy().to_string())
         .current_dir(data_dir);
 
     let (mut rx, child) = sidecar_command
         .spawn()
-        .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+        .map_err(|e| format!("Failed to spawn Bun sidecar: {}", e))?;
 
     // Store the child process
     *state.child.lock().unwrap() = Some(child);

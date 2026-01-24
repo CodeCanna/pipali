@@ -42,6 +42,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 src-tauri/target
 src-tauri/gen
 src-tauri/binaries
+src-tauri/resources
 src-tauri-frontend/dist
 
 # AI assistants

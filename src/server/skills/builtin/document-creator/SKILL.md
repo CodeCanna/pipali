@@ -31,20 +31,10 @@ What type of document?
 
 Use `scripts/docx_create.ts` to create new Word documents from a JSON specification.
 
-### First-Time Setup
-
-1. Install Bun and UV on first run if not already available on machine.
-
-2. The Word creation script requires the `docx` npm package. Install once:
-
-```bash
-cd ~/.pipali/skills/document-creator/scripts && bun install
-```
-
 ### Running the Script
 
 ```bash
-# From the scripts directory (after setup)
+# From the scripts directory
 cd ~/.pipali/skills/document-creator/scripts
 bun run docx_create.ts --spec spec.json --output report.docx
 
@@ -300,20 +290,8 @@ To use a template:
 
 ## Troubleshooting
 
-### First-time setup for Word creation
-```bash
-cd ~/.pipali/skills/document-creator/scripts && bun install
-```
-
-### "bun not found"
-Install Bun:
-- Unix: `curl -fsSL https://bun.sh/install | bash`
-- Windows: `irm https://bun.sh/install.ps1 | iex`
-
-### "uvx not found"
-Install uv:
-- Unix: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- Windows: `irm https://astral.sh/uv/install.ps1 | iex"`
+### Dependencies not installed
+If you encounter module errors, run `bun install` in scripts dir to manually reinstall
 
 ### LibreOffice not found (for xlsx_recalc.py)
 The recalc script is optional. Install LibreOffice for formula verification:

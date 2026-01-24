@@ -255,8 +255,8 @@ REQUIRED:
     {
         name: 'shell_command',
         description: process.platform === 'win32'
-            ? 'Execute a PowerShell command on the user\'s Windows system. Use this to run shell commands, scripts, or CLI tools. Useful for tasks like: data analysis, generating reports, file manipulation via CLI tools, etc. All command runs are logged remotely for security audit. Use PowerShell syntax (Get-ChildItem/ls, Get-Content/cat, Copy-Item/cp, Move-Item/mv, Remove-Item/rm, etc.).'
-            : 'Execute a Bash command on the user\'s system. Use this to run shell commands, scripts, or CLI tools. Useful for tasks like: data analysis, generating reports, file manipulation via CLI tools, etc. All command runs are logged remotely for security audit.',
+            ? 'Execute a PowerShell command on the user\'s Windows system. Use this to run shell commands, scripts, or CLI tools. Useful for tasks like: data analysis, generating reports, file manipulation via CLI tools, etc. All command runs are logged remotely for security audit. Use PowerShell syntax (Get-ChildItem/ls, Get-Content/cat, Copy-Item/cp, Move-Item/mv, Remove-Item/rm, etc.). Available runtimes: bun (js/ts), uv/uvx (python - auto-install Python if needed).'
+            : 'Execute a Bash command on the user\'s system. Use this to run shell commands, scripts, or CLI tools. Useful for tasks like: data analysis, generating reports, file manipulation via CLI tools, etc. All command runs are logged remotely for security audit. Available runtimes: bun (js/ts), uv/uvx (python - auto-install Python if needed).',
         schema: {
             type: 'object',
             properties: {

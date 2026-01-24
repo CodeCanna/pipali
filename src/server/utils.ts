@@ -14,8 +14,15 @@ function getDefaultUser() {
 }
 
 function getMigrationsFolder(): string {
-    // The migration folder from disk is only used in development mode.
-    // In compiled mode, migrations are embedded, so this function is not used.
+    // In Tauri desktop app mode (detected by PIPALI_BUNDLED_RUNTIMES_DIR),
+    // the server is bundled at resources/server/dist/index.js
+    // and drizzle migrations are at resources/server/drizzle/
+    // So we need ../drizzle relative to the bundled script location.
+    // In development mode, it's relative to the current working directory.
+    if (process.env.PIPALI_BUNDLED_RUNTIMES_DIR) {
+        // Running in Tauri app - bundled at dist/index.js, drizzle at ../drizzle
+        return `${import.meta.dirname}/../drizzle`;
+    }
     return `${process.cwd()}/drizzle`;
 }
 
