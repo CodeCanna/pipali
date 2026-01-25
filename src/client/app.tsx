@@ -129,6 +129,8 @@ const App = () => {
     const conversationsRef = useRef<ConversationSummary[]>([]);
     const conversationStatesRef = useRef<Map<string, ConversationState>>(new Map());
     const messagesRef = useRef<Message[]>([]);
+    // Track isConnected for callbacks that may close over stale state
+    const isConnectedRef = useRef(false);
 
     useEffect(() => {
         automationConfirmationsRef.current = automationConfirmations;
@@ -168,10 +170,22 @@ const App = () => {
     } = useWebSocketChat({
         wsUrl,
         shouldActivateConversationOnCreate: () => pendingBackgroundMessageRef.current === null,
-        onConversationCreated: () => {
+        onConversationCreated: (newConversationId) => {
             // Refresh list so sidebar picks up new conversations quickly.
             fetchConversations();
-            // Clear background marker (if any) once the server has created the conversation.
+
+            // For background tasks, add the user message to the conversation state
+            // so it shows up in the task gallery with the correct title.
+            const pending = pendingBackgroundMessageRef.current;
+            if (pending && newConversationId) {
+                addOptimisticUserMessage(
+                    { id: pending.clientMessageId, stableId: pending.clientMessageId, role: 'user', content: pending.message },
+                    newConversationId
+                );
+                startOptimisticRun(newConversationId, pending.runId, pending.clientMessageId);
+            }
+
+            // Clear background marker once the server has created the conversation.
             pendingBackgroundMessageRef.current = null;
         },
         onConfirmationRequest: (request, convId) => {
@@ -251,6 +265,10 @@ const App = () => {
     useEffect(() => {
         messagesRef.current = messages;
     }, [messages]);
+
+    useEffect(() => {
+        isConnectedRef.current = isConnected;
+    }, [isConnected]);
 
     // Initialize WebSocket and fetch data
     useEffect(() => {
@@ -744,7 +762,8 @@ const App = () => {
     const sendPendingQueryForConversation = useCallback((conversationId: string) => {
         const pendingQuery = pendingQueryAfterHistoryRef.current;
         if (!pendingQuery) return;
-        if (!isConnected) return;
+        // Use ref to avoid stale closure when called from async fetchHistory
+        if (!isConnectedRef.current) return;
 
         pendingQueryAfterHistoryRef.current = null;
         setCurrentPage('chat');
@@ -752,7 +771,7 @@ const App = () => {
         clearConfirmations(conversationId);
 
         sendWsMessage(pendingQuery, conversationId);
-    }, [isConnected, sendWsMessage, setChatConversationId, clearConfirmations]);
+    }, [sendWsMessage, setChatConversationId, clearConfirmations]);
 
     useEffect(() => {
         if (!isConnected) return;

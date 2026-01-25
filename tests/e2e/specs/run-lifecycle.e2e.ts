@@ -170,14 +170,17 @@ test.describe('Run Lifecycle', () => {
 
             // Second message
             await chatPage.sendMessage('second message');
-            await chatPage.waitForProcessing();
 
-            // Should use same conversation ID
+            // Should use same conversation ID (check before and after response)
             const secondConvId = await chatPage.getConversationId();
             expect(secondConvId).toBe(firstConvId);
 
             // Wait for completion
             await chatPage.waitForAssistantResponse();
+
+            // Verify conversation ID is still the same after response
+            const finalConvId = await chatPage.getConversationId();
+            expect(finalConvId).toBe(firstConvId);
 
             // Verify both messages are present
             const messages = await chatPage.getUserMessages();
@@ -207,13 +210,23 @@ test.describe('Run Lifecycle', () => {
             expect(await chatPage.hasActiveTaskInSidebar()).toBe(false);
         });
 
-        test('sidebar shows latest reasoning as subtitle during processing', async () => {
+        test('sidebar shows latest reasoning as subtitle during processing', async ({ page }) => {
             await chatPage.sendMessage('analyze my codebase slowly');
             await chatPage.waitForProcessing();
             await chatPage.waitForActiveTaskInSidebar();
 
             // Wait for some thoughts
             await chatPage.waitForThoughts();
+
+            // Wait for sidebar subtitle to be populated (step_start sets latestReasoning)
+            await page.waitForFunction(
+                (selector: string) => {
+                    const subtitle = document.querySelector(selector);
+                    return subtitle && subtitle.textContent && subtitle.textContent.trim().length > 0;
+                },
+                Selectors.conversationSubtitle,
+                { timeout: 15000 }
+            );
 
             // Subtitle should show reasoning
             const subtitle = await chatPage.getConversationSubtitleFromSidebar();

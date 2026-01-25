@@ -133,8 +133,28 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'CONNECTION_CLOSED':
             return { ...state, isConnected: false };
 
-        case 'SET_CONVERSATION_ID':
-            return { ...state, conversationId: action.id };
+        case 'SET_CONVERSATION_ID': {
+            // When switching conversations, restore runStatus from the target conversation's saved state
+            // Only update runStatus if the target conversation has saved state (i.e., we're switching to it)
+            // If there's no saved state (new conversation), keep the current runStatus
+            const targetState = action.id ? state.conversationStates.get(action.id) : undefined;
+            if (!targetState) {
+                // No saved state - this is likely a new conversation or one we haven't tracked yet
+                // Keep current runStatus to not interrupt ongoing operations
+                return { ...state, conversationId: action.id };
+            }
+            const newRunStatus: RunStatus = targetState.isStopped
+                ? 'stopped'
+                : targetState.isProcessing
+                    ? 'running'
+                    : 'idle';
+            return {
+                ...state,
+                conversationId: action.id,
+                runStatus: newRunStatus,
+                currentRunId: newRunStatus === 'running' ? state.currentRunId : undefined,
+            };
+        }
 
         case 'SET_MESSAGES':
             return { ...state, messages: action.messages };
@@ -144,11 +164,13 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 const targetConversationId = action.conversationId ?? state.conversationId;
                 const isCurrentConversation = !!targetConversationId && targetConversationId === state.conversationId;
 
-                // Always append to the current messages list if:
+                // Append to the current messages list if:
                 // - this message is for the current conversation, or
-                // - we don't yet have a conversationId (new chat bootstrap)
+                // - we're bootstrapping a new chat (no current conv AND no target conv specified)
+                // Don't add if explicitly targeting a different conversation (e.g., background task)
+                const isBootstrapping = state.conversationId === undefined && !action.conversationId;
                 const nextMessages =
-                    (isCurrentConversation || state.conversationId === undefined)
+                    (isCurrentConversation || isBootstrapping)
                         ? [...state.messages, action.message]
                         : state.messages;
 
@@ -214,10 +236,15 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 });
             }
 
+            // Only update currentRunId if we're not already running.
+            // When already running, this is a soft interrupt - keep the original run's ID
+            // so that stop commands target the correct active run on the server.
+            const shouldUpdateCurrentRun = isCurrentConversation && state.runStatus !== 'running';
+
             return {
                 ...state,
                 runStatus: isCurrentConversation ? 'running' : state.runStatus,
-                currentRunId: isCurrentConversation ? runId : state.currentRunId,
+                currentRunId: shouldUpdateCurrentRun ? runId : state.currentRunId,
                 messages: nextMessages,
                 conversationStates,
             };
@@ -349,9 +376,13 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
             const finalizeStopped = (msgs: Message[]): Message[] => {
                 const interrupted = markInterrupted(msgs);
-                // Only force-stop all streaming indicators when we can't reliably
-                // target a run (disconnect/error), otherwise preserve streaming for
-                // any new optimistic run started by soft interrupt.
+                // For user_stop, drop orphaned optimistic placeholders from queued messages
+                // that were cleared by the server. These are empty streaming assistants
+                // that will never receive a run_started from the server.
+                if (reason === 'user_stop') {
+                    return dropEmptyStreamingPlaceholders(interrupted, runId);
+                }
+                // For disconnect/error, stop all streaming indicators
                 if (!runId || reason === 'disconnect' || reason === 'error') {
                     return stopAllStreamingAssistants(interrupted);
                 }
