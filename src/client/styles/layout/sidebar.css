@@ -234,7 +234,7 @@
 }
 
 .user-menu-item.danger:hover {
-    background: rgba(var(--color-error), 0.10);
+    background: var(--color-error-bg);
 }
 
 .user-menu-info {
@@ -444,7 +444,7 @@
 }
 
 .conversation-menu-item.danger:hover:not(:disabled) {
-    background: rgba(var(--color-error), 0.10);
+    background: var(--color-error-bg);
 }
 
 .no-conversations {
