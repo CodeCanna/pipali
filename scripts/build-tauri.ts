@@ -334,19 +334,33 @@ async function buildServerBundle() {
     // Bundle the server into a single JS file
     // This embeds all dependencies, making node_modules unnecessary
     console.log("   Bundling server code...");
-    const serverResult = await Bun.build({
-        entrypoints: ["src/server/index.ts"],
-        outdir: path.join(serverResourceDir, "dist"),
-        target: "bun",
-        minify: true,
-        // Don't bundle native modules that need to be loaded at runtime
-        external: [
-            // PGlite uses native bindings
-            "@electric-sql/pglite",
-            // Sandbox runtime has native components
-            "@anthropic-ai/sandbox-runtime",
-        ],
-    });
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    let serverResult: Awaited<ReturnType<typeof Bun.build>>;
+    try {
+        serverResult = await Bun.build({
+            entrypoints: ["src/server/index.ts"],
+            outdir: path.join(serverResourceDir, "dist"),
+            target: "bun",
+            minify: true,
+            define: {
+                "process.env.NODE_ENV": JSON.stringify("production"),
+            },
+            // Don't bundle native modules that need to be loaded at runtime
+            external: [
+                // PGlite uses native bindings
+                "@electric-sql/pglite",
+                // Sandbox runtime has native components
+                "@anthropic-ai/sandbox-runtime",
+            ],
+        });
+    } finally {
+        if (originalNodeEnv === undefined) {
+            delete process.env.NODE_ENV;
+        } else {
+            process.env.NODE_ENV = originalNodeEnv;
+        }
+    }
 
     if (!serverResult.success) {
         console.error("Server bundle failed:");

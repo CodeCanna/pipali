@@ -197,6 +197,7 @@ pub fn start_sidecar(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| format!("Failed to create Bun sidecar command: {}", e))?
         .args(&args)
         .env("NODE_USE_SYSTEM_CA", "1")
+        .env("NODE_ENV", "production")
         .env("PIPALI_DATA_DIR", data_dir.to_string_lossy().to_string())
         // Set PIPALI_BUNDLED_RUNTIMES_DIR so the server knows where to find bundled uv/uvx
         .env("PIPALI_BUNDLED_RUNTIMES_DIR", binaries_dir.to_string_lossy().to_string())
