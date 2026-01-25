@@ -118,6 +118,8 @@ const App = () => {
     // Track if we have a pending query that needs to wait for history to load
     const pendingQueryAfterHistoryRef = useRef<string | null>(null);
     // Track which conversation history has loaded (for query-param continuation races)
+    const authStatusRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const authStatusRetryCountRef = useRef(0);
     const historyLoadedConversationIdRef = useRef<string | null>(null);
     const awaitingConversationIdRef = useRef(false);
     const pendingNewConversationMessagesRef = useRef<Array<{ clientMessageId: string; runId: string; message: string }>>([]);
@@ -268,6 +270,10 @@ const App = () => {
 
         return () => {
             clearInterval(pollInterval);
+            if (authStatusRetryTimeoutRef.current) {
+                clearTimeout(authStatusRetryTimeoutRef.current);
+                authStatusRetryTimeoutRef.current = null;
+            }
         };
     }, []);
 
@@ -503,15 +509,34 @@ const App = () => {
             if (res.ok) {
                 const data = await res.json();
                 setAuthStatus(data);
+                authStatusRetryCountRef.current = 0;
+                if (authStatusRetryTimeoutRef.current) {
+                    clearTimeout(authStatusRetryTimeoutRef.current);
+                    authStatusRetryTimeoutRef.current = null;
+                }
             } else {
-                // If auth status check fails, default to requiring login
+                // If auth status check fails, retry after a short delay
                 console.error("Auth status check failed with status:", res.status);
-                setAuthStatus({ anonMode: false, authenticated: false, user: null });
+                if (!authStatusRetryTimeoutRef.current) {
+                    const delay = Math.min(1000 * (2 ** authStatusRetryCountRef.current), 8000);
+                    authStatusRetryTimeoutRef.current = setTimeout(() => {
+                        authStatusRetryTimeoutRef.current = null;
+                        authStatusRetryCountRef.current += 1;
+                        fetchAuthStatus();
+                    }, delay);
+                }
             }
         } catch (e) {
-            // If we can't reach the server, default to requiring login
+            // If we can't reach the server, retry after a short delay
             console.error("Failed to fetch auth status", e);
-            setAuthStatus({ anonMode: false, authenticated: false, user: null });
+            if (!authStatusRetryTimeoutRef.current) {
+                const delay = Math.min(1000 * (2 ** authStatusRetryCountRef.current), 8000);
+                authStatusRetryTimeoutRef.current = setTimeout(() => {
+                    authStatusRetryTimeoutRef.current = null;
+                    authStatusRetryCountRef.current += 1;
+                    fetchAuthStatus();
+                }, delay);
+            }
         }
     };
 
