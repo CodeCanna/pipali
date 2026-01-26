@@ -1,368 +1,67 @@
-import { describe, expect, test, mock, beforeEach, spyOn } from 'bun:test';
-import type { McpServerConfig } from '../../../src/server/processor/mcp/types';
-
-/**
- * Unit tests for MCP Client functionality.
- *
- * Since the actual MCP SDK requires process spawning or network connections,
- * these tests focus on the client's logic: configuration parsing,
- * transport type detection, and command parsing.
- */
+import { describe, expect, test } from 'bun:test';
+import { parseStdioCommand, splitCommandLine, isHttpTransport } from '../../../src/server/processor/mcp/client';
 
 describe('MCP Client', () => {
-    // Test the parseStdioCommand logic (extracted from client for testability)
-    function parseStdioCommand(path: string): { command: string; args: string[] } {
-        // npm package (starts with @ or has no path separator)
-        if (path.startsWith('@') || !path.includes('/')) {
-            return { command: 'npx', args: ['-y', path] };
+    describe('splitCommandLine', () => {
+        const cases = [
+            { input: 'foo bar baz', expected: ['foo', 'bar', 'baz'], desc: 'simple space-separated' },
+            { input: 'foo --bar "hello world"', expected: ['foo', '--bar', 'hello world'], desc: 'double quotes' },
+            { input: "foo --bar 'hello world'", expected: ['foo', '--bar', 'hello world'], desc: 'single quotes' },
+            { input: '"first arg" "second arg"', expected: ['first arg', 'second arg'], desc: 'multiple quoted' },
+            { input: 'foo\tbar\tbaz', expected: ['foo', 'bar', 'baz'], desc: 'tabs as separators' },
+            { input: 'foo    bar', expected: ['foo', 'bar'], desc: 'multiple spaces' },
+            { input: '', expected: [], desc: 'empty input' },
+            { input: '   ', expected: [], desc: 'only spaces' },
+        ];
+
+        for (const { input, expected, desc } of cases) {
+            test(desc, () => expect(splitCommandLine(input)).toEqual(expected));
         }
-
-        // Python script
-        if (path.endsWith('.py')) {
-            return { command: 'python', args: [path] };
-        }
-
-        // JavaScript script
-        if (path.endsWith('.js') || path.endsWith('.mjs')) {
-            return { command: 'node', args: [path] };
-        }
-
-        // TypeScript script (run with bun)
-        if (path.endsWith('.ts')) {
-            return { command: 'bun', args: ['run', path] };
-        }
-
-        // Default: treat as executable
-        return { command: path, args: [] };
-    }
-
-    // Test transport type detection
-    function isHttpTransport(path: string): boolean {
-        return path.startsWith('http://') || path.startsWith('https://');
-    }
-
-    describe('Transport Type Detection', () => {
-        test('detects HTTP URLs as HTTP transport', () => {
-            expect(isHttpTransport('http://localhost:8080')).toBe(true);
-            expect(isHttpTransport('https://api.example.com/mcp')).toBe(true);
-            expect(isHttpTransport('https://mcp.service.io/v1')).toBe(true);
-        });
-
-        test('detects non-HTTP paths as stdio transport', () => {
-            expect(isHttpTransport('@modelcontextprotocol/server-github')).toBe(false);
-            expect(isHttpTransport('/path/to/server.py')).toBe(false);
-            expect(isHttpTransport('./scripts/mcp-server.ts')).toBe(false);
-            expect(isHttpTransport('my-mcp-package')).toBe(false);
-        });
     });
 
-    describe('Stdio Command Parsing', () => {
-        describe('NPM Packages', () => {
-            test('parses scoped npm packages with npx', () => {
-                const result = parseStdioCommand('@modelcontextprotocol/server-github');
-                expect(result.command).toBe('npx');
-                expect(result.args).toEqual(['-y', '@modelcontextprotocol/server-github']);
-            });
+    describe('isHttpTransport', () => {
+        const httpPaths = ['http://localhost:8080', 'https://api.example.com/mcp'];
+        const stdioPaths = ['@modelcontextprotocol/server-github', '/path/to/server.py', 'my-mcp-package'];
 
-            test('parses simple npm package names with npx', () => {
-                const result = parseStdioCommand('mcp-server-sqlite');
-                expect(result.command).toBe('npx');
-                expect(result.args).toEqual(['-y', 'mcp-server-sqlite']);
-            });
-
-            test('parses npm package with version specifier', () => {
-                const result = parseStdioCommand('@example/mcp-server@1.0.0');
-                expect(result.command).toBe('npx');
-                expect(result.args).toEqual(['-y', '@example/mcp-server@1.0.0']);
-            });
-        });
-
-        describe('Python Scripts', () => {
-            test('parses Python scripts with python command', () => {
-                const result = parseStdioCommand('/path/to/server.py');
-                expect(result.command).toBe('python');
-                expect(result.args).toEqual(['/path/to/server.py']);
-            });
-
-            test('parses relative Python script paths', () => {
-                const result = parseStdioCommand('./scripts/mcp-server.py');
-                expect(result.command).toBe('python');
-                expect(result.args).toEqual(['./scripts/mcp-server.py']);
-            });
-        });
-
-        describe('JavaScript Scripts', () => {
-            test('parses .js files with node command', () => {
-                const result = parseStdioCommand('/path/to/server.js');
-                expect(result.command).toBe('node');
-                expect(result.args).toEqual(['/path/to/server.js']);
-            });
-
-            test('parses .mjs files with node command', () => {
-                const result = parseStdioCommand('/path/to/server.mjs');
-                expect(result.command).toBe('node');
-                expect(result.args).toEqual(['/path/to/server.mjs']);
-            });
-        });
-
-        describe('TypeScript Scripts', () => {
-            test('parses .ts files with bun command', () => {
-                const result = parseStdioCommand('/path/to/server.ts');
-                expect(result.command).toBe('bun');
-                expect(result.args).toEqual(['run', '/path/to/server.ts']);
-            });
-
-            test('parses relative TypeScript paths', () => {
-                const result = parseStdioCommand('./my-mcp-server.ts');
-                expect(result.command).toBe('bun');
-                expect(result.args).toEqual(['run', './my-mcp-server.ts']);
-            });
-        });
-
-        describe('Executable Files', () => {
-            test('parses executable paths directly', () => {
-                const result = parseStdioCommand('/usr/local/bin/mcp-server');
-                expect(result.command).toBe('/usr/local/bin/mcp-server');
-                expect(result.args).toEqual([]);
-            });
-
-            test('parses relative executable paths', () => {
-                const result = parseStdioCommand('./bin/mcp-server');
-                expect(result.command).toBe('./bin/mcp-server');
-                expect(result.args).toEqual([]);
-            });
-        });
+        for (const path of httpPaths) {
+            test(`${path} -> true`, () => expect(isHttpTransport(path)).toBe(true));
+        }
+        for (const path of stdioPaths) {
+            test(`${path} -> false`, () => expect(isHttpTransport(path)).toBe(false));
+        }
     });
 
-    describe('Tool Namespacing', () => {
-        function createNamespacedToolName(serverName: string, toolName: string): string {
-            return `${serverName}/${toolName}`;
-        }
+    describe('parseStdioCommand', () => {
+        const cases: Array<{ path: string; command: string; args: string[]; desc: string }> = [
+            // NPM packages -> bunx
+            { path: '@modelcontextprotocol/server-github', command: 'bunx', args: ['-y', '@modelcontextprotocol/server-github'], desc: 'scoped npm package' },
+            { path: 'mcp-server-sqlite', command: 'bunx', args: ['-y', 'mcp-server-sqlite'], desc: 'simple npm package' },
+            { path: '@example/mcp-server@1.0.0', command: 'bunx', args: ['-y', '@example/mcp-server@1.0.0'], desc: 'npm with version' },
+            { path: 'chrome-devtools-mcp@latest --autoConnect', command: 'bunx', args: ['-y', 'chrome-devtools-mcp@latest', '--autoConnect'], desc: 'npm with args' },
+            { path: '  mcp-server-sqlite  ', command: 'bunx', args: ['-y', 'mcp-server-sqlite'], desc: 'trims whitespace' },
 
-        function parseNamespacedToolName(namespacedName: string): { serverName: string; toolName: string } | null {
-            const slashIndex = namespacedName.indexOf('/');
-            if (slashIndex === -1) {
-                return null;
-            }
-            return {
-                serverName: namespacedName.slice(0, slashIndex),
-                toolName: namespacedName.slice(slashIndex + 1),
-            };
-        }
+            // Python -> python
+            { path: '/path/to/server.py', command: 'python', args: ['/path/to/server.py'], desc: 'python absolute' },
+            { path: './scripts/mcp-server.py', command: 'python', args: ['./scripts/mcp-server.py'], desc: 'python relative' },
 
-        test('creates namespaced tool names correctly', () => {
-            expect(createNamespacedToolName('github', 'create_issue')).toBe('github/create_issue');
-            expect(createNamespacedToolName('slack', 'send_message')).toBe('slack/send_message');
-            expect(createNamespacedToolName('db', 'query')).toBe('db/query');
-        });
+            // JS/TS/MJS -> bun run
+            { path: '/path/to/server.js', command: 'bun', args: ['run', '/path/to/server.js'], desc: '.js file' },
+            { path: '/path/to/server.mjs', command: 'bun', args: ['run', '/path/to/server.mjs'], desc: '.mjs file' },
+            { path: '/path/to/server.ts', command: 'bun', args: ['run', '/path/to/server.ts'], desc: '.ts file' },
+            { path: './server.ts --debug', command: 'bun', args: ['run', './server.ts', '--debug'], desc: 'script with args' },
 
-        test('parses namespaced tool names correctly', () => {
-            const result1 = parseNamespacedToolName('github/create_issue');
-            expect(result1).toEqual({ serverName: 'github', toolName: 'create_issue' });
+            // Executables -> direct
+            { path: '/usr/local/bin/mcp-server', command: '/usr/local/bin/mcp-server', args: [], desc: 'executable absolute' },
+            { path: './bin/mcp-server', command: './bin/mcp-server', args: [], desc: 'executable relative' },
+            { path: '/usr/local/bin/mcp-server --port 3000', command: '/usr/local/bin/mcp-server', args: ['--port', '3000'], desc: 'executable with args' },
+        ];
 
-            const result2 = parseNamespacedToolName('my-server/my_complex_tool');
-            expect(result2).toEqual({ serverName: 'my-server', toolName: 'my_complex_tool' });
-        });
-
-        test('returns null for non-namespaced tool names', () => {
-            expect(parseNamespacedToolName('view_file')).toBeNull();
-            expect(parseNamespacedToolName('list_files')).toBeNull();
-            expect(parseNamespacedToolName('text')).toBeNull();
-        });
-
-        test('handles edge cases in namespaced names', () => {
-            // Multiple slashes - takes first slash
-            const result = parseNamespacedToolName('server/path/tool');
-            expect(result).toEqual({ serverName: 'server', toolName: 'path/tool' });
-
-            // Empty parts
-            const result2 = parseNamespacedToolName('/tool');
-            expect(result2).toEqual({ serverName: '', toolName: 'tool' });
-        });
-    });
-
-    describe('McpServerConfig Validation', () => {
-        function validateConfig(config: Partial<McpServerConfig>): string[] {
-            const errors: string[] = [];
-
-            if (!config.name) {
-                errors.push('name is required');
-            } else if (!/^[a-z0-9_-]+$/.test(config.name)) {
-                errors.push('name must be lowercase alphanumeric with dashes/underscores');
-            }
-
-            if (!config.path) {
-                errors.push('path is required');
-            }
-
-            if (!config.transportType) {
-                errors.push('transportType is required');
-            } else if (!['stdio', 'sse'].includes(config.transportType)) {
-                errors.push('transportType must be stdio or sse');
-            }
-
-            return errors;
-        }
-
-        test('accepts valid stdio config', () => {
-            const config: Partial<McpServerConfig> = {
-                name: 'github',
-                path: '@modelcontextprotocol/server-github',
-                transportType: 'stdio',
-            };
-            expect(validateConfig(config)).toEqual([]);
-        });
-
-        test('accepts valid sse config', () => {
-            const config: Partial<McpServerConfig> = {
-                name: 'my-api',
-                path: 'https://api.example.com/mcp',
-                transportType: 'sse',
-            };
-            expect(validateConfig(config)).toEqual([]);
-        });
-
-        test('rejects config without name', () => {
-            const config: Partial<McpServerConfig> = {
-                path: '/path/to/server',
-                transportType: 'stdio',
-            };
-            const errors = validateConfig(config);
-            expect(errors).toContain('name is required');
-        });
-
-        test('rejects config with invalid name format', () => {
-            const config: Partial<McpServerConfig> = {
-                name: 'Invalid-Name-123',
-                path: '/path/to/server',
-                transportType: 'stdio',
-            };
-            const errors = validateConfig(config);
-            expect(errors).toContain('name must be lowercase alphanumeric with dashes/underscores');
-        });
-
-        test('rejects config without path', () => {
-            const config: Partial<McpServerConfig> = {
-                name: 'my-server',
-                transportType: 'stdio',
-            };
-            const errors = validateConfig(config);
-            expect(errors).toContain('path is required');
-        });
-
-        test('rejects config with invalid transportType', () => {
-            const config: Partial<McpServerConfig> = {
-                name: 'my-server',
-                path: '/path/to/server',
-                transportType: 'websocket' as any,
-            };
-            const errors = validateConfig(config);
-            expect(errors).toContain('transportType must be stdio or sse');
-        });
-    });
-
-    describe('MCP Result Formatting', () => {
-        type McpContentType =
-            | { type: 'text'; text: string }
-            | { type: 'image'; data: string; mimeType: string }
-            | { type: 'audio'; data: string; mimeType: string };
-
-        function formatMcpResult(content: McpContentType[]): string | Array<{ type: string; [key: string]: unknown }> {
-            // If there's only text content, return as a simple string
-            const hasOnlyText = content.every(item => item.type === 'text');
-            if (hasOnlyText) {
-                return content.map(item => (item as { type: 'text'; text: string }).text).join('\n');
-            }
-
-            // Otherwise, return as multimodal content array
-            return content.map(item => {
-                if (item.type === 'text') {
-                    return { type: 'text', text: item.text };
-                } else if (item.type === 'image') {
-                    return {
-                        type: 'image',
-                        source_type: 'base64',
-                        mime_type: item.mimeType,
-                        data: item.data,
-                    };
-                } else if (item.type === 'audio') {
-                    return {
-                        type: 'audio',
-                        source_type: 'base64',
-                        mime_type: item.mimeType,
-                        data: item.data,
-                    };
-                }
-                return item;
+        for (const { path, command, args, desc } of cases) {
+            test(desc, () => {
+                const result = parseStdioCommand(path);
+                expect(result.command).toBe(command);
+                expect(result.args).toEqual(args);
             });
         }
-
-        test('formats text-only content as string', () => {
-            const content: McpContentType[] = [
-                { type: 'text', text: 'Hello' },
-                { type: 'text', text: 'World' },
-            ];
-            const result = formatMcpResult(content);
-            expect(result).toBe('Hello\nWorld');
-        });
-
-        test('formats single text content as string', () => {
-            const content: McpContentType[] = [
-                { type: 'text', text: 'Single response' },
-            ];
-            const result = formatMcpResult(content);
-            expect(result).toBe('Single response');
-        });
-
-        test('formats mixed content as array', () => {
-            const content: McpContentType[] = [
-                { type: 'text', text: 'Here is an image:' },
-                { type: 'image', data: 'base64data', mimeType: 'image/png' },
-            ];
-            const result = formatMcpResult(content);
-            expect(Array.isArray(result)).toBe(true);
-            expect(result).toHaveLength(2);
-            expect((result as any)[0]).toEqual({ type: 'text', text: 'Here is an image:' });
-            expect((result as any)[1]).toEqual({
-                type: 'image',
-                source_type: 'base64',
-                mime_type: 'image/png',
-                data: 'base64data',
-            });
-        });
-
-        test('formats image-only content as array', () => {
-            const content: McpContentType[] = [
-                { type: 'image', data: 'imgdata', mimeType: 'image/jpeg' },
-            ];
-            const result = formatMcpResult(content);
-            expect(Array.isArray(result)).toBe(true);
-            expect((result as any)[0]).toEqual({
-                type: 'image',
-                source_type: 'base64',
-                mime_type: 'image/jpeg',
-                data: 'imgdata',
-            });
-        });
-
-        test('formats audio content correctly', () => {
-            const content: McpContentType[] = [
-                { type: 'audio', data: 'audiodata', mimeType: 'audio/mp3' },
-            ];
-            const result = formatMcpResult(content);
-            expect(Array.isArray(result)).toBe(true);
-            expect((result as any)[0]).toEqual({
-                type: 'audio',
-                source_type: 'base64',
-                mime_type: 'audio/mp3',
-                data: 'audiodata',
-            });
-        });
-
-        test('handles empty content array', () => {
-            const content: McpContentType[] = [];
-            const result = formatMcpResult(content);
-            expect(result).toBe('');
-        });
     });
 });

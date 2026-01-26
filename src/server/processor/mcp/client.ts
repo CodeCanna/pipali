@@ -7,6 +7,84 @@ import { createChildLogger } from '../../logger';
 
 const log = createChildLogger({ component: 'mcp' });
 
+/**
+ * Split a command line string into parts, respecting quoted strings.
+ * E.g., 'foo --bar "hello world"' => ['foo', '--bar', 'hello world']
+ */
+export function splitCommandLine(input: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuote: string | null = null;
+
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+
+        if (inQuote) {
+            if (char === inQuote) {
+                inQuote = null;
+            } else {
+                current += char;
+            }
+        } else if (char === '"' || char === "'") {
+            inQuote = char;
+        } else if (char === ' ' || char === '\t') {
+            if (current) {
+                result.push(current);
+                current = '';
+            }
+        } else {
+            current += char;
+        }
+    }
+
+    if (current) {
+        result.push(current);
+    }
+
+    return result;
+}
+
+/**
+ * Parse an MCP server path into command and args for stdio transport.
+ * Supports commands with arguments, e.g., "chrome-devtools-mcp@latest --autoConnect --channel=beta"
+ */
+export function parseStdioCommand(path: string): { command: string; args: string[] } {
+    path = path.trim();
+
+    // Split path into parts, respecting quoted strings
+    const parts = splitCommandLine(path);
+    const [firstPart, ...extraArgs] = parts;
+
+    if (!firstPart) {
+        return { command: path, args: [] };
+    }
+
+    // npm package (starts with @ or has no path separator in the first part)
+    if (firstPart.startsWith('@') || !firstPart.includes('/')) {
+        return { command: 'bunx', args: ['-y', firstPart, ...extraArgs] };
+    }
+
+    // Python script
+    if (firstPart.endsWith('.py')) {
+        return { command: 'python', args: [firstPart, ...extraArgs] };
+    }
+
+    // JavaScript script
+    if (firstPart.endsWith('.js') || firstPart.endsWith('.ts') || firstPart.endsWith('.mjs')) {
+        return { command: 'bun', args: ['run', firstPart, ...extraArgs] };
+    }
+
+    // Default: treat first part as executable, rest as args
+    return { command: firstPart, args: extraArgs };
+}
+
+/**
+ * Check if a path represents an HTTP transport (vs stdio).
+ */
+export function isHttpTransport(path: string): boolean {
+    return path.startsWith('http://') || path.startsWith('https://');
+}
+
 // Cache the shell PATH to avoid repeated shell invocations
 let cachedShellPath: string | null = null;
 
@@ -130,7 +208,7 @@ export class McpClient {
             );
 
             // Determine transport type and connect
-            if (this.config.path.startsWith('http://') || this.config.path.startsWith('https://')) {
+            if (isHttpTransport(this.config.path)) {
                 await this.connectHttp();
             } else {
                 await this.connectStdio();
@@ -150,7 +228,7 @@ export class McpClient {
      * Connect using stdio transport (for local scripts or npm packages)
      */
     private async connectStdio(): Promise<void> {
-        const { command, args } = this.parseStdioCommand();
+        const { command, args } = parseStdioCommand(this.config.path);
 
         // Build environment with user-specified overrides
         // Use shell PATH to ensure tools like bunx are found (important for desktop apps)
@@ -172,82 +250,6 @@ export class McpClient {
         });
 
         await this.client!.connect(this.transport);
-    }
-
-    /**
-     * Parse the path into command and args for stdio transport.
-     * Supports commands with arguments, e.g., "chrome-devtools-mcp@latest --autoConnect --channel=beta"
-     */
-    private parseStdioCommand(): { command: string; args: string[] } {
-        const path = this.config.path.trim();
-
-        // Split path into parts, respecting quoted strings
-        const parts = this.splitCommandLine(path);
-        const [firstPart, ...extraArgs] = parts;
-
-        if (!firstPart) {
-            return { command: path, args: [] };
-        }
-
-        // npm package (starts with @ or has no path separator in the first part)
-        if (firstPart.startsWith('@') || !firstPart.includes('/')) {
-            return { command: 'bunx', args: ['-y', firstPart, ...extraArgs] };
-        }
-
-        // Python script
-        if (firstPart.endsWith('.py')) {
-            return { command: 'python', args: [firstPart, ...extraArgs] };
-        }
-
-        // JavaScript script
-        if (firstPart.endsWith('.js') || firstPart.endsWith('.mjs')) {
-            return { command: 'node', args: [firstPart, ...extraArgs] };
-        }
-
-        // TypeScript script (run with bun)
-        if (firstPart.endsWith('.ts')) {
-            return { command: 'bun', args: ['run', firstPart, ...extraArgs] };
-        }
-
-        // Default: treat first part as executable, rest as args
-        return { command: firstPart, args: extraArgs };
-    }
-
-    /**
-     * Split a command line string into parts, respecting quoted strings.
-     * E.g., 'foo --bar "hello world"' => ['foo', '--bar', 'hello world']
-     */
-    private splitCommandLine(input: string): string[] {
-        const result: string[] = [];
-        let current = '';
-        let inQuote: string | null = null;
-
-        for (let i = 0; i < input.length; i++) {
-            const char = input[i];
-
-            if (inQuote) {
-                if (char === inQuote) {
-                    inQuote = null;
-                } else {
-                    current += char;
-                }
-            } else if (char === '"' || char === "'") {
-                inQuote = char;
-            } else if (char === ' ' || char === '\t') {
-                if (current) {
-                    result.push(current);
-                    current = '';
-                }
-            } else {
-                current += char;
-            }
-        }
-
-        if (current) {
-            result.push(current);
-        }
-
-        return result;
     }
 
     /**
