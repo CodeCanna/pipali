@@ -345,9 +345,21 @@ export class McpClient {
                 }
             }
 
+            const isError = 'isError' in result && result.isError;
+
+            // Extract error message from content if this is an error response
+            let errorMessage: string | undefined;
+            if (isError && content.length > 0) {
+                const textContent = content.filter(item => item.type === 'text');
+                if (textContent.length > 0) {
+                    errorMessage = textContent.map(item => (item as { type: 'text'; text: string }).text).join('\n');
+                }
+            }
+
             return {
-                success: !('isError' in result && result.isError),
+                success: !isError,
                 content,
+                error: errorMessage,
             };
         } catch (error) {
             return {
