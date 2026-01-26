@@ -419,6 +419,10 @@ pub fn run() {
                     // Don't fail - the UI will show connection error
                 }
 
+                // Emit sidecar-ready event so frontend can start fetching data
+                log::info!("[App] Emitting sidecar-ready event");
+                let _ = app_handle.emit("sidecar-ready", ());
+
                 // Signal splash screen to start transformation animation
                 log::info!("[App] Server ready, triggering splash animation");
                 if let Some(splash) = app_handle.get_webview_window("splashscreen") {

@@ -63,6 +63,36 @@ export async function openInBrowser(url: string, options?: { newTab?: boolean })
 }
 
 /**
+ * Listen for sidecar-ready events from Tauri.
+ * This event is emitted when the sidecar server has passed its health check
+ * and is ready to accept requests.
+ *
+ * @param callback - Function to call when the sidecar is ready
+ * @returns Cleanup function to unsubscribe from the event
+ */
+export async function onSidecarReady(callback: () => void): Promise<() => void> {
+    if (!isTauri()) {
+        // In web mode, sidecar is always ready (we're served by the same server)
+        callback();
+        return () => {};
+    }
+
+    try {
+        const { listen } = await import('@tauri-apps/api/event');
+        const unlisten = await listen('sidecar-ready', () => {
+            console.log('[onSidecarReady] Sidecar ready event received');
+            callback();
+        });
+        return unlisten;
+    } catch (err) {
+        console.warn('[onSidecarReady] Failed to setup listener:', err);
+        // Fall back to calling immediately if we can't listen
+        callback();
+        return () => {};
+    }
+}
+
+/**
  * Listen for window-shown events from Tauri.
  * Used to focus the chat input when the app window is shown via shortcut or tray.
  *

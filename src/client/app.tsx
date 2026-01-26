@@ -25,7 +25,7 @@ import { useFocusManagement, useModels, useSidecar, useWebSocketChat } from "./h
 // Utils
 import { setApiBaseUrl, apiFetch } from "./utils/api";
 import { initNotifications, notifyConfirmationRequest, notifyTaskComplete, setNotificationClickHandler, setupFocusNavigationListener } from "./utils/notifications";
-import { onWindowShown, listenForDeepLinks } from "./utils/tauri";
+import { onWindowShown, onSidecarReady, listenForDeepLinks } from "./utils/tauri";
 
 // Components
 import { Header, Sidebar, InputArea } from "./components/layout";
@@ -270,24 +270,39 @@ const App = () => {
         isConnectedRef.current = isConnected;
     }, [isConnected]);
 
-    // Initialize WebSocket and fetch data
+    // Initialize data fetching - wait for sidecar to be ready in desktop mode
     useEffect(() => {
-        fetchConversations();
-        fetchAutomationConfirmations();
-        fetchAuthStatus();
+        let unlisten: (() => void) | undefined;
+        let pollInterval: ReturnType<typeof setInterval> | undefined;
 
-        // Check URL for conversationId
-        const params = new URLSearchParams(window.location.search);
-        const cid = params.get('conversationId');
-        if (cid) {
-            setChatConversationId(cid);
-        }
+        const fetchInitialData = () => {
+            fetchConversations();
+            fetchAutomationConfirmations();
+            fetchAuthStatus();
+            refetchModels();
+        };
 
-        // Poll for automation confirmations every 30 seconds
-        const pollInterval = setInterval(fetchAutomationConfirmations, 30000);
+        // Wait for sidecar-ready event before fetching data
+        // In web mode, this fires immediately; in Tauri, it waits for the health check
+        onSidecarReady(() => {
+            fetchInitialData();
+
+            // Check URL for conversationId
+            const params = new URLSearchParams(window.location.search);
+            const cid = params.get('conversationId');
+            if (cid) {
+                setChatConversationId(cid);
+            }
+
+            // Poll for automation confirmations every 30 seconds
+            pollInterval = setInterval(fetchAutomationConfirmations, 30000);
+        }).then((unlistenFn) => {
+            unlisten = unlistenFn;
+        });
 
         return () => {
-            clearInterval(pollInterval);
+            unlisten?.();
+            if (pollInterval) clearInterval(pollInterval);
             if (authStatusRetryTimeoutRef.current) {
                 clearTimeout(authStatusRetryTimeoutRef.current);
                 authStatusRetryTimeoutRef.current = null;
@@ -349,8 +364,9 @@ const App = () => {
         let unlisten: (() => void) | undefined;
 
         onWindowShown(() => {
-            // Refetch conversations when window is shown (ensures data is loaded after sidecar is ready)
+            // Refetch conversations and models when window is re-shown via shortcut/tray
             fetchConversations();
+            refetchModels();
 
             // Check for pending confirmations and navigate accordingly
             // Use refs to get current values (avoids stale closure issue)
@@ -377,7 +393,7 @@ const App = () => {
         return () => {
             unlisten?.();
         };
-    }, [scheduleTextareaFocus]);
+    }, [scheduleTextareaFocus, refetchModels]);
 
     // Keep conversationIdRef in sync with state (for WebSocket handler)
     useEffect(() => {
