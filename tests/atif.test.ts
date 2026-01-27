@@ -21,6 +21,7 @@ import {
   validateATIFTrajectory,
   exportATIFTrajectory,
   importATIFTrajectory,
+  sanitizeForJsonb,
 } from '../src/server/processor/conversation/atif/atif.utils';
 
 describe('ATIF Type Definitions', () => {
@@ -733,5 +734,47 @@ describe('ATIF User Message Removal', () => {
     expect(trajectory.steps).toHaveLength(1);
     expect(trajectory.steps[0]?.source).toBe('user');
     expect(trajectory.steps[0]?.message).toBe('Follow-up');
+  });
+});
+
+describe('ATIF Sanitization', () => {
+  test('should remove null bytes from strings', () => {
+    const input = 'hello\x00world';
+    expect(sanitizeForJsonb(input)).toBe('helloworld');
+  });
+
+  test('should remove control characters but keep whitespace', () => {
+    const input = 'line1\nline2\ttab\rcarriage\x00null\x01soh\x1fus';
+    expect(sanitizeForJsonb(input)).toBe('line1\nline2\ttab\rcarriagenullsohus');
+  });
+
+  test('should recursively sanitize arrays', () => {
+    const input = ['hello\x00', 'world\x01'];
+    expect(sanitizeForJsonb(input)).toEqual(['hello', 'world']);
+  });
+
+  test('should recursively sanitize objects', () => {
+    const input = { message: 'test\x00null', nested: { value: 'inner\x01' } };
+    expect(sanitizeForJsonb(input)).toEqual({ message: 'testnull', nested: { value: 'inner' } });
+  });
+
+  test('should preserve non-string values', () => {
+    const input = { num: 42, bool: true, nil: null, arr: [1, 2, 3] };
+    expect(sanitizeForJsonb(input)).toEqual(input);
+  });
+
+  test('should handle trajectory with problematic tool results', () => {
+    const trajectory = createEmptyATIFTrajectory('session', 'agent', '1.0', 'model');
+    addStepToTrajectory(
+      trajectory,
+      'agent',
+      'Response',
+      [{ function_name: 'test', arguments: {}, tool_call_id: 'call_1' }],
+      { results: [{ source_call_id: 'call_1', content: 'Valid keys: \x00,a,b,c' }] }
+    );
+
+    const sanitized = sanitizeForJsonb(trajectory);
+    const result = sanitized.steps[0]?.observation?.results?.[0]?.content;
+    expect(result).toBe('Valid keys: ,a,b,c');
   });
 });

@@ -13,6 +13,36 @@ import type {
   ATIFStepSource,
 } from './atif.types';
 
+/**
+ * Sanitize a value for PostgreSQL JSONB storage.
+ * Removes unsupported Unicode escape sequences that PGlite/PostgreSQL rejects:
+ * - Null bytes (\u0000)
+ * - Other control characters (U+0001-U+001F) except \t, \n, \r
+ *
+ * This recursively processes strings, arrays, and objects.
+ */
+export function sanitizeForJsonb<T>(value: T): T {
+  if (typeof value === 'string') {
+    // Remove null bytes and other problematic control characters
+    // Keep \t (0x09), \n (0x0A), \r (0x0D)
+    return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => sanitizeForJsonb(item)) as T;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = sanitizeForJsonb(val);
+    }
+    return result as T;
+  }
+
+  return value;
+}
+
 
 /**
  * Adds a new step to an existing ATIF trajectory

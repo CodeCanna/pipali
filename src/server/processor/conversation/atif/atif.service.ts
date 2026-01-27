@@ -24,6 +24,7 @@ import {
   validateATIFTrajectory,
   exportATIFTrajectory,
   importATIFTrajectory,
+  sanitizeForJsonb,
 } from './atif.utils';
 import { createChildLogger } from '../../../logger';
 
@@ -162,7 +163,7 @@ export class ATIFConversationService {
     await db
       .update(Conversation)
       .set({
-        trajectory,
+        trajectory: sanitizeForJsonb(trajectory),
         updatedAt: new Date(),
       })
       .where(eq(Conversation.id, conversationId));
@@ -193,7 +194,7 @@ export class ATIFConversationService {
     await db
       .update(Conversation)
       .set({
-        trajectory,
+        trajectory: sanitizeForJsonb(trajectory),
         updatedAt: new Date(),
       })
       .where(eq(Conversation.id, conversationId));
@@ -225,7 +226,7 @@ export class ATIFConversationService {
     await db
       .update(Conversation)
       .set({
-        trajectory,
+        trajectory: sanitizeForJsonb(trajectory),
         updatedAt: new Date(),
       })
       .where(eq(Conversation.id, conversationId));
@@ -257,7 +258,7 @@ export class ATIFConversationService {
     await db
       .update(Conversation)
       .set({
-        trajectory,
+        trajectory: sanitizeForJsonb(trajectory),
         updatedAt: new Date(),
       })
       .where(eq(Conversation.id, conversationId));
@@ -298,7 +299,7 @@ export class ATIFConversationService {
     const [newConversation] = await db.insert(Conversation).values({
       id: conversationId,
       userId,
-      trajectory,
+      trajectory: sanitizeForJsonb(trajectory),
       title: title,
     }).returning();
 
@@ -347,7 +348,7 @@ export class ATIFConversationService {
       title?: string;
     } = {
       userId: user.id,
-      trajectory: newTrajectory,
+      trajectory: sanitizeForJsonb(newTrajectory),
     };
 
     if (title) {
