@@ -408,9 +408,7 @@ async function pickNextTool(
     config: ResearchConfig
 ): Promise<ResearchIteration> {
     const { currentDate, dayOfWeek, location, username, userContext, currentIteration = 0, maxIterations, thresholdStepCount } = config;
-    const lastUserIndex = config.chatHistory.steps.findLastIndex(s => s.source === 'user') || 0;
     const isLast = currentIteration >= maxIterations - 1;
-    const previousIterations = config.chatHistory.steps.slice(lastUserIndex + 1);
 
     // Get all tools (built-in + MCP)
     const tools = await getAllTools();
@@ -516,33 +514,8 @@ async function pickNextTool(
             tool_call_id: fc.call_id,
         }));
 
-        // Check for repeated tool calls
-        const previousToolKeys = new Set(
-            previousIterations.flatMap(i =>
-                i.tool_calls?.map(tc => `${tc.function_name}:${JSON.stringify(tc.arguments)}`)
-            )
-        );
-
-        const newToolCalls = toolCalls.filter(tc => {
-            const key = `${tc.function_name}:${JSON.stringify(tc.arguments)}`;
-            return !previousToolKeys.has(key);
-        });
-
-        // All tool calls are repeated
-        if (newToolCalls.length === 0 && toolCalls.length > 0) {
-            return {
-                toolCalls,
-                warning: `Repeated tool calls detected. You've already called these tools with the same arguments. Try something different.`,
-                thought: response.thought,
-                message: response.message,
-                metrics,
-                raw: response.raw,
-                systemPrompt: isFirstIteration ? systemPrompt : undefined,
-            };
-        }
-
         return {
-            toolCalls: newToolCalls,
+            toolCalls,
             thought: response.thought,
             message: response.message,
             metrics,
