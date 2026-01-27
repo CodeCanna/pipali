@@ -51,6 +51,18 @@ fn show_window(app: &AppHandle) {
     }
 }
 
+/// Toggle window visibility - show if hidden, hide to tray if visible
+fn toggle_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+            hide_from_dock(app);
+        } else {
+            show_window(app);
+        }
+    }
+}
+
 /// Sidecar state management
 pub struct SidecarState {
     pub child: Mutex<Option<CommandChild>>,
@@ -371,7 +383,7 @@ pub fn run() {
                 .with_handler(|app, _shortcut, event| {
                     if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
                         log::info!("[App] Global shortcut triggered");
-                        show_window(app);
+                        toggle_window(app);
                     }
                 })
                 .build(),
