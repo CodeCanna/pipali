@@ -130,6 +130,7 @@ export class ATIFConversationService {
     observation?: ATIFObservation,
     reasoningContent?: string,
     rawOutput?: unknown[],
+    extra?: Record<string, unknown>,
   ): Promise<ATIFStep> {
     const conversation = await this.getConversation(conversationId);
 
@@ -157,6 +158,11 @@ export class ATIFConversationService {
     // Store raw LLM response for multi-turn passthrough
     if (rawOutput && rawOutput.length > 0) {
       step.extra = { ...step.extra, raw_output: rawOutput };
+    }
+
+    // Merge any additional extra fields
+    if (extra) {
+      step.extra = { ...step.extra, ...extra };
     }
 
     // Update database

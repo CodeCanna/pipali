@@ -215,6 +215,23 @@ export async function* runResearchWithConversation(
 
         // Check for final response (no tool calls means model is done)
         if (iteration.toolCalls.length === 0) {
+            // If context was compacted on final response, insert a compaction step
+            if (iteration.compactionSummary) {
+                log.info({ conversationId }, 'Inserting compaction step (final response)');
+                const compactionStep = await atifConversationService.addStep(
+                    conversationId,
+                    'user',
+                    iteration.compactionSummary,
+                    undefined, // no metrics
+                    undefined, // no tool calls
+                    undefined, // no observation
+                    undefined, // no reasoning
+                    undefined, // no raw
+                    { is_compaction: true }
+                );
+                trajectory.steps.push(compactionStep);
+            }
+
             finalResponse = iteration.message || '';
             finalThought = iteration.thought;
             finalMetrics = iteration.metrics;
@@ -234,6 +251,24 @@ export async function* runResearchWithConversation(
                 yield thoughtIteration;
             }
         } else if (iteration.toolResults) {
+            // If context was compacted, insert a compaction step before the agent step
+            // This marks the boundary - only messages from this point forward will be sent to the model
+            if (iteration.compactionSummary) {
+                log.info({ conversationId }, 'Inserting compaction step');
+                const compactionStep = await atifConversationService.addStep(
+                    conversationId,
+                    'user',
+                    iteration.compactionSummary,
+                    undefined, // no metrics
+                    undefined, // no tool calls
+                    undefined, // no observation
+                    undefined, // no reasoning
+                    undefined, // no raw
+                    { is_compaction: true }
+                );
+                trajectory.steps.push(compactionStep);
+            }
+
             // Persist to DB and update in-memory trajectory so the director sees it in the next iteration
             const agentStep = await atifConversationService.addStep(
                 conversationId,

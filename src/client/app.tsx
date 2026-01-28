@@ -651,6 +651,18 @@ const App = () => {
 
             for (const msg of data.history) {
                 if (msg.source === 'user') {
+                    // Check if this is a compaction step - render as thought instead of user message
+                    if (msg.extra?.is_compaction === true) {
+                        // Add compaction summary as a thought for the next agent message
+                        const summaryContent = typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message);
+                        thoughts.push({
+                            type: 'thought',
+                            content: `**Compact Context**\n${summaryContent}`,
+                            id: generateUUID(),
+                            isInternalThought: true,
+                        });
+                        continue;
+                    }
                     finalizeCurrentAgent();
                     historyMessages.push({
                         role: 'user',

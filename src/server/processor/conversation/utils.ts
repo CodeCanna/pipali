@@ -43,6 +43,23 @@ function hasProviderAgnosticImage(content: any[]): boolean {
     return content.some((item: any) => item.type === 'image' && item.source_type === 'base64');
 }
 
+/**
+ * Find the index of the most recent compaction step in history.
+ * Returns -1 if no compaction step found.
+ *
+ * Compaction steps are marked with extra.is_compaction = true and contain
+ * a summary of the conversation history up to that point.
+ */
+function findMostRecentCompactionIndex(history: ATIFStep[]): number {
+    for (let i = history.length - 1; i >= 0; i--) {
+        const step = history[i]!;
+        if (step.extra?.is_compaction === true) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 export function generateChatmlMessagesWithContext(
     query: string,
     history?: ATIFStep[],
@@ -61,7 +78,18 @@ export function generateChatmlMessagesWithContext(
         } as Responses.EasyInputMessage);
     }
 
-    for (const msg of history || []) {
+    // Find the most recent compaction step and only process steps from that point onwards.
+    // This avoids sending the full history when context has been compacted by the platform.
+    // The compaction step itself is included as it contains the summary of earlier history.
+    let stepsToProcess = history || [];
+    if (history && history.length > 0) {
+        const compactionIndex = findMostRecentCompactionIndex(history);
+        if (compactionIndex >= 0) {
+            stepsToProcess = history.slice(compactionIndex);
+        }
+    }
+
+    for (const msg of stepsToProcess) {
         if (msg.source === 'user') {
             messages.push({
                 type: 'message',

@@ -36,6 +36,8 @@ export interface ResearchIteration {
     systemPrompt?: string;
     /** Step ID from ATIF trajectory (set after persistence to DB) */
     stepId?: number;
+    /** Compaction summary if context was compacted by platform */
+    compactionSummary?: string;
 }
 
 /**

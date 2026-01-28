@@ -505,6 +505,7 @@ async function pickNextTool(
                 metrics,
                 raw: response.raw,
                 systemPrompt: isFirstIteration ? systemPrompt : undefined,
+                compactionSummary: response.compactionSummary,
             };
         }
 
@@ -543,6 +544,7 @@ async function pickNextTool(
                 metrics,
                 raw: sanitizedRaw,
                 systemPrompt: isFirstIteration ? systemPrompt : undefined,
+                compactionSummary: response.compactionSummary,
             };
         }
 
@@ -558,6 +560,7 @@ async function pickNextTool(
             metrics,
             raw: sanitizedRaw,
             systemPrompt: isFirstIteration ? systemPrompt : undefined,
+            compactionSummary: response.compactionSummary,
         };
     } catch (error) {
         // Re-throw billing errors so they can be handled by the caller (ws.ts)

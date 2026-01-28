@@ -64,6 +64,7 @@ export type ChatAction =
     | { type: 'DISMISS_CONFIRMATION'; conversationId: string; requestId: string }
     | { type: 'USER_STEP_SAVED'; conversationId: string; runId: string; clientMessageId: string; stepId: number }
     | { type: 'BILLING_ERROR'; conversationId?: string; runId?: string; error: BillingError }
+    | { type: 'COMPACTION'; conversationId: string; runId: string; summary: string }
     | { type: 'CLEAR_CONVERSATION' }
     | { type: 'SYNC_CONVERSATION_STATE'; conversationId: string; messages: Message[] }
     | { type: 'REMOVE_CONVERSATION_STATE'; conversationId: string }
@@ -257,6 +258,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             let messages: Message[] = [];
             if (history && Array.isArray(history)) {
                 messages = history
+                    // Filter out compaction steps (they're rendered as agent thoughts, not messages)
+                    .filter(step => !(step.extra?.is_compaction === true))
                     .map(step => ({
                         id: String(step.step_id || generateUUID()),
                         stableId: String(step.step_id || generateUUID()),
@@ -568,6 +571,43 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return {
                 ...state,
                 messages: isCurrentConversation ? updateMessagesWithResults(state.messages) : state.messages,
+                conversationStates,
+            };
+        }
+
+        case 'COMPACTION': {
+            const { conversationId, runId, summary } = action;
+            const isCurrentConversation = conversationId === state.conversationId;
+
+            // Add compaction as an internal thought to the current assistant message
+            const compactionThought: Thought = {
+                id: generateUUID(),
+                type: 'thought',
+                content: `**Compact Context.**\n${summary}`,
+                isInternalThought: true,
+            };
+
+            const updateMessagesWithCompaction = (msgs: Message[]): Message[] => {
+                const idx = findRunAssistantIndex(msgs, runId);
+                if (idx === -1) return msgs;
+                return msgs.map((msg, i) => {
+                    if (i !== idx) return msg;
+                    return { ...msg, thoughts: [...(msg.thoughts || []), compactionThought] };
+                });
+            };
+
+            const conversationStates = new Map(state.conversationStates);
+            const existing = conversationStates.get(conversationId);
+            if (existing) {
+                conversationStates.set(conversationId, {
+                    ...existing,
+                    messages: updateMessagesWithCompaction(existing.messages),
+                });
+            }
+
+            return {
+                ...state,
+                messages: isCurrentConversation ? updateMessagesWithCompaction(state.messages) : state.messages,
                 conversationStates,
             };
         }
@@ -892,6 +932,15 @@ export function useWebSocketChat(options: UseWebSocketChatOptions) {
             case 'billing_error':
                 dispatch({ type: 'BILLING_ERROR', conversationId: convId, runId, error: message.error });
                 onBillingErrorCb?.(message.error, convId);
+                break;
+
+            case 'compaction':
+                dispatch({
+                    type: 'COMPACTION',
+                    conversationId: convId,
+                    runId,
+                    summary: message.data.summary,
+                });
                 break;
         }
     }, []);

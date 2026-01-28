@@ -169,6 +169,13 @@ export type BillingErrorMessage = {
     error: BillingError;
 };
 
+export type CompactionMessage = {
+    type: 'compaction';
+    conversationId: string;
+    runId: string;
+    data: { summary: string };
+};
+
 export type ServerMessage =
     | ConversationCreatedMessage
     | RunStartedMessage
@@ -178,5 +185,6 @@ export type ServerMessage =
     | StepEndMessage
     | ConfirmationRequestMessage
     | UserStepSavedMessage
-    | BillingErrorMessage;
+    | BillingErrorMessage
+    | CompactionMessage;
 

@@ -26,6 +26,8 @@ export interface ResponseWithThought {
     raw?: Responses.ResponseOutputItem[];
     /** Token usage metrics from the API call */
     usage?: UsageMetrics;
+    /** Compaction summary if context was compacted by platform */
+    compactionSummary?: string;
 }
 
 export interface ToolDefinition {

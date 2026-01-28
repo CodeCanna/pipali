@@ -210,6 +210,17 @@ async function runConversationExecutor(
                 const iteration = iteratorResult.value;
 
                 if (iteration.isToolCallStart) {
+                    // Send compaction notification BEFORE step_start if context was compacted
+                    // Only send on start iterations (compactionSummary persists to end iteration too)
+                    if (iteration.compactionSummary) {
+                        send(ws, conversationId, {
+                            type: 'compaction',
+                            runId: runIdAuthoritative,
+                            data: {
+                                summary: iteration.compactionSummary,
+                            },
+                        });
+                    }
                     send(ws, conversationId, {
                         type: 'step_start',
                         runId: runIdAuthoritative,
@@ -238,6 +249,15 @@ async function runConversationExecutor(
                             toolResults: iteration.toolResults ?? [],
                             stepId: iteration.stepId,
                             metrics: iteration.metrics,
+                        },
+                    });
+                } else if (iteration.compactionSummary) {
+                    // Compaction on final response (no tool calls)
+                    send(ws, conversationId, {
+                        type: 'compaction',
+                        runId: runIdAuthoritative,
+                        data: {
+                            summary: iteration.compactionSummary,
                         },
                     });
                 }

@@ -49,7 +49,8 @@ export async function sendMessageToGpt(
         .map(content => content.text)
         .join('') || undefined;
 
-    // Extract usage metrics from response
+    // Extract usage metrics and compaction summary from response
+    const metadata = (response as any).metadata;
     let usage: UsageMetrics | undefined;
     if (response.usage) {
         const usageData = response.usage;
@@ -60,7 +61,6 @@ export async function sendMessageToGpt(
         const cacheWriteTokens = 0;
 
         // Use cost from platform metadata if available, else estimate locally
-        const metadata = (response as any).metadata;
         const rawCostUsd = metadata?.cost_usd ?? metadata?.["cost_usd"];
         const platformCostUsd = typeof rawCostUsd === 'number' ? rawCostUsd : (rawCostUsd ? parseFloat(rawCostUsd) : undefined);
         const costUsd = platformCostUsd || calculateCost(model, promptTokens, completionTokens, cachedReadTokens, cacheWriteTokens, 0, pricing);
@@ -75,5 +75,11 @@ export async function sendMessageToGpt(
         log.info(`Usage: ${promptTokens} prompt, ${completionTokens} completion, ${cachedReadTokens} cache read, ${cacheWriteTokens} cache write, $${costUsd.toFixed(6)}`);
     }
 
-    return { thought, message: outputText?.trim(), raw: response.output, usage };
+    // Extract compaction summary if context was compacted by platform
+    const compactionSummary = metadata?.compaction_summary as string | undefined;
+    if (compactionSummary) {
+        log.info('Context was compacted by platform');
+    }
+
+    return { thought, message: outputText?.trim(), raw: response.output, usage, compactionSummary };
 }

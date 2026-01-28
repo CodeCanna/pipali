@@ -527,6 +527,74 @@ describe('generateChatmlMessagesWithContext', () => {
         });
     });
 
+    describe('compaction step filtering', () => {
+        test('should start from compaction step when one exists', () => {
+            const history: Partial<ATIFStep>[] = [
+                { source: 'user', message: 'First question' },
+                { source: 'agent', message: 'First answer' },
+                { source: 'user', message: '[Handoff Context] Summary', extra: { is_compaction: true } },
+                { source: 'agent', message: 'Response after compaction' },
+                { source: 'user', message: 'Follow up question' }
+            ];
+            const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
+
+            // Only 3 messages from compaction point onwards (compaction step is included)
+            expect(messages).toHaveLength(3);
+            expect((messages[0] as any).content).toBe('[Handoff Context] Summary');
+            expect((messages[1] as any).content).toBe('Response after compaction');
+            expect((messages[2] as any).content).toBe('Follow up question');
+        });
+
+        test('should use most recent compaction step when multiple exist', () => {
+            const history: Partial<ATIFStep>[] = [
+                { source: 'user', message: 'Very old question' },
+                { source: 'user', message: '[Handoff Context] First compaction', extra: { is_compaction: true } },
+                { source: 'agent', message: 'Middle response' },
+                { source: 'user', message: '[Handoff Context] Second compaction', extra: { is_compaction: true } },
+                { source: 'agent', message: 'Final response' }
+            ];
+            const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
+
+            // Only 2 messages from the second (most recent) compaction
+            expect(messages).toHaveLength(2);
+            expect((messages[0] as any).content).toBe('[Handoff Context] Second compaction');
+            expect((messages[1] as any).content).toBe('Final response');
+        });
+
+        test('should not treat step with other extra fields as compaction', () => {
+            const history: Partial<ATIFStep>[] = [
+                { source: 'user', message: 'First', extra: { some_other_field: true } },
+                { source: 'agent', message: 'Response' },
+                { source: 'user', message: 'Second' }
+            ];
+            const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
+
+            // All messages should be included since is_compaction is not true
+            expect(messages).toHaveLength(3);
+        });
+
+        test('should preserve system message when compaction exists', () => {
+            const history: Partial<ATIFStep>[] = [
+                { source: 'user', message: 'Old question' },
+                { source: 'agent', message: 'Old answer' },
+                { source: 'user', message: '[Handoff Context] Summary', extra: { is_compaction: true } },
+                { source: 'agent', message: 'New answer' }
+            ];
+            const messages = generateChatmlMessagesWithContext(
+                '',
+                history as ATIFStep[],
+                'You are a helpful assistant'
+            );
+
+            // System message + 2 messages from compaction point onwards
+            expect(messages).toHaveLength(3);
+            expect((messages[0] as any).role).toBe('system');
+            expect((messages[0] as any).content).toBe('You are a helpful assistant');
+            expect((messages[1] as any).content).toBe('[Handoff Context] Summary');
+            expect((messages[2] as any).content).toBe('New answer');
+        });
+    });
+
     describe('mixed conversation sequences', () => {
         test('should handle full conversation with system, user, agent, and tools', () => {
             const history: Partial<ATIFStep>[] = [
