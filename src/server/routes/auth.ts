@@ -113,7 +113,17 @@ auth.get('/oauth/google/url', async (c) => {
 
 // Get platform URL for email auth
 auth.get('/platform-url', async (c) => {
-    return c.json({ url: getPlatformUrl() });
+    const platformUrl = getPlatformUrl();
+    // Derive frontend URL: platform.pipali.ai -> pipali.ai, otherwise use platform URL as-is
+    let frontendUrl = platformUrl;
+    try {
+        const parsed = new URL(platformUrl);
+        if (parsed.hostname === 'platform.pipali.ai') {
+            parsed.hostname = 'pipali.ai';
+            frontendUrl = parsed.origin;
+        }
+    } catch { /* use platformUrl as fallback */ }
+    return c.json({ url: platformUrl, frontendUrl });
 });
 
 // Get platform auth capabilities (which auth methods are enabled)

@@ -15,24 +15,24 @@ import { BillingMessage } from '../billing';
 
 interface MessageItemProps {
     message: Message;
-    platformUrl?: string;
+    platformFrontendUrl?: string;
     onDelete?: (messageId: string, role: 'user' | 'assistant') => void;
 }
 
-export function MessageItem({ message, platformUrl, onDelete }: MessageItemProps) {
+export function MessageItem({ message, platformFrontendUrl, onDelete }: MessageItemProps) {
     const isUser = message.role === 'user';
     const [isHovered, setIsHovered] = useState(false);
 
     const canDelete = onDelete && !message.isStreaming;
 
     // Render billing message if present
-    if (message.billingInfo && platformUrl) {
+    if (message.billingInfo && platformFrontendUrl) {
         return (
             <div className="message assistant-message">
                 <BillingMessage
                     code={message.billingInfo.code}
                     message={message.billingInfo.message}
-                    platformUrl={platformUrl}
+                    platformFrontendUrl={platformFrontendUrl}
                 />
             </div>
         );

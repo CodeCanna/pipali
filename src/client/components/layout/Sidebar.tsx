@@ -46,7 +46,7 @@ interface SidebarProps {
     currentPage?: 'home' | 'chat' | 'skills' | 'automations' | 'mcp-tools' | 'settings';
     authStatus?: AuthStatus | null;
     billingAlerts?: BillingAlert[];
-    platformUrl?: string;
+    platformFrontendUrl?: string;
     onNewChat: () => void;
     onSelectConversation: (id: string) => void;
     onDeleteConversation: (id: string, e: React.MouseEvent) => void;
@@ -70,7 +70,7 @@ export function Sidebar({
     currentPage,
     authStatus,
     billingAlerts,
-    platformUrl,
+    platformFrontendUrl,
     onNewChat,
     onSelectConversation,
     onDeleteConversation,
@@ -416,11 +416,11 @@ export function Sidebar({
                 </div>
 
                 {/* Billing Alert Banner */}
-                {billingAlerts && billingAlerts.length > 0 && platformUrl && onDismissAllBillingAlerts && (
+                {billingAlerts && billingAlerts.length > 0 && platformFrontendUrl && onDismissAllBillingAlerts && (
                     <div className="sidebar-billing-section">
                         <BillingAlertBanner
                             alerts={billingAlerts}
-                            platformUrl={platformUrl}
+                            platformFrontendUrl={platformFrontendUrl}
                             onDismissAll={onDismissAllBillingAlerts}
                         />
                     </div>

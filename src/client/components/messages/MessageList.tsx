@@ -8,11 +8,11 @@ import { MessageItem } from './MessageItem';
 interface MessageListProps {
     messages: Message[];
     conversationId?: string;
-    platformUrl?: string;
+    platformFrontendUrl?: string;
     onDeleteMessage?: (messageId: string, role: 'user' | 'assistant') => void;
 }
 
-export function MessageList({ messages, conversationId, platformUrl, onDeleteMessage }: MessageListProps) {
+export function MessageList({ messages, conversationId, platformFrontendUrl, onDeleteMessage }: MessageListProps) {
     const lastUserMessageRef = useRef<HTMLDivElement>(null);
     const mainContentRef = useRef<HTMLElement>(null);
     const previousConversationIdRef = useRef<string | undefined>(undefined);
@@ -108,7 +108,7 @@ export function MessageList({ messages, conversationId, platformUrl, onDeleteMes
                     <div className="messages">
                         {messages.map((msg, index) => (
                             <div key={msg.stableId} ref={index === lastUserMessageIndex ? lastUserMessageRef : undefined}>
-                                <MessageItem message={msg} platformUrl={platformUrl} onDelete={onDeleteMessage} />
+                                <MessageItem message={msg} platformFrontendUrl={platformFrontendUrl} onDelete={onDeleteMessage} />
                             </div>
                         ))}
                     </div>

@@ -1,13 +1,14 @@
 // Billing alert banner for sidebar display
 
 import React from 'react';
-import { AlertTriangle, CreditCard, X, ExternalLink } from 'lucide-react';
+import { AlertTriangle, CreditCard, X, ExternalLink as ExternalLinkIcon } from 'lucide-react';
+import { ExternalLink } from '../ExternalLink';
 import type { BillingAlert } from '../../types/billing';
 import { getBillingActionLabel, getBillingTitle } from './billing-messages';
 
 interface BillingAlertBannerProps {
     alerts: BillingAlert[];
-    platformUrl: string;
+    platformFrontendUrl: string;
     onDismissAll: () => void;
 }
 
@@ -17,14 +18,14 @@ interface BillingAlertBannerProps {
  */
 export function BillingAlertBanner({
     alerts,
-    platformUrl,
+    platformFrontendUrl,
     onDismissAll,
 }: BillingAlertBannerProps) {
     const latestAlert = alerts[0];
     if (!latestAlert) return null;
 
     const isCreditsError = latestAlert.code === 'insufficient_credits';
-    const billingUrl = `${platformUrl}/billing`;
+    const billingUrl = `${platformFrontendUrl}/dashboard/billing`;
     const title = getBillingTitle(latestAlert.code);
     const actionLabel = getBillingActionLabel(latestAlert.code);
 
@@ -54,15 +55,13 @@ export function BillingAlertBanner({
                         +{alerts.length - 1} more {alerts.length === 2 ? 'task' : 'tasks'} affected
                     </span>
                 )}
-                <a
+                <ExternalLink
                     href={billingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="billing-alert-action"
                 >
                     {actionLabel}
-                    <ExternalLink size={12} />
-                </a>
+                    <ExternalLinkIcon size={12} />
+                </ExternalLink>
             </div>
         </div>
     );

@@ -72,7 +72,7 @@ const App = () => {
         apiFetch('/api/auth/platform-url')
             .then(res => res.ok ? res.json() : null)
             .then(data => {
-                if (data?.url) setPlatformUrl(data.url);
+                if (data?.frontendUrl) setPlatformFrontendUrl(data.frontendUrl);
             })
             .catch(() => { /* Use default platform URL */ });
     }, []);
@@ -102,7 +102,7 @@ const App = () => {
     const [showFindInPage, setShowFindInPage] = useState(false);
     // Billing alerts state
     const [billingAlerts, setBillingAlerts] = useState<BillingAlert[]>([]);
-    const [platformUrl, setPlatformUrl] = useState<string>('https://platform.pipali.ai');
+    const [platformFrontendUrl, setPlatformFrontendUrl] = useState<string>('https://pipali.ai');
 
     // Refs
     const prevConversationIdRef = useRef<string | undefined>(undefined);
@@ -1199,7 +1199,7 @@ const App = () => {
                 currentPage={currentPage}
                 authStatus={authStatus}
                 billingAlerts={billingAlerts}
-                platformUrl={platformUrl}
+                platformFrontendUrl={platformFrontendUrl}
                 onNewChat={startNewConversation}
                 onSelectConversation={selectConversation}
                 onDeleteConversation={deleteConversation}
@@ -1250,7 +1250,7 @@ const App = () => {
                     <SettingsPage />
                 )}
                 {currentPage === 'chat' && (
-                    <MessageList messages={messages} conversationId={conversationId} platformUrl={platformUrl} onDeleteMessage={deleteMessage} />
+                    <MessageList messages={messages} conversationId={conversationId} platformFrontendUrl={platformFrontendUrl} onDeleteMessage={deleteMessage} />
                 )}
 
                 <InputArea
