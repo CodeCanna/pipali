@@ -358,8 +358,11 @@ export function getSandboxEnvOverrides(): Record<string, string> {
         // General temp directory
         TMPDIR: SANDBOX_TEMP_DIR,
 
-        // Python/Uv caches - redirect to /tmp/pipali instead of ~/.cache
+        // Python/Uv - redirect cache, tool installs, and data to /tmp/pipali instead of ~/
         UV_CACHE_DIR: `${SANDBOX_TEMP_DIR}/uv-cache`,
+        UV_TOOL_DIR: `${SANDBOX_TEMP_DIR}/uv-tools`,
+        UV_TOOL_BIN_DIR: `${SANDBOX_TEMP_DIR}/uv-tools/bin`,
+        UV_PYTHON_INSTALL_DIR: `${SANDBOX_TEMP_DIR}/uv-python`,
         PIP_CACHE_DIR: `${SANDBOX_TEMP_DIR}/pip-cache`,
 
         // Node/Bun caches
