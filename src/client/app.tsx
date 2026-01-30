@@ -128,6 +128,7 @@ const App = () => {
     const automationConfirmationsRef = useRef<AutomationPendingConfirmation[]>([]);
     const conversationsRef = useRef<ConversationSummary[]>([]);
     const conversationStatesRef = useRef<Map<string, ConversationState>>(new Map());
+    const conversationModelIds = useRef<Map<string, number>>(new Map());
     const messagesRef = useRef<Message[]>([]);
     // Track isConnected for callbacks that may close over stale state
     const isConnectedRef = useRef(false);
@@ -142,7 +143,7 @@ const App = () => {
 
     // Hooks
     const { textareaRef, scheduleTextareaFocus } = useFocusManagement();
-    const { models, selectedModel, selectModel, showModelDropdown, setShowModelDropdown, refetchModels } = useModels();
+    const { models, selectedModel, setSelectedModel, selectModel, showModelDropdown, setShowModelDropdown, refetchModels } = useModels();
     const wsUrl = `${wsBaseUrl}/ws/chat`;
 
     const {
@@ -171,6 +172,10 @@ const App = () => {
         wsUrl,
         shouldActivateConversationOnCreate: () => pendingBackgroundMessageRef.current === null,
         onConversationCreated: (newConversationId) => {
+            // Cache the current model for this new conversation
+            if (newConversationId && selectedModel) {
+                conversationModelIds.current.set(newConversationId, selectedModel.id);
+            }
             // Refresh list so sidebar picks up new conversations quickly.
             fetchConversations();
 
@@ -735,6 +740,15 @@ const App = () => {
             syncConversationState(id, historyMessages);
             historyLoadedConversationIdRef.current = id;
 
+            // Sync model dropdown to conversation's model and cache it
+            if (data.chatModelId) {
+                conversationModelIds.current.set(id, data.chatModelId);
+                const conversationModel = models.find(m => m.id === data.chatModelId);
+                if (conversationModel) {
+                    setSelectedModel(conversationModel);
+                }
+            }
+
             // Check if there's a pending query to send after history loaded
             sendPendingQueryForConversation(id);
         } catch (e) {
@@ -943,7 +957,15 @@ const App = () => {
         conversationIdRef.current = id;
         setChatConversationId(id);
         const convState = conversationStates.get(id);
-        if (convState?.messages && convState.messages.length > 0) setChatMessages(convState.messages);
+        if (convState?.messages && convState.messages.length > 0) {
+            setChatMessages(convState.messages);
+            // Sync model dropdown from cached model ID
+            const cachedModelId = conversationModelIds.current.get(id);
+            if (cachedModelId) {
+                const conversationModel = models.find(m => m.id === cachedModelId);
+                if (conversationModel) setSelectedModel(conversationModel);
+            }
+        }
         else fetchHistory(id);
     };
 
@@ -1222,7 +1244,18 @@ const App = () => {
                     selectedModel={selectedModel}
                     showModelDropdown={showModelDropdown}
                     setShowModelDropdown={setShowModelDropdown}
-                    onSelectModel={selectModel}
+                    onSelectModel={(model) => {
+                        selectModel(model);
+                        // Update current conversation's model
+                        if (conversationId) {
+                            conversationModelIds.current.set(conversationId, model.id);
+                            apiFetch(`/api/conversations/${conversationId}/model`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chatModelId: model.id }),
+                            });
+                        }
+                    }}
                     onGoHome={goToHomePage}
                 />
 

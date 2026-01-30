@@ -203,6 +203,7 @@ async function runConversationExecutor(
                 abortSignal: activeRun.abortController.signal,
                 confirmationContext,
                 systemPrompt: systemPromptOverride,
+                chatModelId: session.chatModelId,
             });
 
             let iteratorResult = await runner.next();

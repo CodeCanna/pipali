@@ -235,6 +235,8 @@ export interface Session {
     runState: RunState;
     // User message for initial research (cleared after persistence)
     userMessage?: string;
+    // Chat model ID for this conversation
+    chatModelId?: number;
 }
 
 /**
@@ -244,7 +246,8 @@ export function createSession(
     conversationId: string,
     user: typeof User.$inferSelect,
     confirmationPreferences: ConfirmationPreferences,
-    userMessage?: string
+    userMessage?: string,
+    chatModelId?: number,
 ): Session {
     return {
         conversationId,
@@ -252,6 +255,7 @@ export function createSession(
         confirmationPreferences,
         runState: createIdleState(),
         userMessage,
+        chatModelId,
     };
 }
 

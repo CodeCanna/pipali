@@ -144,7 +144,7 @@ api.get('/chat/:conversationId/history', async (c) => {
     // Pass chat history to frontend
     const history = conversation.trajectory.steps;
 
-    return c.json({ history });
+    return c.json({ history, chatModelId: conversation.chatModelId });
 });
 
 // Get all conversations for the user
@@ -206,6 +206,23 @@ api.get('/conversations', async (c) => {
     });
 
     return c.json({ conversations: result });
+});
+
+// Update a conversation's chat model
+api.put('/conversations/:conversationId/model', async (c) => {
+    const conversationId = c.req.param('conversationId');
+    try {
+        z.uuid().parse(conversationId);
+    } catch (e) {
+        return c.json({ error: 'Invalid conversation ID' }, 400);
+    }
+    const body = await c.req.json();
+    const { chatModelId } = body;
+    if (typeof chatModelId !== 'number') {
+        return c.json({ error: 'chatModelId must be a number' }, 400);
+    }
+    await db.update(Conversation).set({ chatModelId }).where(eq(Conversation.id, conversationId));
+    return c.json({ success: true });
 });
 
 // Delete a conversation

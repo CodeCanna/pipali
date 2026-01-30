@@ -52,6 +52,7 @@ export class ATIFConversationService {
     agentVersion: string = '1.0.0',
     modelName: string = 'unknown',
     title?: string,
+    chatModelId?: number,
   ): Promise<ConversationWithTrajectory> {
     const sessionId = uuidv4();
 
@@ -67,6 +68,7 @@ export class ATIFConversationService {
       userId: number;
       trajectory: ATIFTrajectory;
       title?: string;
+      chatModelId?: number;
     } = {
       userId: user.id,
       trajectory: trajectory,
@@ -75,6 +77,9 @@ export class ATIFConversationService {
     // Add optional fields only if provided
     if (title) {
       insertData.title = title;
+    }
+    if (chatModelId) {
+      insertData.chatModelId = chatModelId;
     }
 
     log.debug({

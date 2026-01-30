@@ -66,6 +66,7 @@ export function useModels() {
     return {
         models,
         selectedModel,
+        setSelectedModel,
         selectModel,
         showModelDropdown,
         setShowModelDropdown,

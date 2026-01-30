@@ -17,7 +17,7 @@ import {
     getActiveRun,
 } from '../session-state';
 import { createEmptyPreferences } from '../../../processor/confirmation';
-import { db, getDefaultChatModel } from '../../../db';
+import { db, getDefaultChatModel, getChatModelById } from '../../../db';
 import { Conversation } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { atifConversationService } from '../../../processor/conversation/atif/atif.service';
@@ -99,28 +99,44 @@ export const MessageCommandHandler: Command<MessageCommand> = {
             return;
         }
 
-        // Get model info for logging
-        const chatModelWithApi = await getDefaultChatModel(user);
-        if (chatModelWithApi) {
-            log.info({
-                model: chatModelWithApi.chatModel.name,
-                provider: chatModelWithApi.aiModelApi?.name || 'Unknown',
-            }, 'Using model');
-        }
-
-        // Get or create conversation
+        // Get or create conversation, resolving the appropriate chat model
         let conversation;
+        let chatModelWithApi;
+
         if (conversationId) {
             const results = await db.select().from(Conversation).where(eq(Conversation.id, conversationId));
             conversation = results[0];
+
+            // Use conversation's stored model if available, otherwise fall back to user's default
+            if (conversation?.chatModelId) {
+                chatModelWithApi = await getChatModelById(conversation.chatModelId) ?? await getDefaultChatModel(user);
+            } else {
+                chatModelWithApi = await getDefaultChatModel(user);
+            }
+
+            // Set chatModelId on existing conversation if not already set
+            if (conversation && !conversation.chatModelId && chatModelWithApi) {
+                await db.update(Conversation).set({ chatModelId: chatModelWithApi.chatModel.id }).where(eq(Conversation.id, conversationId));
+                conversation.chatModelId = chatModelWithApi.chatModel.id;
+            }
         } else {
+            chatModelWithApi = await getDefaultChatModel(user);
             const modelName = chatModelWithApi?.chatModel.name || 'unknown';
             conversation = await atifConversationService.createConversation(
                 user,
                 'pipali-agent',
                 '1.0.0',
-                modelName
+                modelName,
+                undefined,
+                chatModelWithApi?.chatModel.id,
             );
+        }
+
+        if (chatModelWithApi) {
+            log.info({
+                model: chatModelWithApi.chatModel.name,
+                provider: chatModelWithApi.aiModelApi?.name || 'Unknown',
+            }, 'Using model');
         }
 
         if (!conversation) {
@@ -138,7 +154,8 @@ export const MessageCommandHandler: Command<MessageCommand> = {
             conversation.id,
             user,
             createEmptyPreferences(),
-            userQuery
+            userQuery,
+            conversation.chatModelId ?? undefined,
         );
 
         // Start the run

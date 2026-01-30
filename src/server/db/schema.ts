@@ -201,6 +201,7 @@ export const Conversation = pgTable('conversation', {
     title: text('title'),
     // Optional link to automation - if set, this conversation belongs to an automation
     automationId: uuid('automation_id'),
+    chatModelId: integer('chat_model_id').references(() => ChatModel.id),
     ...dbBaseModel,
 });
 

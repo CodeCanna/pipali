@@ -95,6 +95,9 @@ mock.module(dbModule, () => {
         async getDefaultChatModel() {
             return undefined;
         },
+        async getChatModelById() {
+            return undefined;
+        },
     };
 });
 

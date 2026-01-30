@@ -92,6 +92,13 @@
       "when": 1769500800000,
       "tag": "0012_mcp_confirmation_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1769740594584,
+      "tag": "0013_fantastic_black_queen",
+      "breakpoints": true
     }
   ]
 }

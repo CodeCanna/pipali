@@ -1,4 +1,4 @@
-import { getDefaultChatModel } from '../../db';
+import { getDefaultChatModel, getChatModelById } from '../../db';
 import { User, type ChatModelWithApi } from '../../db/schema';
 import { type ToolDefinition, type ChatMessage, type ResponseWithThought } from './conversation';
 import { generateChatmlMessagesWithContext } from './utils';
@@ -25,6 +25,7 @@ export async function sendMessageToModel(
     deepThought: boolean = false,
     fastMode: boolean = false,
     user?: typeof User.$inferSelect,
+    chatModelId?: number,
 ) {
     // Check for test mock (E2E tests inject this via preload)
     if (globalThis.__pipaliMockLLM) {
@@ -33,7 +34,13 @@ export async function sendMessageToModel(
         return globalThis.__pipaliMockLLM(actualQuery);
     }
 
-    const chatModelWithApi: ChatModelWithApi | undefined = await getDefaultChatModel(user);
+    // Resolve model: use conversation's chatModelId if provided, otherwise user's default
+    let chatModelWithApi: ChatModelWithApi | undefined;
+    if (chatModelId) {
+        chatModelWithApi = await getChatModelById(chatModelId) ?? await getDefaultChatModel(user);
+    } else {
+        chatModelWithApi = await getDefaultChatModel(user);
+    }
 
     if (!chatModelWithApi) {
         log.error('No chat model configured');

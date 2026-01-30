@@ -84,6 +84,8 @@ interface ResearchConfig {
     abortSignal?: AbortSignal;
     // For user confirmation on dangerous operations
     confirmationContext?: ConfirmationContext;
+    // Chat model ID to use for this conversation (overrides user's default)
+    chatModelId?: number;
     // Step count when iteration threshold was first reached, for stable warning injection
     thresholdStepCount?: number;
 }
@@ -470,7 +472,8 @@ async function pickNextTool(
             toolChoice,
             true,      // deepThought
             false,     // fastMode
-            config.user // user - for user's selected model
+            config.user, // user - for user's selected model
+            config.chatModelId,
         );
 
         // Check if response is valid

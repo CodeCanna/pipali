@@ -43,6 +43,8 @@ export interface ResearchRunnerOptions {
     systemPrompt?: string;
     /** Confirmation context for dangerous operations */
     confirmationContext?: ConfirmationContext;
+    /** Chat model ID to use for this conversation */
+    chatModelId?: number;
     /** Callback when tool calls are about to start (before execution) */
     onToolCallStart?: (iteration: ResearchIteration) => void;
     /** Callback when an iteration completes (after execution) */
@@ -164,6 +166,7 @@ export async function* runResearchWithConversation(
         systemPrompt,
         abortSignal,
         confirmationContext,
+        chatModelId: options.chatModelId,
     })) {
         // On first iteration (new conversation), persist system prompt and user message to DB
         // System prompt is persisted first to maintain correct ordering: system → user → agent

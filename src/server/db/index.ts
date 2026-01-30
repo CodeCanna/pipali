@@ -19,6 +19,11 @@ export async function closeDatabase(): Promise<void> {
     log.info('Database connection closed.');
 }
 
+export async function getChatModelById(chatModelId: number): Promise<ChatModelWithApi | undefined> {
+    const [result] = await db.select({ chatModel: ChatModel, aiModelApi: AiModelApi }).from(ChatModel).leftJoin(AiModelApi, eq(ChatModel.aiModelApiId, AiModelApi.id)).where(eq(ChatModel.id, chatModelId));
+    return result ? { chatModel: result.chatModel, aiModelApi: result.aiModelApi } : undefined;
+}
+
 export async function getDefaultChatModel(user?: typeof User.$inferSelect, fallbackChatModel?: typeof ChatModel.$inferSelect): Promise<ChatModelWithApi | undefined> {
     // Use default chat model if set
     if (fallbackChatModel) {
