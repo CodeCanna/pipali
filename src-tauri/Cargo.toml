@@ -1,8 +1,8 @@
 [package]
 name = "pipali"
 version = "0.1.0"
-description = "Pipali - Personal AI"
-authors = ["Pipali Team"]
+description = "Pipali - Personal AI for knowledge work. Make work easy."
+authors = ["Khoj"]
 edition = "2021"
 
 # Note: crate-type not specified - defaults to rlib, which is what we need
