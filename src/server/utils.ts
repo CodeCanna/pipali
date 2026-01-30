@@ -3,15 +3,8 @@ import path from 'path';
 const maxIterations = parseInt(process.env.PIPALI_RESEARCH_ITERATIONS || '100', 10);
 
 function getDefaultUser() {
-    if (process.env.PIPALI_ADMIN_EMAIL && process.env.PIPALI_ADMIN_PASSWORD) {
-        return {
-            email: process.env.PIPALI_ADMIN_EMAIL,
-            password: process.env.PIPALI_ADMIN_PASSWORD,
-        };
-    }
     return {
         email: 'admin@localhost',
-        password: 'admin',
     };
 }
 

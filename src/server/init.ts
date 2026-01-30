@@ -36,18 +36,16 @@ async function setupChatModelProvider(providerName: string, modelType: 'openai' 
 }
 
 export async function initializeDatabase() {
-    // 1. Create Admin User
-    const adminUserEmail = getDefaultUser().email;
-    const adminUserPassword = getDefaultUser().password;
+    // 1. Create default local user (used to associate all local state in the embedded DB)
+    const defaultUserEmail = getDefaultUser().email;
 
-    const [existingAdmin] = await db.select().from(User).where(eq(User.email, adminUserEmail));
+    const [existingUser] = await db.select().from(User).where(eq(User.email, defaultUserEmail));
 
-    if (!existingAdmin) {
-        log.info(`👩‍✈️ Creating admin user: ${adminUserEmail}. These credentials will allow you to configure your server at /server/admin.`);
+    if (!existingUser) {
+        log.info(`👤 Creating default local user: ${defaultUserEmail}`);
         await db.insert(User).values({
-            email: adminUserEmail,
-            username: adminUserEmail,
-            password: adminUserPassword, // Note: Storing plaintext password. In production, this should be hashed.
+            email: defaultUserEmail,
+            username: defaultUserEmail,
         });
     }
 
