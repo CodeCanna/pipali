@@ -25,7 +25,7 @@ import { useFocusManagement, useModels, useSidecar, useWebSocketChat } from "./h
 // Utils
 import { setApiBaseUrl, apiFetch } from "./utils/api";
 import { initNotifications, notifyConfirmationRequest, notifyTaskComplete, setNotificationClickHandler, setupFocusNavigationListener } from "./utils/notifications";
-import { onWindowShown, onSidecarReady, listenForDeepLinks } from "./utils/tauri";
+import { isTauri, onWindowShown, onSidecarReady, listenForDeepLinks } from "./utils/tauri";
 
 // Components
 import { Header, Sidebar, InputArea } from "./components/layout";
@@ -498,6 +498,19 @@ const App = () => {
 
         window.addEventListener('keydown', handleFindShortcut);
         return () => window.removeEventListener('keydown', handleFindShortcut);
+    }, []);
+
+    // Global Cmd/Ctrl+R listener for page reload in desktop app
+    useEffect(() => {
+        if (!isTauri()) return;
+        const handleReload = (e: KeyboardEvent) => {
+            if (e.key === 'r' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+                window.location.reload();
+            }
+        };
+        window.addEventListener('keydown', handleReload);
+        return () => window.removeEventListener('keydown', handleReload);
     }, []);
 
     // ===== API Functions =====

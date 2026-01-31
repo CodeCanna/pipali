@@ -77,17 +77,34 @@ export async function onSidecarReady(callback: () => void): Promise<() => void> 
         return () => {};
     }
 
+    let called = false;
+    const callOnce = () => {
+        if (called) return;
+        called = true;
+        callback();
+    };
+
+    // Check if sidecar is already running (handles page refresh case)
+    const apiBase = getApiBaseUrl();
+    if (apiBase) {
+        fetch(`${apiBase}/api/health`).then((res) => {
+            if (res.ok) {
+                console.log('[onSidecarReady] Sidecar already running');
+                callOnce();
+            }
+        }).catch(() => {});
+    }
+
     try {
         const { listen } = await import('@tauri-apps/api/event');
         const unlisten = await listen('sidecar-ready', () => {
             console.log('[onSidecarReady] Sidecar ready event received');
-            callback();
+            callOnce();
         });
         return unlisten;
     } catch (err) {
         console.warn('[onSidecarReady] Failed to setup listener:', err);
-        // Fall back to calling immediately if we can't listen
-        callback();
+        callOnce();
         return () => {};
     }
 }
