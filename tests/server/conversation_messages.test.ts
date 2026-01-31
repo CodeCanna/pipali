@@ -312,29 +312,19 @@ describe('generateChatmlMessagesWithContext', () => {
             ];
             const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
 
-            // function_call + function_call_output (text only) + user message with image
-            expect(messages).toHaveLength(3);
+            // function_call + function_call_output with multimodal content
+            expect(messages).toHaveLength(2);
 
-            // Function call
             expect((messages[0] as any).type).toBe('function_call');
 
-            // Function output should have text only
-            expect((messages[1] as any).type).toBe('function_call_output');
-            expect((messages[1] as any).output).toBe('Read image file: photo.png\nSize: 1.5 KB');
-
-            // User message with image content
-            const userMsg = messages[2] as any;
-            expect(userMsg.role).toBe('user');
-            expect(Array.isArray(userMsg.content)).toBe(true);
-            expect(userMsg.content).toHaveLength(2);
-
-            // Text converted to input_text
-            expect(userMsg.content[0].type).toBe('input_text');
-            expect(userMsg.content[0].text).toContain('Read image file:');
-
-            // Image converted to input_image with data URL
-            expect(userMsg.content[1].type).toBe('input_image');
-            expect(userMsg.content[1].image_url).toBe('data:image/png;base64,iVBORw0KGgo=');
+            // Function output contains multimodal content directly
+            const output = (messages[1] as any).output;
+            expect(Array.isArray(output)).toBe(true);
+            expect(output).toHaveLength(2);
+            expect(output[0].type).toBe('input_text');
+            expect(output[0].text).toContain('Read image file:');
+            expect(output[1].type).toBe('input_image');
+            expect(output[1].image_url).toBe('data:image/png;base64,iVBORw0KGgo=');
         });
 
         test('should handle multiple images in single tool result', () => {
@@ -362,15 +352,15 @@ describe('generateChatmlMessagesWithContext', () => {
             ];
             const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
 
-            const userMsg = messages[2] as any;
-            expect(userMsg.content).toHaveLength(4);
-            expect(userMsg.content[0].type).toBe('input_text');
-            expect(userMsg.content[1].type).toBe('input_image');
-            expect(userMsg.content[1].image_url).toBe('data:image/png;base64,png1data');
-            expect(userMsg.content[2].type).toBe('input_image');
-            expect(userMsg.content[2].image_url).toBe('data:image/jpeg;base64,jpg2data');
-            expect(userMsg.content[3].type).toBe('input_image');
-            expect(userMsg.content[3].image_url).toBe('data:image/gif;base64,gif3data');
+            const output = (messages[1] as any).output;
+            expect(output).toHaveLength(4);
+            expect(output[0].type).toBe('input_text');
+            expect(output[1].type).toBe('input_image');
+            expect(output[1].image_url).toBe('data:image/png;base64,png1data');
+            expect(output[2].type).toBe('input_image');
+            expect(output[2].image_url).toBe('data:image/jpeg;base64,jpg2data');
+            expect(output[3].type).toBe('input_image');
+            expect(output[3].image_url).toBe('data:image/gif;base64,gif3data');
         });
 
         test('should use default text when image content has no text block', () => {
@@ -395,7 +385,11 @@ describe('generateChatmlMessagesWithContext', () => {
             ];
             const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
 
-            expect((messages[1] as any).output).toBe('Content loaded');
+            const output = (messages[1] as any).output;
+            expect(Array.isArray(output)).toBe(true);
+            expect(output).toHaveLength(1);
+            expect(output[0].type).toBe('input_image');
+            expect(output[0].image_url).toBe('data:image/png;base64,abc');
         });
 
         test('should not convert non-image array content', () => {
@@ -668,16 +662,16 @@ describe('generateChatmlMessagesWithContext', () => {
             ];
             const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
 
-            // user + function_call + function_output + user(image) = 4
-            expect(messages).toHaveLength(4);
+            // user + function_call + function_output (with multimodal content) = 3
+            expect(messages).toHaveLength(3);
             expect((messages[0] as any).role).toBe('user');
             expect((messages[1] as any).type).toBe('function_call');
             expect((messages[2] as any).type).toBe('function_call_output');
-            expect((messages[3] as any).role).toBe('user');
 
-            // Verify image is in the last user message
-            const imgMsg = messages[3] as any;
-            expect(imgMsg.content[1].type).toBe('input_image');
+            // Verify image is in the function output
+            const output = (messages[2] as any).output;
+            expect(Array.isArray(output)).toBe(true);
+            expect(output[1].type).toBe('input_image');
         });
 
         test('should handle multiple tool calls where one returns an image', () => {
@@ -705,8 +699,8 @@ describe('generateChatmlMessagesWithContext', () => {
             ];
             const messages = generateChatmlMessagesWithContext('', history as ATIFStep[]);
 
-            // 2 function_calls + 2 function_outputs + 1 user(image) = 5
-            expect(messages).toHaveLength(5);
+            // 2 function_calls + 2 function_outputs = 4
+            expect(messages).toHaveLength(4);
 
             expect((messages[0] as any).type).toBe('function_call');
             expect((messages[0] as any).call_id).toBe('call_text');
@@ -716,10 +710,12 @@ describe('generateChatmlMessagesWithContext', () => {
             expect((messages[2] as any).type).toBe('function_call_output');
             expect((messages[2] as any).output).toContain('Readme');
 
+            // Image tool output contains multimodal content
             expect((messages[3] as any).type).toBe('function_call_output');
-            expect((messages[3] as any).output).toBe('Read image: diagram.png');
-
-            expect((messages[4] as any).role).toBe('user');
+            const imgOutput = (messages[3] as any).output;
+            expect(Array.isArray(imgOutput)).toBe(true);
+            expect(imgOutput[0].type).toBe('input_text');
+            expect(imgOutput[1].type).toBe('input_image');
         });
     });
 });

@@ -133,23 +133,12 @@ export function generateChatmlMessagesWithContext(
                 for (const result of msg.observation.results) {
                     // Handle multimodal content (images from view_file, MCP tools, etc.)
                     if (Array.isArray(result.content) && hasProviderAgnosticImage(result.content)) {
-                        // Extract text for tool output acknowledgment
-                        const textItem = result.content.find((item: any) => item.type === 'text');
-                        const textOutput = textItem?.text ?? 'Content loaded';
-
                         // Add text-only function output for the tool result
                         messages.push({
                             type: 'function_call_output',
                             call_id: result.source_call_id,
-                            output: textOutput,
+                            output: convertToOpenAIImageContent(result.content),
                         } as Responses.ResponseInputItem.FunctionCallOutput);
-
-                        // Add user message with image content for the model to see
-                        messages.push({
-                            type: 'message',
-                            role: 'user',
-                            content: convertToOpenAIImageContent(result.content),
-                        } as Responses.EasyInputMessage);
                     } else {
                         // Standard text output
                         messages.push({
