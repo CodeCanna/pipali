@@ -1,9 +1,10 @@
 mod commands;
+mod wake_lock;
 
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
@@ -451,6 +452,7 @@ pub fn run() {
             show_window(app);
         }))
         .manage(SidecarState::default())
+        .manage(wake_lock::WakeLockState::default())
         .setup(|app| {
             // Initialize updater plugin
             #[cfg(desktop)]
@@ -521,9 +523,14 @@ pub fn run() {
 
             // Setup system tray menu
             let show_item = MenuItemBuilder::with_id("show", "Show Pipali").build(app)?;
+            let keep_awake_item = CheckMenuItemBuilder::with_id("keep_awake", "Keep Device Awake")
+                .checked(false)
+                .build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let tray_menu = MenuBuilder::new(app)
                 .item(&show_item)
+                .separator()
+                .item(&keep_awake_item)
                 .separator()
                 .item(&quit_item)
                 .build()?;
@@ -558,6 +565,11 @@ pub fn run() {
                     match event.id().as_ref() {
                         "show" => {
                             show_window(&app_handle);
+                        }
+                        "keep_awake" => {
+                            let state: State<wake_lock::WakeLockState> = app_handle.state();
+                            let is_checked = state.user_toggle();
+                            log::info!("[WakeLock] User toggled keep awake: {}", is_checked);
                         }
                         "quit" => {
                             log::info!("[App] Quit requested from tray menu");
@@ -594,7 +606,9 @@ pub fn run() {
             commands::get_sidecar_host,
             commands::get_sidecar_config,
             commands::restart_sidecar,
-            commands::focus_window
+            commands::focus_window,
+            wake_lock::acquire_wake_lock,
+            wake_lock::release_wake_lock
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -627,6 +641,10 @@ pub fn run() {
                     log::info!("[App] Exiting, stopping sidecar...");
                     if let Err(e) = stop_sidecar(app_handle) {
                         log::error!("Error stopping sidecar on exit: {}", e);
+                    }
+                    // Release wake lock on exit
+                    if let Some(state) = app_handle.try_state::<wake_lock::WakeLockState>() {
+                        state.release_all();
                     }
                 }
                 _ => {}

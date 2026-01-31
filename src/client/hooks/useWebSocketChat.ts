@@ -18,6 +18,7 @@
 
 import { useReducer, useRef, useCallback, useEffect } from 'react';
 import type { Message, Thought, ConversationState, ConfirmationRequest, BillingError } from '../types';
+import { acquireWakeLock, releaseWakeLock } from '../utils/tauri';
 import { formatToolCallsForSidebar } from '../utils/formatting';
 
 // ============================================================================
@@ -862,6 +863,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions) {
                     clientMessageId: message.clientMessageId,
                     suggestedRunId: message.suggestedRunId,
                 });
+                acquireWakeLock();
                 break;
 
             case 'run_stopped':
@@ -872,6 +874,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions) {
                     reason: message.reason,
                     error: message.error,
                 });
+                releaseWakeLock();
                 if (message.reason === 'error' && message.error) {
                     onErrorCb?.(message.error, convId);
                 }
@@ -885,6 +888,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions) {
                     response: message.data.response,
                     stepId: message.data.stepId,
                 });
+                releaseWakeLock();
                 onTaskCompleteCb?.(undefined, message.data.response, convId);
                 break;
 
