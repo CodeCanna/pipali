@@ -121,6 +121,8 @@ To create an effective skill, understand concrete examples of how it will be use
 - "Can you give examples of how this skill would be used?"
 - "What would a user say that should trigger this skill?"
 
+You may ask the user if you can't infer the required information yourself.
+
 ### Step 2: Planning Reusable Contents
 
 Analyze each example by:
