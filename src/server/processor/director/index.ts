@@ -17,6 +17,7 @@ import { type ATIFMetrics, type ATIFObservationResult, type ATIFToolCall, type A
 import type { ConfirmationContext } from '../confirmation';
 import { getMcpToolDefinitions, executeMcpTool, isMcpTool } from '../mcp';
 import { PlatformBillingError } from '../../http/billing-errors';
+import { PlatformAuthError } from '../../http/platform-fetch';
 import { createChildLogger } from '../../logger';
 
 const log = createChildLogger({ component: 'director' });
@@ -575,8 +576,8 @@ async function pickNextTool(
             compactionSummary: response.compactionSummary,
         };
     } catch (error) {
-        // Re-throw billing errors so they can be handled by the caller (ws.ts)
-        if (error instanceof PlatformBillingError) {
+        // Re-throw billing/auth errors so they can be handled by the caller (ws.ts)
+        if (error instanceof PlatformBillingError || error instanceof PlatformAuthError) {
             throw error;
         }
         log.error({ err: error }, 'Failed to pick next tool');
