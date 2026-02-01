@@ -215,13 +215,6 @@ jobs:
         run: |
           security delete-keychain build.keychain || true
 
-      - name: ⏫ Upload macOS App Bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: Pipali-macos-arm64${{ inputs.debug_build && '-debug' || '' }}
-          path: src-tauri/target/${{ inputs.debug_build && 'debug' || 'release' }}/bundle/macos/Pipali-macos-arm64.tar
-          if-no-files-found: error
-
       - name: ⏫ Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
@@ -401,11 +394,10 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            artifacts/**/*.tar
             artifacts/**/*.dmg
             artifacts/**/*.deb
             artifacts/**/*.AppImage
-            artifacts/**/*.exe
+            artifacts/pipali-windows-x64-setup.exe/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
