@@ -165,11 +165,6 @@ export async function openFile(filePath: string): Promise<boolean> {
         }
     }
 
-    // macOS: /tmp is a symlink to /private/tmp. Tauri checks the canonical path.
-    if (path.startsWith('/tmp/')) {
-        path = '/private' + path;
-    }
-
     console.log('[openFile] Opening file:', path, { isTauri: isTauri(), isDesktop: isDesktopMode() });
 
     if (!isTauri()) {
@@ -178,12 +173,24 @@ export async function openFile(filePath: string): Promise<boolean> {
     }
 
     try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('open_file', { path });
+        const { openPath } = await import('@tauri-apps/plugin-opener');
+        console.log('[openFile] Using Tauri opener plugin openPath...');
+        await openPath(path);
         console.log('[openFile] File opened successfully');
         return true;
     } catch (err) {
-        console.error('[openFile] Failed to open file:', err);
+        console.error('[openFile] openPath failed:', err);
+    }
+
+    // Fallback: reveal the file in its folder (better than doing nothing)
+    try {
+        const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+        console.log('[openFile] Falling back to revealItemInDir...');
+        await revealItemInDir(path);
+        console.log('[openFile] revealItemInDir succeeded');
+        return true;
+    } catch (err) {
+        console.error('[openFile] revealItemInDir fallback failed:', err);
         return false;
     }
 }

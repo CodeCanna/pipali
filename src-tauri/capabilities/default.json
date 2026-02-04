@@ -22,6 +22,20 @@
     "shell:allow-stdin-write",
     "opener:default",
     "dialog:default",
-    "updater:default"
+    "updater:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "$HOME/**"
+        },
+        {
+          "path": "/tmp/pipali/**"
+        },
+        {
+          "path": "/private/tmp/pipali/**"
+        }
+      ]
+    }
   ]
 }
