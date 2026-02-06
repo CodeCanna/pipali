@@ -71,36 +71,36 @@ export async function sendMessageToModel(
         cacheWriteCostPerMillion: chatModelWithApi.chatModel.cacheWriteCostPerMillion,
     };
 
-    // Depending on the model type, you would call the appropriate function
-    if (aiModelType === 'openai') {
-        const startTime = Date.now();
+    const startTime = Date.now();
 
-        // For Pipali provider, use withTokenRefresh for automatic 401 retry
-        if (aiModelApiName === 'Pipali') {
-            try {
-                const response = await withTokenRefresh(async (token) => {
-                    return sendMessageToGpt(
-                        messages,
-                        chatModelWithApi.chatModel.name,
-                        token,
-                        chatModelWithApi.aiModelApi?.apiBaseUrl,
-                        tools,
-                        toolChoice,
-                        pricing,
-                    );
-                });
-                log.info({ model: modelName, durationMs: Date.now() - startTime }, 'Response received');
-                return response;
-            } catch (error) {
-                if (error instanceof PlatformAuthError) {
-                    log.error({ model: modelName, provider: aiModelApiName }, 'Platform authentication expired');
-                }
-                log.error({ err: error, model: modelName, provider: aiModelApiName }, 'LLM request failed');
-                throw error;
+    // Pipali Platform exposes an OpenAI-compatible Responses API for all model types
+    // (openai, anthropic, google), so route all platform models through sendMessageToGpt
+    if (aiModelApiName === 'Pipali') {
+        try {
+            const response = await withTokenRefresh(async (token) => {
+                return sendMessageToGpt(
+                    messages,
+                    chatModelWithApi.chatModel.name,
+                    token,
+                    chatModelWithApi.aiModelApi?.apiBaseUrl,
+                    tools,
+                    toolChoice,
+                    pricing,
+                );
+            });
+            log.info({ model: modelName, durationMs: Date.now() - startTime }, 'Response received');
+            return response;
+        } catch (error) {
+            if (error instanceof PlatformAuthError) {
+                log.error({ model: modelName, provider: aiModelApiName }, 'Platform authentication expired');
             }
+            log.error({ err: error, model: modelName, provider: aiModelApiName }, 'LLM request failed');
+            throw error;
         }
+    }
 
-        // For non-Pipali providers, use the stored API key directly
+    // For non-platform providers, route based on model type
+    if (aiModelType === 'openai') {
         try {
             const response = await sendMessageToGpt(
                 messages,
