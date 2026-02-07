@@ -2,6 +2,7 @@ import { test, expect, describe, beforeAll, afterAll } from 'bun:test';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
+import ExcelJS from 'exceljs';
 import { readFile } from '../../src/server/processor/actor/read_file';
 
 describe('readFile', () => {
@@ -291,6 +292,117 @@ describe('readFile', () => {
             const decodedBytes = Buffer.from(compiled[1]!.data, 'base64');
             expect(decodedBytes.length).toBe(minimalPngBytes.length);
             expect(new Uint8Array(decodedBytes)).toEqual(minimalPngBytes);
+        });
+    });
+
+    describe('Excel files', () => {
+        async function createTestXlsx(filePath: string, setup: (wb: ExcelJS.Workbook) => void) {
+            const wb = new ExcelJS.Workbook();
+            setup(wb);
+            await wb.xlsx.writeFile(filePath);
+        }
+
+        /** Parse the structured output into header metadata and per-sheet CSV rows */
+        function parseExcelOutput(compiled: string) {
+            const headerMatch = compiled.match(/^\[Excel: (\d+) sheet\(s\), (\d+) lines\]/);
+            const sheetCount = headerMatch ? parseInt(headerMatch[1]!) : 0;
+            const totalLines = headerMatch ? parseInt(headerMatch[2]!) : 0;
+
+            const sheetSections = compiled.split(/--- Sheet: /).slice(1);
+            const sheets = sheetSections.map(section => {
+                const lines = section.split('\n');
+                const name = lines[0]!.replace(/ ---$/, '');
+                const csvRows = lines.slice(1).filter(l => l.length > 0);
+                return { name, csvRows };
+            });
+
+            return { sheetCount, totalLines, sheets };
+        }
+
+        test('should read spreadsheet with correct CSV row structure', async () => {
+            const xlsxFile = path.join(testDir, 'basic.xlsx');
+            await createTestXlsx(xlsxFile, (wb) => {
+                const ws = wb.addWorksheet('Data');
+                ws.addRow(['Name', 'Age', 'City']);
+                ws.addRow(['Alice', 30, 'NYC']);
+                ws.addRow(['Bob', 25, 'London']);
+            });
+
+            const result = await readFile({ path: xlsxFile });
+            const { sheetCount, sheets } = parseExcelOutput(result.compiled as string);
+
+            expect(sheetCount).toBe(1);
+            expect(sheets).toHaveLength(1);
+            expect(sheets[0]!.name).toBe('Data');
+            expect(sheets[0]!.csvRows).toEqual([
+                'Name,Age,City',
+                'Alice,30,NYC',
+                'Bob,25,London',
+            ]);
+        });
+
+        test('should read multiple sheets in order', async () => {
+            const xlsxFile = path.join(testDir, 'multi-sheet.xlsx');
+            await createTestXlsx(xlsxFile, (wb) => {
+                const ws1 = wb.addWorksheet('Sales');
+                ws1.addRow(['Q1', 100]);
+                ws1.addRow(['Q2', 200]);
+                const ws2 = wb.addWorksheet('Expenses');
+                ws2.addRow(['Rent', 500]);
+            });
+
+            const result = await readFile({ path: xlsxFile });
+            const { sheetCount, sheets } = parseExcelOutput(result.compiled as string);
+
+            expect(sheetCount).toBe(2);
+            expect(sheets).toHaveLength(2);
+            expect(sheets[0]!.name).toBe('Sales');
+            expect(sheets[0]!.csvRows).toEqual(['Q1,100', 'Q2,200']);
+            expect(sheets[1]!.name).toBe('Expenses');
+            expect(sheets[1]!.csvRows).toEqual(['Rent,500']);
+        });
+
+        test('should CSV-escape cells containing commas and quotes', async () => {
+            const xlsxFile = path.join(testDir, 'special-chars.xlsx');
+            await createTestXlsx(xlsxFile, (wb) => {
+                const ws = wb.addWorksheet('Sheet1');
+                ws.addRow(['has,comma', 'has"quote', 'normal']);
+            });
+
+            const result = await readFile({ path: xlsxFile });
+            const { sheets } = parseExcelOutput(result.compiled as string);
+
+            expect(sheets[0]!.csvRows).toEqual([
+                '"has,comma","has""quote",normal',
+            ]);
+        });
+
+        test('should produce empty row list for sheet with no data', async () => {
+            const xlsxFile = path.join(testDir, 'empty-sheet.xlsx');
+            await createTestXlsx(xlsxFile, (wb) => {
+                wb.addWorksheet('Empty');
+            });
+
+            const result = await readFile({ path: xlsxFile });
+            const { sheetCount, sheets } = parseExcelOutput(result.compiled as string);
+
+            expect(sheetCount).toBe(1);
+            expect(sheets[0]!.name).toBe('Empty');
+            expect(sheets[0]!.csvRows).toEqual([]);
+        });
+
+        test('should return computed formula values, not formula strings', async () => {
+            const xlsxFile = path.join(testDir, 'formulas.xlsx');
+            await createTestXlsx(xlsxFile, (wb) => {
+                const ws = wb.addWorksheet('Calc');
+                ws.addRow([10, 20]);
+                ws.getCell('C1').value = { formula: 'A1+B1', result: 30 } as ExcelJS.CellFormulaValue;
+            });
+
+            const result = await readFile({ path: xlsxFile });
+            const { sheets } = parseExcelOutput(result.compiled as string);
+
+            expect(sheets[0]!.csvRows).toEqual(['10,20,30']);
         });
     });
 });

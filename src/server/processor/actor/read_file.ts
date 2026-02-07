@@ -4,7 +4,7 @@ import { resolveCaseInsensitivePath } from './actor.utils';
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 import { DocxLoader } from '@langchain/community/document_loaders/fs/docx';
 import { PPTXLoader } from '@langchain/community/document_loaders/fs/pptx';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { getSensitivePathReason } from '../../security';
 import {
     type ConfirmationContext,
@@ -62,7 +62,7 @@ const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 // Supported document formats
 const PDF_EXTENSION = '.pdf';
 const DOCX_EXTENSIONS = ['.docx', '.doc'];
-const EXCEL_EXTENSIONS = ['.xlsx', '.xls'];
+const EXCEL_EXTENSIONS = ['.xlsx'];
 const PPT_EXTENSIONS = ['.pptx', '.ppt'];
 
 /**
@@ -388,11 +388,38 @@ export async function readFile(
         if (isExcelFile(resolvedPath)) {
             try {
                 log.debug(`[XLSX] Reading: ${resolvedPath}`);
-                const arrayBuffer = await file.arrayBuffer();
-                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const { Readable } = await import('stream');
+                const nodeStream = Readable.fromWeb(file.stream() as any);
+                const reader = new ExcelJS.stream.xlsx.WorkbookReader(nodeStream, {
+                    sharedStrings: 'cache',
+                    styles: 'ignore',
+                    hyperlinks: 'ignore',
+                    worksheets: 'emit',
+                    entries: 'emit',
+                });
 
-                const sheetNames = workbook.SheetNames;
-                if (sheetNames.length === 0) {
+                // Stream sheets and rows to build CSV text
+                const sheetsText: string[] = [];
+                let sheetCount = 0;
+                for await (const worksheetReader of reader) {
+                    sheetCount++;
+                    const rows: string[] = [];
+                    for await (const row of worksheetReader) {
+                        const cells: string[] = [];
+                        for (let c = 1; c <= row.cellCount; c++) {
+                            const text = row.getCell(c).text ?? '';
+                            if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+                                cells.push(`"${text.replace(/"/g, '""')}"`);
+                            } else {
+                                cells.push(text);
+                            }
+                        }
+                        rows.push(cells.join(','));
+                    }
+                    sheetsText.push(`--- Sheet: ${(worksheetReader as any).name} ---\n${rows.join('\n')}`);
+                }
+
+                if (sheetCount === 0) {
                     return {
                         query,
                         file: filePath,
@@ -401,22 +428,12 @@ export async function readFile(
                     };
                 }
 
-                // Convert all sheets to text
-                const sheetsText: string[] = [];
-                for (const sheetName of sheetNames) {
-                    const sheet = workbook.Sheets[sheetName];
-                    if (sheet) {
-                        const csv = XLSX.utils.sheet_to_csv(sheet);
-                        sheetsText.push(`--- Sheet: ${sheetName} ---\n${csv}`);
-                    }
-                }
-
                 const xlsxText = sheetsText.join('\n\n');
-                log.debug(`[XLSX] Extracted ${xlsxText.length} characters from ${sheetNames.length} sheet(s)`);
+                log.debug(`[XLSX] Extracted ${xlsxText.length} characters from ${sheetCount} sheet(s)`);
 
                 const filterResult = applyLineFilter(xlsxText, offset, limit);
                 const truncationMsg = formatTruncationMessage(filterResult, 'Spreadsheet');
-                const filteredText = `[Excel: ${sheetNames.length} sheet(s), ${filterResult.totalLines} lines]\n\n${filterResult.content}${truncationMsg}`;
+                const filteredText = `[Excel: ${sheetCount} sheet(s), ${filterResult.totalLines} lines]\n\n${filterResult.content}${truncationMsg}`;
 
                 return {
                     query,
