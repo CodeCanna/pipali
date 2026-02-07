@@ -582,8 +582,10 @@ pub fn run() {
 
             // Register global shortcut: Alt+Space
             let shortcut: Shortcut = "Alt+Space".parse().unwrap();
-            app.global_shortcut().register(shortcut)?;
-            log::info!("[App] Global shortcut Alt+Space registered");
+            match app.global_shortcut().register(shortcut) {
+                Ok(_) => log::info!("[App] Global shortcut Alt+Space registered"),
+                Err(e) => log::warn!("[App] Failed to register Alt+Space shortcut (may already be in use): {e}"),
+            }
 
             // Handle deep links when app is already running (macOS)
             #[cfg(any(target_os = "macos", target_os = "ios"))]
