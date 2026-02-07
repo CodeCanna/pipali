@@ -117,21 +117,27 @@ async function runTaggedMigrations(migrations: TaggedMigration[]) {
 
         log.info(`  🔄 Running migration: ${hash}`);
 
-        // Split by the Drizzle breakpoint marker and execute each statement
-        const statements = migration.sql.split('--> statement-breakpoint');
+        // Wrap entire migration in a transaction so partial failures roll back cleanly.
+        // PostgreSQL (and PGlite) support transactional DDL, so CREATE TABLE,
+        // ALTER TABLE etc. are all rolled back if any statement fails.
+        // This prevents corrupted DB state from half-applied migrations.
+        await db.transaction(async (tx) => {
+            // Split by the Drizzle breakpoint marker and execute each statement
+            const statements = migration.sql.split('--> statement-breakpoint');
 
-        for (const statement of statements) {
-            const trimmed = statement.trim();
-            if (trimmed) {
-                await db.execute(sql.raw(trimmed));
+            for (const statement of statements) {
+                const trimmed = statement.trim();
+                if (trimmed) {
+                    await tx.execute(sql.raw(trimmed));
+                }
             }
-        }
 
-        // Record the migration
-        await db.execute(sql`
-            INSERT INTO "__drizzle_migrations" (hash, created_at)
-            VALUES (${hash}, ${Date.now()})
-        `);
+            // Record the migration (inside the same transaction)
+            await tx.execute(sql`
+                INSERT INTO "__drizzle_migrations" (hash, created_at)
+                VALUES (${hash}, ${Date.now()})
+            `);
+        });
 
         log.info(`  ✅ Applied: ${hash}`);
     }
