@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { MessageCircleQuestion, Send } from 'lucide-react';
 import type { ConfirmationRequest, ConfirmationOption } from '../../types';
 import { DiffView } from '../tool-views/DiffView';
-import { shortenHomePath } from '../../utils/parseCommand';
+import { shortenHomePath } from '../../utils/formatting';
 import { getOperationTypePillClass } from './utils';
 
 interface ConfirmationDialogProps {

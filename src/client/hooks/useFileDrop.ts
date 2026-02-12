@@ -14,6 +14,7 @@ import {
     pickFiles,
 } from '../utils/tauri';
 import { getApiBaseUrl } from '../utils/api';
+import { generateUUID } from '../utils/formatting';
 
 export interface StagedFile {
     id: string;
@@ -61,7 +62,7 @@ export function useFileDrop() {
             try {
                 const results = await getDroppedFileMetadata(paths);
                 const newFiles: StagedFile[] = results.map(r => ({
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     fileName: r.fileName,
                     filePath: r.filePath,
                     sizeBytes: r.sizeBytes,
@@ -134,7 +135,7 @@ export function useFileDrop() {
             if (res.ok) {
                 const data = await res.json();
                 const newFiles: StagedFile[] = data.files.map((f: any) => ({
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     fileName: f.fileName,
                     filePath: f.filePath,
                     sizeBytes: f.sizeBytes,
@@ -156,7 +157,7 @@ export function useFileDrop() {
             try {
                 const results = await getDroppedFileMetadata(paths);
                 const newFiles: StagedFile[] = results.map(r => ({
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     fileName: r.fileName,
                     filePath: r.filePath,
                     sizeBytes: r.sizeBytes,

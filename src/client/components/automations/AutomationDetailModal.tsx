@@ -5,7 +5,7 @@ import { X, Loader2, Trash2, Play, Pause, Calendar, Clock, Pencil, Save, AlertCi
 import type { AutomationInfo, FrequencyType, DayOfWeek, AutomationPendingConfirmation } from '../../types/automations';
 import { DAYS_OF_WEEK, TIME_OPTIONS, DAY_OF_MONTH_OPTIONS, MINUTE_OPTIONS } from '../../types/automations';
 import { DiffView } from '../tool-views/DiffView';
-import { shortenHomePath } from '../../utils/parseCommand';
+import { shortenHomePath } from '../../utils/formatting';
 import { apiFetch } from '../../utils/api';
 
 interface AutomationDetailModalProps {

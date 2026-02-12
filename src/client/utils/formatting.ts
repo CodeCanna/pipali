@@ -195,3 +195,24 @@ export function formatToolArgsRich(toolName: string, args: any): RichToolArgs | 
             return null;
     }
 }
+
+/**
+ * Shorten home directory path for display
+ */
+export function shortenHomePath(path: string | undefined): string {
+    return path?.replace(/^\/Users\/[^/]+/, '~') || '~';
+}
+
+// UUID generator that works in non-secure contexts (e.g., HTTP on non-localhost)
+export function generateUUID(): string {
+    try {
+        return crypto.randomUUID();
+    } catch {
+        // Fallback for non-secure contexts where crypto.randomUUID throws
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
+    }
+}

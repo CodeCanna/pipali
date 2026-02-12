@@ -1,10 +1,10 @@
 // Toast notification for confirmation requests from background tasks
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronUp, X, Bot, Clock, Send, MessageCircleQuestion } from 'lucide-react';
 import type { PendingConfirmation } from '../../types/confirmation';
 import { DiffView } from '../tool-views/DiffView';
-import { shortenHomePath } from '../../utils/parseCommand';
+import { shortenHomePath } from '../../utils/formatting';
 import { getButtonClass, formatTimeRemaining, hasExpandableContent, getMessagePreview, getOperationTypePillClass } from './utils';
 
 interface ConfirmationToastProps {

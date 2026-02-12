@@ -19,7 +19,7 @@
 import { useReducer, useRef, useCallback, useEffect } from 'react';
 import type { Message, Thought, ConversationState, ConfirmationRequest, BillingError } from '../types';
 import { acquireWakeLock, releaseWakeLock } from '../utils/tauri';
-import { formatToolCallsForSidebar } from '../utils/formatting';
+import { formatToolCallsForSidebar, generateUUID } from '../utils/formatting';
 
 // ============================================================================
 // Types
@@ -86,18 +86,6 @@ export interface StopOptions {
 // ============================================================================
 // Helpers
 // ============================================================================
-
-function generateUUID(): string {
-    try {
-        return crypto.randomUUID();
-    } catch {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-        });
-    }
-}
 
 function findRunAssistantIndex(messages: Message[], runId: string): number {
     return messages.findIndex(m => m.role === 'assistant' && m.stableId === runId);

@@ -24,6 +24,7 @@ import { useFocusManagement, useFileDrop, useModels, useSidecar, useWebSocketCha
 
 // Utils
 import { setApiBaseUrl, apiFetch } from "./utils/api";
+import { generateUUID } from "./utils/formatting";
 import { initNotifications, notifyConfirmationRequest, notifyTaskComplete, setNotificationClickHandler, setupFocusNavigationListener } from "./utils/notifications";
 import { isTauri, onWindowShown, onSidecarReady, listenForDeepLinks } from "./utils/tauri";
 
@@ -43,20 +44,6 @@ import type { AutomationPendingConfirmation } from "./types/automations";
 
 // Page types
 type PageType = 'home' | 'chat' | 'skills' | 'automations' | 'mcp-tools' | 'settings';
-
-// UUID generator that works in non-secure contexts (e.g., HTTP on non-localhost)
-function generateUUID(): string {
-    try {
-        return crypto.randomUUID();
-    } catch {
-        // Fallback for non-secure contexts where crypto.randomUUID throws
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-        });
-    }
-}
 
 const App = () => {
     // Sidecar configuration (for Tauri desktop app)
