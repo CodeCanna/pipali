@@ -18,6 +18,7 @@
 
 .input-form {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 12px;
     padding: 12px 16px;
@@ -117,4 +118,114 @@
     font-size: 12px;
     color: var(--color-text-muted);
     text-align: center;
+}
+
+/* Drop Zone Overlay */
+.drop-zone-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.drop-zone-inner {
+    border: 2px dashed var(--color-accent);
+    border-radius: var(--radius-xl);
+    padding: 48px 64px;
+    text-align: center;
+    color: var(--color-text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.drop-zone-inner p {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.drop-zone-inner svg {
+    color: var(--color-accent);
+}
+
+/* Staged File Chips */
+.staged-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.staged-file-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    max-width: 220px;
+}
+
+.staged-file-chip .file-thumbnail {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.staged-file-chip .file-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.staged-file-chip .file-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.staged-file-chip .file-name {
+    font-size: 13px;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.staged-file-chip .file-size {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.staged-file-chip .remove-file {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+    padding: 0;
+    transition: color var(--transition), background var(--transition);
+}
+
+.staged-file-chip .remove-file:hover {
+    background: var(--color-border);
+    color: var(--color-text);
 }

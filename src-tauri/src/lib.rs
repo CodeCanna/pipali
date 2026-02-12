@@ -609,6 +609,7 @@ pub fn run() {
             commands::get_sidecar_config,
             commands::restart_sidecar,
             commands::focus_window,
+            commands::get_dropped_file_metadata,
             wake_lock::acquire_wake_lock,
             wake_lock::release_wake_lock
         ])
@@ -629,6 +630,31 @@ pub fn run() {
                         }
                         hide_from_dock(app_handle);
                         log::info!("[App] Window '{}' hidden to tray", label);
+                    }
+                }
+                tauri::RunEvent::WindowEvent {
+                    event: tauri::WindowEvent::DragDrop(drag_event),
+                    ..
+                } => {
+                    match drag_event {
+                        tauri::DragDropEvent::Enter { paths, .. } => {
+                            let _ = app_handle.emit("file-drag-enter", serde_json::json!({
+                                "count": paths.len(),
+                            }));
+                        }
+                        tauri::DragDropEvent::Drop { paths, .. } => {
+                            let path_strings: Vec<String> = paths
+                                .iter()
+                                .map(|p| p.to_string_lossy().to_string())
+                                .collect();
+                            let _ = app_handle.emit("file-dropped", serde_json::json!({
+                                "paths": path_strings,
+                            }));
+                        }
+                        tauri::DragDropEvent::Leave => {
+                            let _ = app_handle.emit("file-drag-leave", ());
+                        }
+                        _ => {}
                     }
                 }
                 tauri::RunEvent::ExitRequested { .. } => {

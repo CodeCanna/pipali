@@ -1,9 +1,13 @@
-// Message input area with send/stop controls
+// Message input area with send/stop controls and file attachment support
 
 import React, { useEffect } from 'react';
-import { ArrowUp, Square } from 'lucide-react';
+import { ArrowUp, Square, Upload, X, FileText, FileSpreadsheet, File } from 'lucide-react';
 import type { ConfirmationRequest } from '../../types';
+import type { StagedFile } from '../../hooks/useFileDrop';
 import { ConfirmationDialog } from '../confirmation/ConfirmationDialog';
+import { formatFileSize } from '../../utils/formatting';
+import { localImageSrc } from '../../utils/markdown';
+import { getApiBaseUrl } from '../../utils/api';
 
 interface InputAreaProps {
     input: string;
@@ -19,6 +23,21 @@ interface InputAreaProps {
     onConfirmationRespond: (optionId: string, guidance?: string) => void;
     textareaRef: React.RefObject<HTMLTextAreaElement | null>;
     onBackgroundSend?: () => void;
+    stagedFiles?: StagedFile[];
+    isDragging?: boolean;
+    onRemoveFile?: (id: string) => void;
+}
+
+const SPREADSHEET_EXTS = ['.xlsx', '.xls', '.csv'];
+const TEXT_EXTS = ['.txt', '.md', '.json', '.xml', '.yaml', '.yml', '.toml', '.log'];
+
+function getFileIcon(fileName: string) {
+    const dot = fileName.lastIndexOf('.');
+    if (dot === -1) return <File size={20} />;
+    const ext = fileName.slice(dot).toLowerCase();
+    if (SPREADSHEET_EXTS.includes(ext)) return <FileSpreadsheet size={20} />;
+    if (TEXT_EXTS.includes(ext)) return <FileText size={20} />;
+    return <File size={20} />;
 }
 
 export function InputArea({
@@ -35,7 +54,13 @@ export function InputArea({
     onConfirmationRespond,
     textareaRef,
     onBackgroundSend,
+    stagedFiles = [],
+    isDragging = false,
+    onRemoveFile,
 }: InputAreaProps) {
+    const hasFiles = stagedFiles.length > 0;
+    const canSend = input.trim() || hasFiles;
+
     // Auto-resize textarea
     useEffect(() => {
         if (textareaRef.current) {
@@ -46,6 +71,16 @@ export function InputArea({
 
     return (
         <footer className="input-area">
+            {/* Drop zone overlay */}
+            {isDragging && (
+                <div className="drop-zone-overlay">
+                    <div className="drop-zone-inner">
+                        <Upload size={32} />
+                        <p>Drop files here</p>
+                    </div>
+                </div>
+            )}
+
             {/* Confirmation Dialog - positioned above chat input for current conversation */}
             {pendingConfirmation && (
                 <ConfirmationDialog
@@ -56,6 +91,37 @@ export function InputArea({
 
             <div className="input-container">
                 <form onSubmit={onSubmit} className="input-form">
+                    {/* Staged file chips */}
+                    {hasFiles && (
+                        <div className="staged-files">
+                            {stagedFiles.map(file => (
+                                <div key={file.id} className="staged-file-chip">
+                                    {file.isImage ? (
+                                        <img
+                                            src={localImageSrc(file.filePath, getApiBaseUrl()) || ''}
+                                            alt={file.fileName}
+                                            className="file-thumbnail"
+                                        />
+                                    ) : (
+                                        <span className="file-icon">{getFileIcon(file.fileName)}</span>
+                                    )}
+                                    <span className="file-info">
+                                        <span className="file-name" title={file.fileName}>{file.fileName}</span>
+                                        <span className="file-size">{formatFileSize(file.sizeBytes)}</span>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="remove-file"
+                                        onClick={() => onRemoveFile?.(file.id)}
+                                        title="Remove file"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     <textarea
                         ref={textareaRef}
                         value={input}
@@ -84,7 +150,7 @@ export function InputArea({
                     <div className="input-buttons">
                         {/* Single action button: Send / Stop */}
                         {isProcessing ? (
-                            input.trim() ? (
+                            canSend ? (
                                 <button
                                     type="submit"
                                     disabled={!isConnected}
@@ -106,7 +172,7 @@ export function InputArea({
                         ) : (
                             <button
                                 type="submit"
-                                disabled={!input.trim() || !isConnected}
+                                disabled={!canSend || !isConnected}
                                 className="action-button send"
                             >
                                 <ArrowUp size={18} />

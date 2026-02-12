@@ -1,0 +1,165 @@
+// Hook for managing file drag-and-drop state.
+// Tauri mode: listens for native drag-drop events, reads file metadata via Rust command.
+// Web mode: uses HTML5 drag-and-drop with POST /api/upload.
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    isTauri,
+    onFileDragEnter,
+    onFileDragLeave,
+    onFileDropped,
+    getDroppedFileMetadata,
+} from '../utils/tauri';
+import { getApiBaseUrl } from '../utils/api';
+
+export interface StagedFile {
+    id: string;
+    fileName: string;
+    filePath: string;
+    sizeBytes: number;
+    isImage: boolean;
+}
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
+function isImageFile(fileName: string): boolean {
+    const dot = fileName.lastIndexOf('.');
+    if (dot === -1) return false;
+    return IMAGE_EXTENSIONS.includes(fileName.slice(dot).toLowerCase());
+}
+
+export function useFileDrop() {
+    const [isDragging, setIsDragging] = useState(false);
+    const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const dragLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Tauri native drag-drop listeners
+    useEffect(() => {
+        if (!isTauri()) return;
+
+        const unlisteners: Array<() => void> = [];
+
+        onFileDragEnter(() => {
+            if (dragLeaveTimerRef.current) {
+                clearTimeout(dragLeaveTimerRef.current);
+                dragLeaveTimerRef.current = null;
+            }
+            setIsDragging(true);
+        }).then(u => unlisteners.push(u));
+
+        onFileDragLeave(() => {
+            dragLeaveTimerRef.current = setTimeout(() => setIsDragging(false), 100);
+        }).then(u => unlisteners.push(u));
+
+        onFileDropped(async ({ paths }) => {
+            setIsDragging(false);
+            setIsProcessing(true);
+            try {
+                const results = await getDroppedFileMetadata(paths);
+                const newFiles: StagedFile[] = results.map(r => ({
+                    id: crypto.randomUUID(),
+                    fileName: r.fileName,
+                    filePath: r.filePath,
+                    sizeBytes: r.sizeBytes,
+                    isImage: isImageFile(r.fileName),
+                }));
+                setStagedFiles(prev => [...prev, ...newFiles]);
+            } finally {
+                setIsProcessing(false);
+            }
+        }).then(u => unlisteners.push(u));
+
+        return () => { unlisteners.forEach(u => u()); };
+    }, []);
+
+    // HTML5 drag-drop for web mode
+    useEffect(() => {
+        if (isTauri()) return;
+
+        const handleDragOver = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.dataTransfer?.types.includes('Files')) {
+                setIsDragging(true);
+            }
+        };
+
+        const handleDragLeave = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!e.relatedTarget) {
+                setIsDragging(false);
+            }
+        };
+
+        const handleDrop = async (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragging(false);
+
+            const files = e.dataTransfer?.files;
+            if (!files || files.length === 0) return;
+
+            setIsProcessing(true);
+            try {
+                const formData = new FormData();
+                for (const file of files) {
+                    formData.append('files', file);
+                }
+                const baseUrl = getApiBaseUrl();
+                const res = await fetch(`${baseUrl}/api/upload`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const newFiles: StagedFile[] = data.files.map((f: any) => ({
+                        id: crypto.randomUUID(),
+                        fileName: f.fileName,
+                        filePath: f.filePath,
+                        sizeBytes: f.sizeBytes,
+                        isImage: isImageFile(f.fileName),
+                    }));
+                    setStagedFiles(prev => [...prev, ...newFiles]);
+                }
+            } finally {
+                setIsProcessing(false);
+            }
+        };
+
+        document.addEventListener('dragover', handleDragOver);
+        document.addEventListener('dragleave', handleDragLeave);
+        document.addEventListener('drop', handleDrop);
+
+        return () => {
+            document.removeEventListener('dragover', handleDragOver);
+            document.removeEventListener('dragleave', handleDragLeave);
+            document.removeEventListener('drop', handleDrop);
+        };
+    }, []);
+
+    const removeFile = useCallback((id: string) => {
+        setStagedFiles(prev => prev.filter(f => f.id !== id));
+    }, []);
+
+    const clearFiles = useCallback(() => {
+        setStagedFiles([]);
+    }, []);
+
+    /** Build the <attached_files> block to append to user message text. */
+    const formatAttachedFilesMessage = useCallback((files: StagedFile[]): string => {
+        if (files.length === 0) return '';
+        const fileList = files.map(f => `- ${f.filePath}`).join('\n');
+        return `\n\n<attached_files>\n${fileList}\n</attached_files>`;
+    }, []);
+
+    return {
+        isDragging,
+        stagedFiles,
+        isProcessing,
+        removeFile,
+        clearFiles,
+        formatAttachedFilesMessage,
+    };
+}

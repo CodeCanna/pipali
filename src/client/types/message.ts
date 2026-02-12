@@ -11,6 +11,8 @@ export type Message = {
         code: 'insufficient_credits' | 'spend_limit_reached';
         message: string;
     };
+    /** File names attached by the user (extracted from <attached_files> block) */
+    attachedFiles?: string[];
 };
 
 export type Thought = {

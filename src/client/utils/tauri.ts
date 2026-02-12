@@ -246,3 +246,62 @@ export async function listenForDeepLinks(callback: (url: string) => void): Promi
         return () => {};
     }
 }
+
+// ============================================================================
+// File Drag & Drop
+// ============================================================================
+
+export interface AttachedFileInfo {
+    filePath: string;
+    fileName: string;
+    sizeBytes: number;
+}
+
+/** Listen for native file-drag-enter events from Tauri. */
+export async function onFileDragEnter(callback: (data: { count: number }) => void): Promise<() => void> {
+    if (!isTauri()) return () => {};
+    try {
+        const { listen } = await import('@tauri-apps/api/event');
+        return await listen<{ count: number }>('file-drag-enter', (event) => {
+            callback(event.payload);
+        });
+    } catch {
+        return () => {};
+    }
+}
+
+/** Listen for native file-drag-leave events from Tauri. */
+export async function onFileDragLeave(callback: () => void): Promise<() => void> {
+    if (!isTauri()) return () => {};
+    try {
+        const { listen } = await import('@tauri-apps/api/event');
+        return await listen('file-drag-leave', () => callback());
+    } catch {
+        return () => {};
+    }
+}
+
+/** Listen for native file-dropped events from Tauri. */
+export async function onFileDropped(callback: (data: { paths: string[] }) => void): Promise<() => void> {
+    if (!isTauri()) return () => {};
+    try {
+        const { listen } = await import('@tauri-apps/api/event');
+        return await listen<{ paths: string[] }>('file-dropped', (event) => {
+            callback(event.payload);
+        });
+    } catch {
+        return () => {};
+    }
+}
+
+/** Get metadata for dropped files via Tauri command. */
+export async function getDroppedFileMetadata(paths: string[]): Promise<AttachedFileInfo[]> {
+    if (!isTauri()) return [];
+    try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        return await invoke<AttachedFileInfo[]>('get_dropped_file_metadata', { paths });
+    } catch (err) {
+        console.error('[getDroppedFileMetadata] Failed:', err);
+        return [];
+    }
+}

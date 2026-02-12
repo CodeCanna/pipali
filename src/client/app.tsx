@@ -20,7 +20,7 @@ import type {
 import type { PendingConfirmation } from "./types/confirmation";
 
 // Hooks
-import { useFocusManagement, useModels, useSidecar, useWebSocketChat } from "./hooks";
+import { useFocusManagement, useFileDrop, useModels, useSidecar, useWebSocketChat } from "./hooks";
 
 // Utils
 import { setApiBaseUrl, apiFetch } from "./utils/api";
@@ -144,6 +144,7 @@ const App = () => {
     // Hooks
     const { textareaRef, scheduleTextareaFocus } = useFocusManagement();
     const { models, selectedModel, setSelectedModel, selectModel, showModelDropdown, setShowModelDropdown, refetchModels } = useModels();
+    const { isDragging, stagedFiles, removeFile, clearFiles, formatAttachedFilesMessage } = useFileDrop();
     const wsUrl = `${wsBaseUrl}/ws/chat`;
 
     const {
@@ -683,11 +684,17 @@ const App = () => {
                         continue;
                     }
                     finalizeCurrentAgent();
+                    const rawContent = typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message);
+                    const attachMatch = rawContent.match(/\n\n<attached_files>\n([\s\S]*?)\n<\/attached_files>$/);
+                    const attachedFiles = attachMatch
+                        ? attachMatch[1].split('\n').map((line: string) => line.replace(/^- /, '').split('/').pop() || '').filter(Boolean)
+                        : undefined;
                     historyMessages.push({
                         role: 'user',
-                        content: typeof msg.message === 'string' ? msg.message : JSON.stringify(msg.message),
+                        content: rawContent.replace(/\n\n<attached_files>[\s\S]*?<\/attached_files>$/, ''),
                         id: msg.step_id,
                         stableId: msg.step_id,
+                        attachedFiles,
                     });
                 }
 
@@ -1149,22 +1156,36 @@ const App = () => {
         if (!isConnected) return;
 
         const rawValue = textareaRef.current?.value ?? input;
-        const messageText = rawValue.trim();
+        let messageText = rawValue.trim();
+        const hasFiles = stagedFiles.length > 0;
+
+        // Allow sending with only files (no text)
+        if (!messageText && hasFiles) {
+            messageText = 'Please look at the attached files.';
+        }
         if (!messageText) return;
+
+        // Build the full message with file paths for the agent
+        const fileSuffix = formatAttachedFilesMessage(stagedFiles);
+        const fullMessage = messageText + fileSuffix;
+        const fileNames = hasFiles ? stagedFiles.map(f => f.fileName) : undefined;
+
         setInput("");
+        clearFiles();
 
         if (conversationId) clearConfirmations(conversationId);
 
         const clientMessageId = generateUUID();
         const runId = generateUUID();
-        const userMsg: Message = { id: clientMessageId, stableId: clientMessageId, role: 'user', content: messageText };
+        // Show only the user's typed text in the UI (not the <attached_files> block)
+        const userMsg: Message = { id: clientMessageId, stableId: clientMessageId, role: 'user', content: messageText, attachedFiles: fileNames };
 
         setCurrentPage('chat');
 
         if (!conversationId && awaitingConversationIdRef.current) {
             addOptimisticUserMessage(userMsg);
             startOptimisticRun(undefined, runId, clientMessageId);
-            pendingNewConversationMessagesRef.current.push({ clientMessageId, runId, message: messageText });
+            pendingNewConversationMessagesRef.current.push({ clientMessageId, runId, message: fullMessage });
             scheduleTextareaFocus();
             return;
         }
@@ -1172,7 +1193,10 @@ const App = () => {
         if (!conversationId) {
             awaitingConversationIdRef.current = true;
         }
-        sendWsMessage(messageText, conversationId, { clientMessageId, runId, optimistic: true });
+        // Add optimistic user message with clean text, then send full message to server
+        addOptimisticUserMessage(userMsg, conversationId);
+        startOptimisticRun(conversationId, runId, clientMessageId);
+        sendWsMessage(fullMessage, conversationId, { clientMessageId, runId, optimistic: false });
         scheduleTextareaFocus();
     };
 
@@ -1188,22 +1212,32 @@ const App = () => {
         if (!isConnected) return;
 
         const rawValue = textareaRef.current?.value ?? input;
-        const userMsg = rawValue.trim();
+        let userMsg = rawValue.trim();
+        const hasFiles = stagedFiles.length > 0;
+
+        if (!userMsg && hasFiles) {
+            userMsg = 'Please look at the attached files.';
+        }
         if (!userMsg) return;
+
+        const fileSuffix = formatAttachedFilesMessage(stagedFiles);
+        const fullMessage = userMsg + fileSuffix;
+
         setInput("");
+        clearFiles();
 
         // Store pending message to associate when conversation_created arrives
         const clientMessageId = generateUUID();
         const runId = generateUUID();
-        pendingBackgroundMessageRef.current = { message: userMsg, clientMessageId, runId };
+        pendingBackgroundMessageRef.current = { message: fullMessage, clientMessageId, runId };
 
         // If we have a conversationId, fork it (includes chat history)
         // Otherwise, create a new conversation from scratch
         if (conversationId) {
-            fork(userMsg, conversationId);
+            fork(fullMessage, conversationId);
         } else {
             // No conversationId - create new conversation from scratch
-            sendWsMessage(userMsg, undefined, { clientMessageId, runId, optimistic: false });
+            sendWsMessage(fullMessage, undefined, { clientMessageId, runId, optimistic: false });
         }
 
         scheduleTextareaFocus();
@@ -1328,6 +1362,9 @@ const App = () => {
                     onConfirmationRespond={sendCurrentConfirmationResponse}
                     textareaRef={textareaRef}
                     onBackgroundSend={sendAsBackgroundTask}
+                    stagedFiles={stagedFiles}
+                    isDragging={isDragging}
+                    onRemoveFile={removeFile}
                 />
             </div>
 

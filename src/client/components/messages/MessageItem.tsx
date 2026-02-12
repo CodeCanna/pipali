@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Paperclip } from 'lucide-react';
 import type { Message } from '../../types';
 import { ThoughtsSection } from '../thoughts/ThoughtsSection';
 import { StreamingIndicator } from './StreamingIndicator';
@@ -85,6 +85,14 @@ export function MessageItem({ message, platformFrontendUrl, onDelete }: MessageI
             ) : message.isStreaming ? (
                 <StreamingIndicator />
             ) : null}
+
+            {/* Attached files indicator */}
+            {message.attachedFiles && message.attachedFiles.length > 0 && (
+                <div className="message-attachments">
+                    <Paperclip size={12} />
+                    <span>{message.attachedFiles.join(', ')}</span>
+                </div>
+            )}
         </div>
     );
 }

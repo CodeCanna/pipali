@@ -624,21 +624,58 @@ api.put('/user/sandbox', zValidator('json', sandboxSettingsSchema), async (c) =>
     }
 });
 
+// Upload files to /tmp/pipali/uploads/ (web mode file attachment)
+api.post('/upload', async (c) => {
+    const body = await c.req.parseBody({ all: true });
+    const files = body['files'];
+    if (!files) return c.json({ error: 'No files provided' }, 400);
+
+    const fileArray = Array.isArray(files) ? files : [files];
+    const uploadDir = path.join(os.tmpdir(), 'pipali', 'uploads');
+    await Bun.$`mkdir -p ${uploadDir}`.quiet();
+
+    const results = [];
+    for (const file of fileArray) {
+        if (typeof file === 'string') continue;
+        const uuid = crypto.randomUUID().slice(0, 8);
+        const fileName = file.name || 'unknown';
+        const destName = `${uuid}-${fileName}`;
+        const destPath = path.join(uploadDir, destName);
+        await Bun.write(destPath, file);
+        results.push({ fileName, filePath: destPath, sizeBytes: file.size });
+    }
+
+    return c.json({ files: results });
+});
+
 // Serve local image files referenced in model responses
 const IMAGE_MIME: Record<string, string> = {
     '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
     '.gif': 'image/gif', '.webp': 'image/webp',
 };
 
-const ALLOWED_IMAGE_ROOTS = [
+const ALLOWED_IMAGE_ROOTS_RAW = [
     os.homedir(),
     '/tmp/pipali',
     '/private/tmp/pipali', // macOS: /tmp symlinks to /private/tmp
     os.tmpdir(),
 ];
 
-function isUnderAllowedRoot(filePath: string): boolean {
-    return ALLOWED_IMAGE_ROOTS.some(root => filePath.startsWith(root + '/'));
+// Resolve symlinks in allowed roots so realpath-resolved file paths still match.
+// On macOS, /var → /private/var, so os.tmpdir() "/var/folders/..." resolves to "/private/var/folders/...".
+let resolvedImageRoots: string[] | null = null;
+async function getAllowedImageRoots(): Promise<string[]> {
+    if (resolvedImageRoots) return resolvedImageRoots;
+    const roots = new Set(ALLOWED_IMAGE_ROOTS_RAW);
+    for (const root of ALLOWED_IMAGE_ROOTS_RAW) {
+        try { roots.add(await realpath(root)); } catch {}
+    }
+    resolvedImageRoots = [...roots];
+    return resolvedImageRoots;
+}
+
+function isUnderAllowedRoot(filePath: string, roots: string[]): boolean {
+    return roots.some(root => filePath.startsWith(root + '/'));
 }
 
 api.get('/files', async (c) => {
@@ -648,14 +685,15 @@ api.get('/files', async (c) => {
     const ext = path.extname(filePath).toLowerCase();
     if (!IMAGE_MIME[ext]) return c.json({ error: 'Only image files can be served' }, 403);
 
+    const roots = await getAllowedImageRoots();
     const resolved = path.resolve(filePath);
-    if (!isUnderAllowedRoot(resolved)) {
+    if (!isUnderAllowedRoot(resolved, roots)) {
         return c.json({ error: 'Path not within allowed directories' }, 403);
     }
 
     try {
         const real = await realpath(resolved);
-        if (!isUnderAllowedRoot(real)) {
+        if (!isUnderAllowedRoot(real, roots)) {
             return c.json({ error: 'Path not within allowed directories' }, 403);
         }
 

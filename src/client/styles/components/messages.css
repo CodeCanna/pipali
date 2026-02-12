@@ -30,6 +30,19 @@
     padding: 12px 16px;
 }
 
+.message-attachments {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.message-attachments svg {
+    flex-shrink: 0;
+}
+
 /* Assistant messages remain open/clean */
 .assistant-message {
     align-self: flex-start;
