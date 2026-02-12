@@ -1,18 +1,19 @@
 // Message list container with empty state
 
 import { useEffect, useRef, useCallback } from 'react';
-import { Sparkles } from 'lucide-react';
 import type { Message } from '../../types';
 import { MessageItem } from './MessageItem';
+import { EmptyHomeState } from '../home/EmptyHomeState';
 
 interface MessageListProps {
     messages: Message[];
     conversationId?: string;
     platformFrontendUrl?: string;
     onDeleteMessage?: (messageId: string, role: 'user' | 'assistant') => void;
+    userName?: string;
 }
 
-export function MessageList({ messages, conversationId, platformFrontendUrl, onDeleteMessage }: MessageListProps) {
+export function MessageList({ messages, conversationId, platformFrontendUrl, onDeleteMessage, userName }: MessageListProps) {
     const lastUserMessageRef = useRef<HTMLDivElement>(null);
     const mainContentRef = useRef<HTMLElement>(null);
     const previousConversationIdRef = useRef<string | undefined>(undefined);
@@ -99,11 +100,7 @@ export function MessageList({ messages, conversationId, platformFrontendUrl, onD
         <main className="main-content" ref={mainContentRef}>
             <div className="messages-container">
                 {messages.length === 0 ? (
-                    <div className="empty-state">
-                        <Sparkles className="empty-icon" size={32} strokeWidth={1.5} />
-                        <h2>What can I help you with?</h2>
-                        <p>Ask me anything about your files, data, or tasks.</p>
-                    </div>
+                    <EmptyHomeState userName={userName} />
                 ) : (
                     <div className="messages">
                         {messages.map((msg, index) => (

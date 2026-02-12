@@ -20,8 +20,6 @@ export class AppPage {
     readonly inputTextarea: Locator;
     readonly sendButton: Locator;
     readonly stopButton: Locator;
-    readonly inputHint: Locator;
-
     constructor(page: Page) {
         this.page = page;
 
@@ -45,7 +43,6 @@ export class AppPage {
         this.inputTextarea = page.locator(Selectors.inputTextarea);
         this.sendButton = page.locator(Selectors.sendButton);
         this.stopButton = page.locator(Selectors.stopButton);
-        this.inputHint = page.locator(Selectors.inputHint);
     }
 
     /**
@@ -153,11 +150,11 @@ export class AppPage {
     }
 
     /**
-     * Check if currently stopped (input hint)
+     * Check if currently stopped (textarea placeholder)
      */
     async isStopped(): Promise<boolean> {
-        const hint = (await this.inputHint.textContent()) || '';
-        return hint.toLowerCase().includes('stopped');
+        const placeholder = (await this.inputTextarea.getAttribute('placeholder')) || '';
+        return placeholder.toLowerCase().includes('stopped');
     }
 
     /**

@@ -57,8 +57,8 @@ test.describe('Hard Stop', () => {
         // Press Escape to stop
         await chatPage.pressEscape();
 
-        // Verify stopped state via input hint
-        await expect(chatPage.inputHint).toContainText(/stopped/i, { timeout: 15000 });
+        // Verify stopped state via textarea placeholder
+        await expect(chatPage.inputTextarea).toHaveAttribute('placeholder', /stopped/i, { timeout: 15000 });
         await chatPage.waitForIdle();
         expect(await chatPage.isStopped()).toBe(true);
 

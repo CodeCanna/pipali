@@ -8,14 +8,15 @@ import { EmptyHomeState } from './EmptyHomeState';
 interface HomePageProps {
     activeTasks: ActiveTask[];
     onSelectTask: (conversationId: string) => void;
+    userName?: string;
 }
 
-export function HomePage({ activeTasks, onSelectTask }: HomePageProps) {
+export function HomePage({ activeTasks, onSelectTask, userName }: HomePageProps) {
     return (
         <main className="main-content">
             <div className="messages-container">
                 {activeTasks.length === 0 ? (
-                    <EmptyHomeState />
+                    <EmptyHomeState userName={userName} />
                 ) : (
                     <TaskCardGallery
                         tasks={activeTasks}

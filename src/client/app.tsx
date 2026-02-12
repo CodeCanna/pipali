@@ -64,12 +64,23 @@ const App = () => {
             .catch(() => { /* Use default platform URL */ });
     }, []);
 
+    // Fetch user context name on mount
+    useEffect(() => {
+        apiFetch('/api/user/context')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data?.name) setUserName(data.name.split(' ')[0]);
+            })
+            .catch(() => {});
+    }, []);
+
     // Core state
     const [input, setInput] = useState("");
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [exportingConversationId, setExportingConversationId] = useState<string | null>(null);
     const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+    const [userName, setUserName] = useState<string | undefined>(undefined);
     // Current page state - determine from URL
     const [currentPage, setCurrentPage] = useState<PageType>(() => {
         const params = new URLSearchParams(window.location.search);
@@ -1189,6 +1200,8 @@ const App = () => {
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
+            // On mobile/touch devices, let Enter create a newline (user taps send button instead)
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
             e.preventDefault();
             sendMessage();
         }
@@ -1295,6 +1308,7 @@ const App = () => {
                     <HomePage
                         activeTasks={getActiveTasks()}
                         onSelectTask={selectConversation}
+                        userName={userName ?? authStatus?.user?.name?.split(' ')[0]}
                     />
                 )}
                 {currentPage === 'skills' && (
@@ -1315,7 +1329,7 @@ const App = () => {
                     <SettingsPage />
                 )}
                 {currentPage === 'chat' && (
-                    <MessageList messages={messages} conversationId={conversationId} platformFrontendUrl={platformFrontendUrl} onDeleteMessage={deleteMessage} />
+                    <MessageList messages={messages} conversationId={conversationId} platformFrontendUrl={platformFrontendUrl} onDeleteMessage={deleteMessage} userName={userName ?? authStatus?.user?.name?.split(' ')[0]} />
                 )}
 
                 <InputArea

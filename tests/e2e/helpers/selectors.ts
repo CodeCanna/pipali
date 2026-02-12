@@ -15,7 +15,6 @@ export const Selectors = {
     inputArea: '.input-area',
     inputForm: '.input-form',
     inputTextarea: '.input-form textarea',
-    inputHint: '.input-hint',
 
     // Action Buttons
     sendButton: '.action-button.send',

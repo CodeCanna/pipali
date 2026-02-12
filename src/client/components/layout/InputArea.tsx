@@ -36,6 +36,20 @@ interface InputAreaProps {
     onSelectModel: (model: ChatModelInfo) => void;
 }
 
+const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+const SHORTCUT_KEY = IS_MAC ? 'Cmd' : 'Ctrl';
+
+const HOME_HINTS = [
+    `Tip: Use ${SHORTCUT_KEY}+Enter to start task in background`,
+];
+const CHAT_HINTS = [
+    `Tip: Use ${SHORTCUT_KEY}+Enter to fork this conversation`,
+];
+
+function pickRandom(arr: string[]): string {
+    return arr[Math.floor(Math.random() * arr.length)] as string;
+}
+
 const SPREADSHEET_EXTS = ['.xlsx', '.xls', '.csv'];
 const TEXT_EXTS = ['.txt', '.md', '.json', '.xml', '.yaml', '.yml', '.toml', '.log'];
 
@@ -77,6 +91,10 @@ export function InputArea({
     const canSend = input.trim() || hasFiles;
     const fileInputRef = useRef<HTMLInputElement>(null);
     const modelDropdownRef = useRef<HTMLDivElement>(null);
+    const showHint = useRef(Math.random() < 0.05).current;
+    const placeholder = !showHint
+        ? 'Ask anything'
+        : pickRandom(conversationId ? CHAT_HINTS : HOME_HINTS);
 
     // Close model dropdown when clicking outside
     useEffect(() => {
@@ -176,7 +194,7 @@ export function InputArea({
                                 ? "Stopped. Type a new message..."
                                 : isProcessing
                                     ? "Type to interrupt with a message..."
-                                    : "Ask anything..."
+                                    : placeholder
                         }
                         rows={1}
                         disabled={!isConnected}
@@ -287,14 +305,6 @@ export function InputArea({
                         </div>
                     </div>
                 </form>
-                <p className="input-hint">
-                    {isStopped
-                        ? "Stopped. Send a new message to start a new run."
-                        : isProcessing
-                            ? "Type to interrupt, or press Esc to stop"
-                            : `Enter to send, ${navigator.platform.indexOf('Mac') !== -1 ? 'Cmd' : 'Ctrl'}+Enter to ${conversationId ? 'fork conversation' : 'to run in background'}`
-                    }
-                </p>
             </div>
         </footer>
     );

@@ -135,9 +135,9 @@ test.describe('Chat Flow - Complete User Journey', () => {
         // Verify stopped state
         expect(await chatPage.isStopped()).toBe(true);
 
-        // Input hint should indicate stopped
-        const hint = await chatPage.inputHint.textContent();
-        expect(hint?.toLowerCase()).toContain('stopped');
+        // Textarea placeholder should indicate stopped
+        const placeholder = await chatPage.inputTextarea.getAttribute('placeholder');
+        expect(placeholder?.toLowerCase()).toContain('stopped');
 
         // Check home page shows stopped status
         await chatPage.goHome();
