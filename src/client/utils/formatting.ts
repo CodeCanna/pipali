@@ -141,6 +141,35 @@ export function formatToolCallsForSidebar(toolCalls: any[]): string {
     return formatted.join(', ');
 }
 
+// Tool activity categories for visual icon trail display
+export type ToolCategory = 'web' | 'read' | 'write' | 'execute' | 'other';
+
+/**
+ * Categorize a tool by its name for the icon trail summary.
+ */
+export function getToolCategory(toolName: string): ToolCategory {
+    switch (toolName) {
+        case 'search_web':
+        case 'read_webpage':
+            return 'web';
+        case 'view_file':
+        case 'list_files':
+        case 'grep_files':
+            return 'read';
+        case 'edit_file':
+        case 'write_file':
+        case 'generate_image':
+        case 'email_user':
+            return 'write';
+        case 'shell_command':
+            return 'execute';
+        default:
+            if (toolName.startsWith('chrome') || toolName.startsWith('browser'))
+                return 'web';
+            return 'other';
+    }
+}
+
 /**
  * Get friendly display name for a tool
  */

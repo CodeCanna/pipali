@@ -74,9 +74,9 @@ test.describe('Chat Flow - Complete User Journey', () => {
         // Initially collapsed
         expect(await chatPage.isThoughtsExpanded()).toBe(false);
 
-        // Summary should show step count
-        const summary = await chatPage.getThoughtsSummary();
-        expect(summary).toMatch(/\d+\s*step/i);
+        // Summary should show category icon trail
+        const trailIcons = chatPage.page.locator('.trail-icon');
+        expect(await trailIcons.count()).toBeGreaterThan(0);
 
         // ============================================
         // 5. Expand thoughts, verify content

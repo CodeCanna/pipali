@@ -36,7 +36,8 @@ test.describe('Run Lifecycle', () => {
             // Wait for thoughts to appear (step_start/step_end events)
             await chatPage.waitForThoughts();
             expect(await chatPage.thoughtsSection.isVisible()).toBe(true);
-            await expect(chatPage.thoughtsSummary).toContainText(/1\s*steps?\s*taken/i);
+            // Summary should show category icon trail
+            await expect(chatPage.page.locator('.trail-icon').first()).toBeVisible();
 
             // Wait for completion (run_complete)
             await chatPage.waitForAssistantResponse();
@@ -94,9 +95,9 @@ test.describe('Run Lifecycle', () => {
             // Wait for processing
             await chatPage.waitForProcessing();
 
-            // Wait for multiple thoughts to accumulate
+            // Wait for all 3 tool call iterations to complete
             await chatPage.waitForThoughts();
-            await expect(chatPage.thoughtsSummary).toContainText(/3\s*steps?\s*taken/i, { timeout: 60000 });
+            await expect(chatPage.page.locator('.thoughts-dot')).toHaveCount(3, { timeout: 60000 });
 
             // Expand thoughts section and verify count
             await chatPage.expandThoughts();

@@ -25,13 +25,14 @@ test.describe('Train of Thought Section', () => {
         await expect(chatPage.thoughtsToggle).toBeVisible();
     });
 
-    test('should show summary of steps taken', async () => {
+    test('should show summary of steps taken', async ({ page }) => {
         await chatPage.sendMessage('list all files');
         await chatPage.waitForAssistantResponse();
 
-        // Summary should show step count
-        const summary = await chatPage.getThoughtsSummary();
-        expect(summary).toMatch(/\d+\s*step/i);
+        // Summary should show category icon trail for tool calls
+        const trailIcons = page.locator('.trail-icon');
+        const iconCount = await trailIcons.count();
+        expect(iconCount).toBeGreaterThan(0);
     });
 
     test('should expand to show thought items when clicked', async () => {
@@ -176,7 +177,7 @@ test.describe('Train of Thought Section', () => {
         }
     });
 
-    test('should show thoughts section with multiple steps for complex queries', async () => {
+    test('should show thoughts section with multiple steps for complex queries', async ({ page }) => {
         // Multi-step query
         await chatPage.sendMessage('analyze this research slowly');
         await chatPage.waitForAssistantResponse();
@@ -189,9 +190,10 @@ test.describe('Train of Thought Section', () => {
         const count = await chatPage.getThoughtCount();
         expect(count).toBeGreaterThan(0);
 
-        // Summary should reflect the step count
-        const summary = await chatPage.getThoughtsSummary();
-        expect(summary).toMatch(/step/i);
+        // Summary should show category icon trail
+        const trailIcons = page.locator('.trail-icon');
+        const trailCount = await trailIcons.count();
+        expect(trailCount).toBeGreaterThan(0);
     });
 
     test('should render different tool types correctly in expanded thoughts', async ({ page }) => {

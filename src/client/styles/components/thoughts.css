@@ -32,7 +32,120 @@
 }
 
 .thoughts-summary {
+    display: inline-flex;
+    align-items: center;
     font-weight: 500;
+}
+
+.thoughts-summary-text {
+    font-weight: 500;
+}
+
+/* Header row: toggle button + dots bar */
+.thoughts-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Colored dots progress bar - one dot per tool call */
+.thoughts-dots {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.thoughts-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.thoughts-dot--web {
+    background: var(--color-info);
+}
+
+.thoughts-dot--read {
+    background: var(--color-success);
+}
+
+.thoughts-dot--write {
+    background: var(--color-warning);
+}
+
+.thoughts-dot--execute {
+    background: var(--color-execute-text);
+}
+
+.thoughts-dot--other {
+    background: var(--color-text-muted);
+}
+
+.thoughts-dot--pending {
+    animation: pulse-pending 1s ease-in-out infinite;
+}
+
+/* Grouped category icons with counts inside toggle */
+.thoughts-icon-trail {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.trail-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.trail-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.trail-icon--web {
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+}
+
+.trail-icon--read {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+.trail-icon--write {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+}
+
+.trail-icon--execute {
+    background: var(--color-execute-bg);
+    color: var(--color-execute-text);
+}
+
+.trail-icon--other {
+    background: var(--color-bg-muted);
+    color: var(--color-text-muted);
+}
+
+.trail-icon--pending {
+    animation: pulse-pending 1s ease-in-out infinite;
+}
+
+.trail-group-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    min-width: 8px;
 }
 
 .thoughts-chevron {

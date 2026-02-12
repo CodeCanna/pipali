@@ -49,6 +49,10 @@
   --color-info-text: #1e40af;
   --color-info-border: #93c5fd;
 
+  /* Status - Execute (purple, for shell/command actions) */
+  --color-execute-bg: #ede9fe;
+  --color-execute-text: #7c3aed;
+
   /* Code blocks */
   --color-code-bg: #1e1e1e;
   --color-code-text: #d4d4d4;

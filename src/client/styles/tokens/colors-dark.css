@@ -55,6 +55,10 @@
     --color-info-text: #93c5fd;
     --color-info-border: #1e40af;
 
+    /* Status - Execute */
+    --color-execute-bg: #2e1065;
+    --color-execute-text: #a78bfa;
+
     /* Code blocks */
     --color-code-bg: #0d0d0d;
     --color-code-text: #d4d4d4;
@@ -139,6 +143,10 @@
   --color-info-bg: #1e3a5f;
   --color-info-text: #93c5fd;
   --color-info-border: #1e40af;
+
+  /* Status - Execute */
+  --color-execute-bg: #2e1065;
+  --color-execute-text: #a78bfa;
 
   /* Code blocks */
   --color-code-bg: #0d0d0d;

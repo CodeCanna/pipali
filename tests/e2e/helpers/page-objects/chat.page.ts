@@ -176,7 +176,7 @@ export class ChatPage extends AppPage {
     }
 
     /**
-     * Get the thoughts summary text (e.g., "3 steps taken")
+     * Get the thoughts summary text content
      */
     async getThoughtsSummary(): Promise<string> {
         if (!(await this.thoughtsToggle.isVisible())) {
