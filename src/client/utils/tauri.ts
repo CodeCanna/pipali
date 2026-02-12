@@ -294,6 +294,21 @@ export async function onFileDropped(callback: (data: { paths: string[] }) => voi
     }
 }
 
+/** Open a native file picker dialog and return selected file paths. */
+export async function pickFiles(): Promise<string[]> {
+    if (!isTauri()) return [];
+    try {
+        const { open } = await import('@tauri-apps/plugin-dialog');
+        const selected = await open({ multiple: true });
+        if (!selected) return [];
+        const paths = Array.isArray(selected) ? selected : [selected];
+        return paths;
+    } catch (err) {
+        console.error('[pickFiles] Failed:', err);
+        return [];
+    }
+}
+
 /** Get metadata for dropped files via Tauri command. */
 export async function getDroppedFileMetadata(paths: string[]): Promise<AttachedFileInfo[]> {
     if (!isTauri()) return [];

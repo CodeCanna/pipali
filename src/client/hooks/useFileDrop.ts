@@ -1,6 +1,7 @@
-// Hook for managing file attachment state (drag-drop and paste).
+// Hook for managing file attachment state (drag-drop, paste, and file picker).
 // Tauri mode: listens for native drag-drop events, reads file metadata via Rust command.
 // Web mode: uses HTML5 drag-and-drop with POST /api/upload.
+// File picker: Tauri uses native dialog (no copy), web uses /api/upload.
 // Paste: uploads pasted files via /api/upload (both modes).
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -10,6 +11,7 @@ import {
     onFileDragLeave,
     onFileDropped,
     getDroppedFileMetadata,
+    pickFiles,
 } from '../utils/tauri';
 import { getApiBaseUrl } from '../utils/api';
 
@@ -145,6 +147,30 @@ export function useFileDrop() {
         }
     }, []);
 
+    /** Open native file picker on desktop app and uploader on web app. */
+    const pickAndStageFiles = useCallback(async (browserFiles?: File[]) => {
+        if (isTauri()) {
+            const paths = await pickFiles();
+            if (paths.length === 0) return;
+            setIsProcessing(true);
+            try {
+                const results = await getDroppedFileMetadata(paths);
+                const newFiles: StagedFile[] = results.map(r => ({
+                    id: crypto.randomUUID(),
+                    fileName: r.fileName,
+                    filePath: r.filePath,
+                    sizeBytes: r.sizeBytes,
+                    isImage: isImageFile(r.fileName),
+                }));
+                setStagedFiles(prev => [...prev, ...newFiles]);
+            } finally {
+                setIsProcessing(false);
+            }
+        } else if (browserFiles && browserFiles.length > 0) {
+            await uploadFiles(browserFiles);
+        }
+    }, [uploadFiles]);
+
     const removeFile = useCallback((id: string) => {
         setStagedFiles(prev => prev.filter(f => f.id !== id));
     }, []);
@@ -165,6 +191,7 @@ export function useFileDrop() {
         stagedFiles,
         isProcessing,
         uploadFiles,
+        pickAndStageFiles,
         removeFile,
         clearFiles,
         formatAttachedFilesMessage,

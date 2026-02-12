@@ -8,6 +8,7 @@ import { ConfirmationDialog } from '../confirmation/ConfirmationDialog';
 import { formatFileSize } from '../../utils/formatting';
 import { localImageSrc } from '../../utils/markdown';
 import { getApiBaseUrl } from '../../utils/api';
+import { isTauri } from '../../utils/tauri';
 
 interface InputAreaProps {
     input: string;
@@ -27,6 +28,7 @@ interface InputAreaProps {
     isDragging?: boolean;
     onRemoveFile?: (id: string) => void;
     onPasteFiles?: (files: File[]) => void;
+    onPickFiles?: (browserFiles?: File[]) => void;
     models: ChatModelInfo[];
     selectedModel: ChatModelInfo | null;
     showModelDropdown: boolean;
@@ -64,6 +66,7 @@ export function InputArea({
     isDragging = false,
     onRemoveFile,
     onPasteFiles,
+    onPickFiles,
     models,
     selectedModel,
     showModelDropdown,
@@ -239,7 +242,7 @@ export function InputArea({
                                 onChange={(e) => {
                                     const files = e.target.files;
                                     if (files && files.length > 0) {
-                                        onPasteFiles?.([...files]);
+                                        onPickFiles?.([...files]);
                                     }
                                     e.target.value = '';
                                 }}
@@ -247,7 +250,7 @@ export function InputArea({
                             <button
                                 type="button"
                                 className="toolbar-button"
-                                onClick={() => fileInputRef.current?.click()}
+                                onClick={() => isTauri() ? onPickFiles?.() : fileInputRef.current?.click()}
                                 title="Attach files"
                             >
                                 <Paperclip size={16} />
