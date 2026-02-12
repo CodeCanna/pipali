@@ -9,6 +9,9 @@
 /* System preference dark mode */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
+    /* Brand */
+    --color-brand: #e63946;
+
     /* Backgrounds */
     --color-bg: #121212;
     --color-bg-elevated: #1e1e1e;
@@ -91,6 +94,9 @@
 
 /* Manual dark mode override */
 :root.dark {
+  /* Brand */
+  --color-brand: #e63946;
+
   /* Backgrounds */
   --color-bg: #121212;
   --color-bg-elevated: #1e1e1e;

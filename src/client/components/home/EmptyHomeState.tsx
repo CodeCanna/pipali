@@ -1,6 +1,7 @@
 // Empty state when no active tasks on home page
 
 import { useState } from 'react';
+import { RibbonAnimation } from './RibbonAnimation';
 
 type TimeSlot = 'lateNight' | 'earlyMorning' | 'morning' | 'afternoon' | 'evening' | 'night';
 
@@ -122,13 +123,15 @@ function getGreeting(name?: string): string {
 
 interface EmptyHomeStateProps {
     userName?: string;
+    hasInput?: boolean;
 }
 
-export function EmptyHomeState({ userName }: EmptyHomeStateProps) {
+export function EmptyHomeState({ userName, hasInput = false }: EmptyHomeStateProps) {
     const [greeting] = useState(() => getGreeting(userName));
 
     return (
         <div className="empty-state home-empty">
+            <RibbonAnimation resolved={hasInput} />
             <h2>{greeting}</h2>
         </div>
     );

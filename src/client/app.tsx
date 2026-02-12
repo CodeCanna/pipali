@@ -1309,6 +1309,7 @@ const App = () => {
                         activeTasks={getActiveTasks()}
                         onSelectTask={selectConversation}
                         userName={userName ?? authStatus?.user?.name?.split(' ')[0]}
+                        hasInput={input.trim().length > 0}
                     />
                 )}
                 {currentPage === 'skills' && (

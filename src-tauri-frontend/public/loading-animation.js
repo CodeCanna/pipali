@@ -93,11 +93,12 @@ function start() {
 
 // Track time for pulse animation
 let pulseTime = 0;
+let lastTime = 0;
 
 // Speed of ribbon to ring transformation
 const stepIncrement = 2.5;
 
-function render() {
+function render(dt) {
     let progress;
 
     // Use faster step increment during transformation
@@ -115,7 +116,7 @@ function render() {
         // When animation is complete, add gentle breathing pulse to the ring
         // Pulse should be subtle (±8%) around final scale of 1.0
         if (animatestep >= 240) {
-            pulseTime += 0.016; // ~60fps, completes one breath cycle in ~4 seconds
+            pulseTime += dt;  // completes one breath cycle in ~4 seconds
             const pulse = 1 + 0.08 * Math.sin(pulseTime * 1.5);
             ring.scale.x = ring.scale.y = pulse;
         } else {
@@ -127,9 +128,11 @@ function render() {
 
 }
 
-function animate() {
+function animate(time) {
+    const dt = lastTime ? (time - lastTime) / 1000 : 0.016;
+    lastTime = time;
     mesh.rotation.x += rotatevalue + acceleration*Math.sin(Math.PI*acceleration);
-    render();
+    render(dt);
     requestAnimationFrame(animate);
 }
 
@@ -139,4 +142,4 @@ function easing(t, b, c, d) {
     return c/2*((t-=2)*t*t+2)+b;
 }
 
-animate();
+requestAnimationFrame(animate);

@@ -34,6 +34,17 @@
     margin: 0;
 }
 
+/* Ribbon Animation (Three.js canvas) */
+.ribbon-animation {
+    margin-bottom: 8px;
+    line-height: 0;
+}
+
+.ribbon-animation canvas {
+    display: block;
+    border-radius: var(--radius-md);
+}
+
 /* Task Gallery (Home Page) */
 .task-gallery {
     padding: 48px 24px;

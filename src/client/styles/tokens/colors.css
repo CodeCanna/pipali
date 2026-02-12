@@ -3,6 +3,9 @@
  */
 
 :root {
+  /* Brand */
+  --color-brand: #e63946;
+
   /* Backgrounds */
   --color-bg: #fafafa;
   --color-bg-elevated: #ffffff;
