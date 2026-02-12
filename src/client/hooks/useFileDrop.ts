@@ -1,6 +1,7 @@
-// Hook for managing file drag-and-drop state.
+// Hook for managing file attachment state (drag-drop and paste).
 // Tauri mode: listens for native drag-drop events, reads file metadata via Rust command.
 // Web mode: uses HTML5 drag-and-drop with POST /api/upload.
+// Paste: uploads pasted files via /api/upload (both modes).
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -100,32 +101,7 @@ export function useFileDrop() {
 
             const files = e.dataTransfer?.files;
             if (!files || files.length === 0) return;
-
-            setIsProcessing(true);
-            try {
-                const formData = new FormData();
-                for (const file of files) {
-                    formData.append('files', file);
-                }
-                const baseUrl = getApiBaseUrl();
-                const res = await fetch(`${baseUrl}/api/upload`, {
-                    method: 'POST',
-                    body: formData,
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    const newFiles: StagedFile[] = data.files.map((f: any) => ({
-                        id: crypto.randomUUID(),
-                        fileName: f.fileName,
-                        filePath: f.filePath,
-                        sizeBytes: f.sizeBytes,
-                        isImage: isImageFile(f.fileName),
-                    }));
-                    setStagedFiles(prev => [...prev, ...newFiles]);
-                }
-            } finally {
-                setIsProcessing(false);
-            }
+            uploadFiles([...files]);
         };
 
         document.addEventListener('dragover', handleDragOver);
@@ -137,6 +113,36 @@ export function useFileDrop() {
             document.removeEventListener('dragleave', handleDragLeave);
             document.removeEventListener('drop', handleDrop);
         };
+    }, []);
+
+    /** Upload browser File objects (used by paste and web drag-drop). */
+    const uploadFiles = useCallback(async (files: File[]) => {
+        if (files.length === 0) return;
+        setIsProcessing(true);
+        try {
+            const formData = new FormData();
+            for (const file of files) {
+                formData.append('files', file);
+            }
+            const baseUrl = getApiBaseUrl();
+            const res = await fetch(`${baseUrl}/api/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const newFiles: StagedFile[] = data.files.map((f: any) => ({
+                    id: crypto.randomUUID(),
+                    fileName: f.fileName,
+                    filePath: f.filePath,
+                    sizeBytes: f.sizeBytes,
+                    isImage: isImageFile(f.fileName),
+                }));
+                setStagedFiles(prev => [...prev, ...newFiles]);
+            }
+        } finally {
+            setIsProcessing(false);
+        }
     }, []);
 
     const removeFile = useCallback((id: string) => {
@@ -158,6 +164,7 @@ export function useFileDrop() {
         isDragging,
         stagedFiles,
         isProcessing,
+        uploadFiles,
         removeFile,
         clearFiles,
         formatAttachedFilesMessage,

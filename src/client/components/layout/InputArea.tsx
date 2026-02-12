@@ -26,6 +26,7 @@ interface InputAreaProps {
     stagedFiles?: StagedFile[];
     isDragging?: boolean;
     onRemoveFile?: (id: string) => void;
+    onPasteFiles?: (files: File[]) => void;
 }
 
 const SPREADSHEET_EXTS = ['.xlsx', '.xls', '.csv'];
@@ -57,6 +58,7 @@ export function InputArea({
     stagedFiles = [],
     isDragging = false,
     onRemoveFile,
+    onPasteFiles,
 }: InputAreaProps) {
     const hasFiles = stagedFiles.length > 0;
     const canSend = input.trim() || hasFiles;
@@ -126,6 +128,13 @@ export function InputArea({
                         ref={textareaRef}
                         value={input}
                         onChange={(e) => onInputChange(e.target.value)}
+                        onPaste={(e) => {
+                            const files = e.clipboardData?.files;
+                            if (files && files.length > 0) {
+                                e.preventDefault();
+                                onPasteFiles?.([...files]);
+                            }
+                        }}
                         onKeyDown={(e) => {
                             // Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux): background task
                             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {

@@ -144,7 +144,7 @@ const App = () => {
     // Hooks
     const { textareaRef, scheduleTextareaFocus } = useFocusManagement();
     const { models, selectedModel, setSelectedModel, selectModel, showModelDropdown, setShowModelDropdown, refetchModels } = useModels();
-    const { isDragging, stagedFiles, removeFile, clearFiles, formatAttachedFilesMessage } = useFileDrop();
+    const { isDragging, stagedFiles, uploadFiles, removeFile, clearFiles, formatAttachedFilesMessage } = useFileDrop();
     const wsUrl = `${wsBaseUrl}/ws/chat`;
 
     const {
@@ -1365,6 +1365,7 @@ const App = () => {
                     stagedFiles={stagedFiles}
                     isDragging={isDragging}
                     onRemoveFile={removeFile}
+                    onPasteFiles={uploadFiles}
                 />
             </div>
 
