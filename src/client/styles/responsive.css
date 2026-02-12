@@ -39,7 +39,7 @@
         display: flex;
     }
 
-    .model-name {
+    .input-toolbar .model-name {
         max-width: 100px;
     }
 }
@@ -63,11 +63,11 @@
         padding: 10px 14px;
     }
 
-    .model-selector-btn {
-        padding: 6px 10px;
+    .input-divider {
+        margin: 0 -14px;
     }
 
-    .model-name {
+    .input-toolbar .model-name {
         max-width: 80px;
     }
 

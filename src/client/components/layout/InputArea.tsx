@@ -1,8 +1,8 @@
-// Message input area with send/stop controls and file attachment support
+// Message input area with model selector, file attachment, connection status, and send/stop controls
 
-import React, { useEffect } from 'react';
-import { ArrowUp, Square, Upload, X, FileText, FileSpreadsheet, File } from 'lucide-react';
-import type { ConfirmationRequest } from '../../types';
+import React, { useEffect, useRef } from 'react';
+import { ArrowUp, Square, Upload, X, FileText, FileSpreadsheet, File, Paperclip, ChevronDown, Check, Circle } from 'lucide-react';
+import type { ConfirmationRequest, ChatModelInfo } from '../../types';
 import type { StagedFile } from '../../hooks/useFileDrop';
 import { ConfirmationDialog } from '../confirmation/ConfirmationDialog';
 import { formatFileSize } from '../../utils/formatting';
@@ -27,6 +27,11 @@ interface InputAreaProps {
     isDragging?: boolean;
     onRemoveFile?: (id: string) => void;
     onPasteFiles?: (files: File[]) => void;
+    models: ChatModelInfo[];
+    selectedModel: ChatModelInfo | null;
+    showModelDropdown: boolean;
+    setShowModelDropdown: (show: boolean) => void;
+    onSelectModel: (model: ChatModelInfo) => void;
 }
 
 const SPREADSHEET_EXTS = ['.xlsx', '.xls', '.csv'];
@@ -59,9 +64,27 @@ export function InputArea({
     isDragging = false,
     onRemoveFile,
     onPasteFiles,
+    models,
+    selectedModel,
+    showModelDropdown,
+    setShowModelDropdown,
+    onSelectModel,
 }: InputAreaProps) {
     const hasFiles = stagedFiles.length > 0;
     const canSend = input.trim() || hasFiles;
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const modelDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close model dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+                setShowModelDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [setShowModelDropdown]);
 
     // Auto-resize textarea
     useEffect(() => {
@@ -156,37 +179,109 @@ export function InputArea({
                         disabled={!isConnected}
                         autoFocus
                     />
-                    <div className="input-buttons">
-                        {/* Single action button: Send / Stop */}
-                        {isProcessing ? (
-                            canSend ? (
-                                <button
-                                    type="submit"
-                                    disabled={!isConnected}
-                                    className="action-button send"
-                                    title="Send message (soft interrupt)"
-                                >
-                                    <ArrowUp size={18} />
-                                </button>
-                            ) : (
+
+                    {/* Divider between textarea and toolbar */}
+                    <div className="input-divider" />
+
+                    {/* Toolbar row: status + model selector (left), attach + send/stop (right) */}
+                    <div className="input-toolbar">
+                        <div className="input-toolbar-left">
+                            <Circle
+                                className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`}
+                                size={8}
+                                fill="currentColor"
+                            />
+
+                            {/* Model selector */}
+                            <div className="model-selector" ref={modelDropdownRef}>
                                 <button
                                     type="button"
-                                    onClick={onStop}
-                                    className="action-button stop"
-                                    title="Stop (Esc)"
+                                    className="model-selector-btn"
+                                    onClick={() => setShowModelDropdown(!showModelDropdown)}
                                 >
-                                    <Square size={18} />
+                                    <span className="model-name">
+                                        {selectedModel?.friendlyName || selectedModel?.name || 'Select model'}
+                                    </span>
+                                    <ChevronDown size={12} className={showModelDropdown ? 'rotated' : ''} />
                                 </button>
-                            )
-                        ) : (
+
+                                {showModelDropdown && (
+                                    <div className="model-dropdown">
+                                        {models.length === 0 ? (
+                                            <div className="model-dropdown-empty">
+                                                No models available
+                                            </div>
+                                        ) : (
+                                            models.map(model => (
+                                                <button
+                                                    key={model.id}
+                                                    type="button"
+                                                    className={`model-option ${selectedModel?.id === model.id ? 'selected' : ''}`}
+                                                    onClick={() => onSelectModel(model)}
+                                                >
+                                                    <span className="model-option-name">
+                                                        {model.friendlyName || model.name}
+                                                    </span>
+                                                    {selectedModel?.id === model.id && <Check size={14} />}
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="input-toolbar-right">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                className="hidden-file-input"
+                                onChange={(e) => {
+                                    const files = e.target.files;
+                                    if (files && files.length > 0) {
+                                        onPasteFiles?.([...files]);
+                                    }
+                                    e.target.value = '';
+                                }}
+                            />
                             <button
-                                type="submit"
-                                disabled={!canSend || !isConnected}
-                                className="action-button send"
+                                type="button"
+                                className="toolbar-button"
+                                onClick={() => fileInputRef.current?.click()}
+                                title="Attach files"
                             >
-                                <ArrowUp size={18} />
+                                <Paperclip size={16} />
                             </button>
-                        )}
+                            {isProcessing ? (
+                                canSend ? (
+                                    <button
+                                        type="submit"
+                                        disabled={!isConnected}
+                                        className="action-button send"
+                                        title="Send message (soft interrupt)"
+                                    >
+                                        <ArrowUp size={16} />
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={onStop}
+                                        className="action-button stop"
+                                        title="Stop (Esc)"
+                                    >
+                                        <Square size={16} />
+                                    </button>
+                                )
+                            ) : (
+                                <button
+                                    type="submit"
+                                    disabled={!canSend || !isConnected}
+                                    className="action-button send"
+                                >
+                                    <ArrowUp size={16} />
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </form>
                 <p className="input-hint">

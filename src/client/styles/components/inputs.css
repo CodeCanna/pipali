@@ -1,6 +1,6 @@
 /*
  * Pipali Styles - Input Components
- * Includes: input area, textarea, action buttons
+ * Includes: input area, textarea, toolbar (model selector, status, attach, send/stop)
  */
 
 /* Input Area */
@@ -8,7 +8,6 @@
     flex-shrink: 0;
     padding: 16px 24px 24px;
     background: var(--color-bg-elevated);
-    border-top: 1px solid var(--color-border-subtle);
 }
 
 .input-container {
@@ -18,9 +17,8 @@
 
 .input-form {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 12px;
+    flex-direction: column;
+    gap: 6px;
     padding: 12px 16px;
     background: var(--color-bg);
     border: 1px solid var(--color-border);
@@ -34,7 +32,7 @@
 }
 
 .input-form textarea {
-    flex: 1;
+    width: 100%;
     border: none;
     background: transparent;
     resize: none;
@@ -60,16 +58,160 @@
     opacity: 0.6;
 }
 
-.input-buttons {
+/* Divider between textarea and toolbar */
+.input-divider {
+    height: 1px;
+    background: var(--color-border-subtle);
+    margin: 0 -16px;
+}
+
+/* Toolbar row below textarea */
+.input-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+}
+
+.input-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.input-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.toolbar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    padding: 0;
+    transition: color var(--transition), background var(--transition);
+}
+
+.toolbar-button:hover {
+    color: var(--color-text);
+    background: var(--bg-hover);
+}
+
+.hidden-file-input {
+    display: none;
+}
+
+/* Connection status dot */
+.input-toolbar .status-dot {
+    transition: color var(--transition);
+}
+
+.input-toolbar .status-dot.connected {
+    color: var(--color-success);
+}
+
+.input-toolbar .status-dot.disconnected {
+    color: var(--color-error);
+}
+
+/* Model selector (in toolbar) */
+.input-toolbar .model-selector {
+    position: relative;
+}
+
+.input-toolbar .model-selector-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color var(--transition), background var(--transition);
+}
+
+.input-toolbar .model-selector-btn:hover {
+    color: var(--color-text);
+    background: var(--bg-hover);
+}
+
+.input-toolbar .model-selector-btn svg {
+    transition: transform var(--transition);
+}
+
+.input-toolbar .model-selector-btn svg.rotated {
+    transform: rotate(180deg);
+}
+
+.input-toolbar .model-name {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.input-toolbar .model-dropdown {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    min-width: 220px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: var(--z-dropdown);
+}
+
+.input-toolbar .model-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    font-size: 13px;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background var(--transition);
+    text-align: left;
+}
+
+.input-toolbar .model-option:hover {
+    background: var(--color-bg-muted);
+}
+
+.input-toolbar .model-option.selected {
+    background: var(--color-bg-muted);
+}
+
+.input-toolbar .model-option-name {
+    font-weight: 500;
+}
+
+.input-toolbar .model-dropdown-empty {
+    padding: 16px 12px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    text-align: center;
 }
 
 .action-button {
     flex-shrink: 0;
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -1301,23 +1301,6 @@ const App = () => {
                 <Header
                     sidebarOpen={sidebarOpen}
                     onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-                    isConnected={isConnected}
-                    models={models}
-                    selectedModel={selectedModel}
-                    showModelDropdown={showModelDropdown}
-                    setShowModelDropdown={setShowModelDropdown}
-                    onSelectModel={(model) => {
-                        selectModel(model);
-                        // Update current conversation's model
-                        if (conversationId) {
-                            conversationModelIds.current.set(conversationId, model.id);
-                            apiFetch(`/api/conversations/${conversationId}/model`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ chatModelId: model.id }),
-                            });
-                        }
-                    }}
                     onGoHome={goToHomePage}
                 />
 
@@ -1366,6 +1349,21 @@ const App = () => {
                     isDragging={isDragging}
                     onRemoveFile={removeFile}
                     onPasteFiles={uploadFiles}
+                    models={models}
+                    selectedModel={selectedModel}
+                    showModelDropdown={showModelDropdown}
+                    setShowModelDropdown={setShowModelDropdown}
+                    onSelectModel={(model) => {
+                        selectModel(model);
+                        if (conversationId) {
+                            conversationModelIds.current.set(conversationId, model.id);
+                            apiFetch(`/api/conversations/${conversationId}/model`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chatModelId: model.id }),
+                            });
+                        }
+                    }}
                 />
             </div>
 

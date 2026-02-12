@@ -1,53 +1,19 @@
-// App header with model selector and connection status
+// App header with sidebar toggle and logo
 
-import React, { useRef, useEffect } from 'react';
-import { PanelLeftClose, PanelLeft, ChevronDown, Circle, Check } from 'lucide-react';
-import type { ChatModelInfo } from '../../types';
+import { PanelLeftClose, PanelLeft } from 'lucide-react';
 import { getApiBaseUrl } from '../../utils/api';
-
-function formatCost(inputCost: number | null, outputCost: number | null): string {
-    if (inputCost === null && outputCost === null) return '';
-    const input = inputCost !== null ? `$${inputCost.toFixed(2)}` : '-';
-    const output = outputCost !== null ? `$${outputCost.toFixed(2)}` : '-';
-    return `↓${input}  ↑${output}`;
-}
 
 interface HeaderProps {
     sidebarOpen: boolean;
     onToggleSidebar: () => void;
-    isConnected: boolean;
-    models: ChatModelInfo[];
-    selectedModel: ChatModelInfo | null;
-    showModelDropdown: boolean;
-    setShowModelDropdown: (show: boolean) => void;
-    onSelectModel: (model: ChatModelInfo) => void;
     onGoHome: () => void;
 }
 
 export function Header({
     sidebarOpen,
     onToggleSidebar,
-    isConnected,
-    models,
-    selectedModel,
-    showModelDropdown,
-    setShowModelDropdown,
-    onSelectModel,
     onGoHome,
 }: HeaderProps) {
-    const modelDropdownRef = useRef<HTMLDivElement>(null);
-
-    // Close model dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
-                setShowModelDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [setShowModelDropdown]);
-
     return (
         <header className="header">
             <div className="header-content">
@@ -72,57 +38,6 @@ export function Header({
                     >
                         <img src={`${getApiBaseUrl()}/icons/pipali_64.png`} alt="Pipali" className="logo-icon" />
                         <span className="logo-text">Pipali</span>
-                    </div>
-                </div>
-
-                <div className="header-right">
-                    {/* Model Selector */}
-                    <div className="model-selector" ref={modelDropdownRef}>
-                        <button
-                            className="model-selector-btn"
-                            onClick={() => setShowModelDropdown(!showModelDropdown)}
-                        >
-                            <span className="model-name">
-                                {selectedModel?.friendlyName || selectedModel?.name || 'Select model'}
-                            </span>
-                            <ChevronDown size={14} className={showModelDropdown ? 'rotated' : ''} />
-                        </button>
-
-                        {showModelDropdown && (
-                            <div className="model-dropdown">
-                                {models.length === 0 ? (
-                                    <div className="model-dropdown-empty">
-                                        No models available
-                                    </div>
-                                ) : (
-                                    models.map(model => (
-                                        <button
-                                            key={model.id}
-                                            className={`model-option ${selectedModel?.id === model.id ? 'selected' : ''}`}
-                                            onClick={() => onSelectModel(model)}
-                                        >
-                                            <div className="model-option-info">
-                                                <span className="model-option-name">
-                                                    {model.friendlyName || model.name}
-                                                </span>
-                                                <span className="model-option-cost">
-                                                    {formatCost(model.inputCostPerMillion, model.outputCostPerMillion)}
-                                                </span>
-                                            </div>
-                                            {selectedModel?.id === model.id && <Check size={16} />}
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="status">
-                        <Circle
-                            className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`}
-                            size={8}
-                            fill="currentColor"
-                        />
                     </div>
                 </div>
             </div>
