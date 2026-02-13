@@ -5,6 +5,7 @@ import type { Thought } from '../../types';
 import { formatToolArgs, getFriendlyToolName, formatToolArgsRich } from '../../utils/formatting';
 import { getToolResultStatus } from '../../utils/toolStatus';
 import { MessageCircleMoreIcon } from 'lucide-react';
+import { ExternalLink } from '../ExternalLink';
 import { ThoughtDiffView } from '../tool-views/ThoughtDiffView';
 import { ThoughtWriteView } from '../tool-views/ThoughtWriteView';
 import { GrepResultView } from '../tool-views/GrepResultView';
@@ -78,9 +79,9 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtI
                             <span className="thought-args" title={richArgs.hoverText}>
                                 {' '}
                                 {richArgs.url ? (
-                                    <a href={richArgs.url} target="_blank" rel="noopener noreferrer" className="thought-args-link">
+                                    <ExternalLink href={richArgs.url} className="thought-args-link">
                                         {richArgs.text}
-                                    </a>
+                                    </ExternalLink>
                                 ) : (
                                     richArgs.text
                                 )}
