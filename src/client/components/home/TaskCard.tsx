@@ -1,7 +1,19 @@
 // Individual task card for home page gallery
 
-import { Loader2, AlertCircle, CheckCircle, ChevronRight } from 'lucide-react';
+import React from 'react';
+import { Loader2, AlertCircle, CheckCircle, ChevronRight, Globe, FileSearch, Pencil, Terminal, Wrench } from 'lucide-react';
 import type { ActiveTask, TaskStatus } from '../../types';
+import type { ToolCategory } from '../../utils/formatting';
+
+const CATEGORY_ICONS: Record<ToolCategory, React.ComponentType<{ size?: number }>> = {
+    web: Globe,
+    read: FileSearch,
+    write: Pencil,
+    execute: Terminal,
+    other: Wrench,
+};
+
+const CATEGORY_ORDER: ToolCategory[] = ['web', 'read', 'write', 'execute', 'other'];
 
 const statusConfig: Record<TaskStatus, { label: string; className: string; Icon: typeof Loader2 }> = {
     running: { label: 'Running', className: 'running', Icon: Loader2 },
@@ -41,8 +53,23 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 <span className={`task-status-text ${className}`}>
                     {label}
                 </span>
-                {task.stepCount !== undefined && task.stepCount > 0 && (
-                    <span className="task-step-count">{task.stepCount} steps</span>
+                {task.toolCategories && Object.keys(task.toolCategories).length > 0 && (
+                    <span className="thoughts-icon-trail task-icon-trail">
+                        {CATEGORY_ORDER
+                            .filter(cat => task.toolCategories![cat])
+                            .map(cat => {
+                                const Icon = CATEGORY_ICONS[cat];
+                                return (
+                                    <span key={cat} className="trail-group">
+                                        <span className={`trail-icon trail-icon--${cat}`}>
+                                            <Icon size={10} />
+                                        </span>
+                                        <span className="trail-group-count">{task.toolCategories![cat]}</span>
+                                    </span>
+                                );
+                            })
+                        }
+                    </span>
                 )}
             </div>
 

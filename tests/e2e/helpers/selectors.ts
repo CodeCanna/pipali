@@ -54,7 +54,7 @@ export const Selectors = {
     taskStatusIconStopped: '.task-status-icon.stopped',
     taskStatusIconCompleted: '.task-status-icon.completed',
     taskStatusText: '.task-status-text',
-    taskStepCount: '.task-step-count',
+    taskIconTrail: '.task-icon-trail',
     taskCardTitle: '.task-card-title',
     taskCardReasoning: '.task-card-reasoning',
 

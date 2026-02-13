@@ -24,7 +24,7 @@ import { useFocusManagement, useFileDrop, useModels, useSidecar, useWebSocketCha
 
 // Utils
 import { setApiBaseUrl, apiFetch } from "./utils/api";
-import { generateUUID } from "./utils/formatting";
+import { generateUUID, getToolCategory, type ToolCategory } from "./utils/formatting";
 import { initNotifications, notifyConfirmationRequest, notifyTaskComplete, setNotificationClickHandler, setupFocusNavigationListener } from "./utils/notifications";
 import { isTauri, onWindowShown, onSidecarReady, listenForDeepLinks } from "./utils/tauri";
 
@@ -893,7 +893,12 @@ const App = () => {
 
                 // Find the latest assistant message (streaming or finalized)
                 const assistantMsg = state.messages.findLast(m => m.role === 'assistant');
-                const stepCount = assistantMsg?.thoughts?.filter(t => t.type === 'tool_call').length || 0;
+                // Compute tool call categories for visual display
+                const toolCategories: Partial<Record<ToolCategory, number>> = {};
+                for (const t of assistantMsg?.thoughts?.filter(t => t.type === 'tool_call') || []) {
+                    const cat = getToolCategory(t.toolName || '');
+                    toolCategories[cat] = (toolCategories[cat] || 0) + 1;
+                }
 
                 // Determine status: pending confirmation takes precedence over processing
                 const status = hasPendingConfirmation ? 'needs_input' as const
@@ -911,7 +916,7 @@ const App = () => {
                     title: latestUserMessage,
                     reasoning,
                     status,
-                    stepCount,
+                    toolCategories,
                 });
             }
         });

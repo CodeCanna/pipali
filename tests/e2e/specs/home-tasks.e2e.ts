@@ -71,9 +71,9 @@ test.describe('Home Page Task Gallery', () => {
         // Wait for some steps to accumulate
         await page.waitForTimeout(2000);
 
-        // Step count should be visible and >= 0
-        const stepCount = await homePage.getTaskStepCount(0);
-        expect(stepCount).toBeGreaterThanOrEqual(0);
+        // Tool category icons should be visible
+        const categoryCount = await homePage.getTaskCategoryCount(0);
+        expect(categoryCount).toBeGreaterThanOrEqual(0);
     });
 
     test('should navigate to conversation when task card is clicked', async ({ page }) => {

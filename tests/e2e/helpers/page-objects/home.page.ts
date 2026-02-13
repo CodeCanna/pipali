@@ -63,21 +63,12 @@ export class HomePage extends AppPage {
     }
 
     /**
-     * Get the step count from a task card
+     * Get the number of tool category groups shown on a task card
      */
-    async getTaskStepCount(index: number): Promise<number> {
+    async getTaskCategoryCount(index: number): Promise<number> {
         const card = this.getTaskCard(index);
-        const stepCountEl = card.locator(Selectors.taskStepCount);
-
-        if (!(await stepCountEl.isVisible())) {
-            return 0;
-        }
-
-        const text = await stepCountEl.textContent();
-        if (!text) return 0;
-
-        const match = text.match(/(\d+)/);
-        return match && match[1] ? parseInt(match[1], 10) : 0;
+        const trailIcons = card.locator('.trail-icon');
+        return trailIcons.count();
     }
 
     /**

@@ -159,13 +159,8 @@
     color: var(--color-warning);
 }
 
-.task-step-count {
+.task-icon-trail {
     margin-left: auto;
-    font-size: 11px;
-    color: var(--color-text-muted);
-    background: var(--color-bg-muted);
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
 }
 
 .task-card-title {

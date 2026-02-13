@@ -1,5 +1,7 @@
 // Active task type for home page display
 
+import type { ToolCategory } from '../utils/formatting';
+
 export type TaskStatus = 'running' | 'needs_input' | 'completed' | 'stopped';
 
 export type ActiveTask = {
@@ -7,5 +9,5 @@ export type ActiveTask = {
     title: string;           // Latest user query
     reasoning?: string;      // Latest step/thought
     status: TaskStatus;
-    stepCount?: number;      // Number of tool calls/steps taken
+    toolCategories?: Partial<Record<ToolCategory, number>>;
 };
