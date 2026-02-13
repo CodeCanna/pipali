@@ -44,7 +44,7 @@ Commands that need broader access require your explicit approval. You can config
 
 ## Get Started
 
-1. [Download](https://pipali.ai/download) the app for macOS, Windows
+1. [Download](https://pipali.ai/download) the app for macOS, Windows or Linux
 2. Sign in from the Desktop app
 3. Assign Pipali a task
 

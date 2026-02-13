@@ -137,12 +137,14 @@ The agent uses a **director-actor pattern** for task orchestration:
      │  view_file     │ │  fill_form   │ │  Dangerous ops   │
      │  edit_file     │ │              │ │  require user    │
      │  write_file    │ │  slack__     │ │  approval        │
-     │  shell_command │ │  send_message│ │                  │
-     │  search_web    │ │              │ │  Tunable via     │
+     │  grep_files    | │  send_message│ │                  │
+     │  list_files    │ │              │ │  Tunable via     │
      │  read_webpage  │ │  (namespaced │ │  preferences     │
-     │  grep_files    │ │   server__   │ │                  │
-     │  list_files    │ │   toolname)  │ │                  │
+     │  search_web    │ │   server__   │ │                  │
+     │  shell_command │ │   toolname)  │ │                  │
      │  ask_user      │ │              │ │                  │
+     │  email_user    │ │              │ │                  │
+     │  generate_image│ │              │ │                  │
      └────────────────┘ └──────────────┘ └──────────────────┘
 ```
 
