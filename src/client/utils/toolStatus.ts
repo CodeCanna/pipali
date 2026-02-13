@@ -2,6 +2,26 @@
 
 export type ToolResultStatus = 'success' | 'error' | 'neutral';
 
+export interface MultimodalItem {
+    type: string;
+    text?: string;
+    data?: string;
+    mime_type?: string;
+    source_type?: string;
+}
+
+/** Parse multimodal content from a tool result string */
+export function parseMultimodalContent(result: string): MultimodalItem[] | null {
+    if (!result.startsWith('[')) return null;
+    try {
+        const parsed = JSON.parse(result);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+            return parsed as MultimodalItem[];
+        }
+    } catch { /* Not valid JSON */ }
+    return null;
+}
+
 /**
  * Determine if a tool result indicates success or failure
  */
@@ -35,6 +55,11 @@ export function getToolResultStatus(toolResult: string | undefined, toolName: st
             return 'error';
         }
         return 'success';
+    }
+
+    // For generate_image, check if multimodal image content is present
+    if (toolName === 'generate_image') {
+        return parseMultimodalContent(toolResult) ? 'success' : 'error';
     }
 
     // For web tools, check if we got actual content (not an error)

@@ -2,32 +2,11 @@
 // Shows file content with line numbers in a scrollable box
 
 import { FileText, Image } from 'lucide-react';
+import { parseMultimodalContent } from '../../utils/toolStatus';
 
 interface ReadFileViewProps {
     result: string;
     filePath?: string;
-}
-
-interface MultimodalContent {
-    type: 'text' | 'image';
-    text?: string;
-    data?: string;
-    mime_type?: string;
-    source_type?: string;
-}
-
-function parseMultimodalContent(result: string): MultimodalContent[] | null {
-    // Check if this is JSON array (multimodal content)
-    if (!result.startsWith('[')) return null;
-    try {
-        const parsed = JSON.parse(result);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
-            return parsed as MultimodalContent[];
-        }
-    } catch {
-        // Not valid JSON, treat as plain text
-    }
-    return null;
 }
 
 export function ReadFileView({ result, filePath }: ReadFileViewProps) {

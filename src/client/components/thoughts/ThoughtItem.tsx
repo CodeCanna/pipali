@@ -13,6 +13,7 @@ import { BashCommandView } from '../tool-views/BashCommandView';
 import { ReadFileView } from '../tool-views/ReadFileView';
 import { WebSearchView } from '../tool-views/WebSearchView';
 import { WebpageView } from '../tool-views/WebpageView';
+import { GenerateImageView } from '../tool-views/GenerateImageView';
 import { ToolResultView } from '../tool-views/ToolResultView';
 
 interface ThoughtItemProps {
@@ -143,6 +144,10 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false, showResult
                                     url={thought.toolArgs?.url}
                                 />
                             )}
+                            {/* Show generated image result */}
+                            {toolName === 'generate_image' && thought.toolResult && !isInterrupted && (
+                                <GenerateImageView result={thought.toolResult} />
+                            )}
                             {/* Show interrupted tool output */}
                             {isInterrupted && thought.toolResult && (
                                 <ToolResultView
@@ -151,7 +156,7 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false, showResult
                                 />
                             )}
                             {/* Show regular result for other tools */}
-                            {!isInterrupted && !['edit_file', 'write_file', 'grep_files', 'list_files', 'shell_command', 'view_file', 'search_web', 'read_webpage'].includes(toolName) && thought.toolResult && (
+                            {!isInterrupted && !['edit_file', 'write_file', 'grep_files', 'list_files', 'shell_command', 'view_file', 'search_web', 'read_webpage', 'generate_image'].includes(toolName) && thought.toolResult && (
                                 <ToolResultView
                                     result={thought.toolResult}
                                     toolName={friendlyToolName}

@@ -89,6 +89,14 @@ export function formatToolCallsForSidebar(toolCalls: any[]): string {
             case 'search_web':
                 detail = args.query ? ` ${args.query}` : '';
                 break;
+            case 'generate_image':
+                if (args.prompt) {
+                    const end = args.prompt.search(/[.!?](\s|$)/);
+                    detail = end > 0 && end < args.prompt.length - 1
+                        ? ` "${args.prompt.slice(0, end + 1)}\u2026"`
+                        : ` "${args.prompt}"`;
+                }
+                break;
             case 'read_webpage':
                 if (args.url) {
                     try {
@@ -150,6 +158,7 @@ export function getFriendlyToolName(toolName: string): string {
         "shell_command": "Shell",
         "search_web": "Search",
         "read_webpage": "Read",
+        "generate_image": "Generate",
     };
     return friendlyNames[toolName] || formatToolName(toolName);
 }
@@ -236,6 +245,20 @@ export function formatToolArgsRich(toolName: string, args: any, outline = false)
                 url: args.url,
                 hoverText: hoverParts.join(' '),
             };
+        }
+
+        case 'generate_image': {
+            if (!args.prompt) return null;
+            let text = args.prompt;
+            if (outline) {
+                // Truncate at first sentence boundary (. ! ?) followed by a space or end
+                const sentenceEnd = args.prompt.search(/[.!?](\s|$)/);
+                if (sentenceEnd > 0 && sentenceEnd < args.prompt.length - 1) {
+                    text = args.prompt.slice(0, sentenceEnd + 1) + '\u2026';
+                }
+            }
+            const secondary = args.aspect_ratio ? `Aspect Ratio: ${args.aspect_ratio}` : undefined;
+            return { text, secondary, hoverText: args.prompt };
         }
 
         default:
