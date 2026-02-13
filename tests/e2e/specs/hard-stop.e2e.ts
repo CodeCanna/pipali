@@ -62,8 +62,9 @@ test.describe('Hard Stop', () => {
         await chatPage.waitForIdle();
         expect(await chatPage.isStopped()).toBe(true);
 
-        // Expand thoughts to inspect results
-        await chatPage.expandThoughts();
+        // Expand thoughts to full level to inspect results
+        await chatPage.expandThoughts(); // level 0 → 1 (outline)
+        await chatPage.thoughtsToggle.click(); // level 1 → 2 (full with results)
 
         // Hard stop should mark in-progress tool calls as interrupted
         await expect(page.locator('.thought-item:has-text("[interrupted]")').first()).toBeVisible({ timeout: 15000 });

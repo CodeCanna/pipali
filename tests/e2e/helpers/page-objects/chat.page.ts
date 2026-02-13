@@ -146,12 +146,14 @@ export class ChatPage extends AppPage {
     }
 
     /**
-     * Collapse the thoughts section
+     * Collapse the thoughts section.
+     * With 3-level cycling (0→1→2→0), click until thoughts list is hidden.
      */
     async collapseThoughts(): Promise<void> {
-        if (await this.isThoughtsExpanded()) {
+        while (await this.isThoughtsExpanded()) {
             await this.thoughtsToggle.click();
-            await this.thoughtsList.waitFor({ state: 'hidden', timeout: 5000 });
+            // Brief wait for state to update
+            await this.page.waitForTimeout(100);
         }
     }
 

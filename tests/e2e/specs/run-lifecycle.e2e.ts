@@ -53,7 +53,7 @@ test.describe('Run Lifecycle', () => {
             expect(await chatPage.isStopped()).toBe(false);
 
             // Verify no pending tool calls remain (pending items have .pending class)
-            await chatPage.expandThoughts();
+            await chatPage.expandThoughts(); // level 0 → 1 (outline)
             await expect(page.locator('.thought-item.pending')).toHaveCount(0);
             // Tool result should be rendered in the thoughts section (step_end)
             // The list_files tool should have been executed and returned results
@@ -61,6 +61,8 @@ test.describe('Run Lifecycle', () => {
             await expect(thoughtsList).toBeVisible();
             // Verify the tool call was executed (List command appears)
             await expect(thoughtsList).toContainText('List');
+            // Expand to full level to verify step status indicators
+            await chatPage.thoughtsToggle.click(); // level 1 → 2 (full with step status)
             // Completed step should show a success indicator
             await expect(page.locator('.thought-step.success')).toHaveCount(1);
         });
@@ -95,12 +97,10 @@ test.describe('Run Lifecycle', () => {
             // Wait for processing
             await chatPage.waitForProcessing();
 
-            // Wait for all 3 tool call iterations to complete
+            // Expand thoughts section and wait for all 3 tool call iterations
             await chatPage.waitForThoughts();
-            await expect(chatPage.page.locator('.thoughts-dot')).toHaveCount(3, { timeout: 60000 });
-
-            // Expand thoughts section and verify count
             await chatPage.expandThoughts();
+            await expect(chatPage.page.locator('.thought-tool')).toHaveCount(3, { timeout: 60000 });
             const thoughtCount = await chatPage.getThoughtCount();
             expect(thoughtCount).toBeGreaterThanOrEqual(3);
             // Each iteration should include the grep pattern in the rendered tool args

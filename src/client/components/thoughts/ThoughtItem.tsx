@@ -2,9 +2,8 @@
 
 import React from 'react';
 import type { Thought } from '../../types';
-import { formatToolArgs, getFriendlyToolName, formatToolArgsRich } from '../../utils/formatting';
+import { formatToolArgs, getFriendlyToolName, formatToolArgsRich, getToolCategory } from '../../utils/formatting';
 import { getToolResultStatus } from '../../utils/toolStatus';
-import { MessageCircleMoreIcon } from 'lucide-react';
 import { ExternalLink } from '../ExternalLink';
 import { ThoughtDiffView } from '../tool-views/ThoughtDiffView';
 import { ThoughtWriteView } from '../tool-views/ThoughtWriteView';
@@ -20,6 +19,7 @@ interface ThoughtItemProps {
     thought: Thought;
     stepNumber: number; // Position among tool_call thoughts
     isPreview?: boolean;
+    showResult?: boolean; // false = outline (title only), true = full (title + result)
 }
 
 // Parse markdown bold (**text**) into React elements
@@ -33,14 +33,16 @@ function formatBoldText(text: string): React.ReactNode[] {
     });
 }
 
-export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtItemProps) {
+export function ThoughtItem({ thought, stepNumber, isPreview = false, showResult = true }: ThoughtItemProps) {
     if (thought.type === 'thought' && thought.content) {
+        const text = thought.content.trim();
+        const firstLine = showResult ? text : (text.split('\n')[0] ?? text);
         return (
             <div className={`thought-item reasoning ${thought.isInternalThought ? 'internal' : ''} ${isPreview ? 'preview' : ''}`}>
-                <div className="thought-step"><MessageCircleMoreIcon size={12} /></div>
+                <div className="thought-step"><span className="thought-reasoning-dot" /></div>
                 <div className="thought-content">
-                    <div className={`thought-reasoning ${thought.isInternalThought ? 'italic' : ''}`}>
-                        {formatBoldText(thought.content.trim())}
+                    <div className={`thought-reasoning ${thought.isInternalThought ? 'italic' : ''} ${!showResult ? 'outline' : ''}`}>
+                        {formatBoldText(firstLine)}
                     </div>
                 </div>
             </div>
@@ -53,24 +55,17 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtI
         const richArgs = formatToolArgsRich(toolName, thought.toolArgs);
         const friendlyToolName = getFriendlyToolName(toolName);
         const isInterrupted = thought.toolResult?.trim() === '[interrupted]';
-
-        // Check if this is a specific tool operation with special rendering
-        const isEditOp = toolName === 'edit_file' && thought.toolArgs?.old_string && thought.toolArgs?.new_string;
-        const isWriteOp = toolName === 'write_file' && thought.toolArgs?.content;
-        const isGrepOp = toolName === 'grep_files' && thought.toolResult && !isInterrupted;
-        const isListOp = toolName === 'list_files' && thought.toolResult && !isInterrupted;
-        const isShellOp = toolName === 'shell_command' && thought.toolArgs?.command;
-        const isReadOp = toolName === 'view_file' && thought.toolResult && !isInterrupted;
-        const isWebSearchOp = toolName === 'search_web' && thought.toolResult && !isInterrupted;
-        const isWebpageOp = toolName === 'read_webpage' && thought.toolResult && !isInterrupted;
+        const category = getToolCategory(toolName);
 
         // Determine success/error status for step indicator (pending takes precedence)
         const stepStatus = thought.isPending ? 'pending' : getToolResultStatus(thought.toolResult, toolName);
 
         return (
             <div className={`thought-item ${isPreview ? 'preview' : ''} ${thought.isPending ? 'pending' : ''}`}>
-                <div className={`thought-step ${stepStatus}`}>
-                    {stepNumber}
+                <div className={`thought-step ${showResult ? stepStatus : ''}`}>
+                    {showResult ? stepNumber : (
+                        <span className={`thought-category-dot thought-category-dot--${category}${thought.isPending ? ' thought-category-dot--pending' : ''}`} />
+                    )}
                 </div>
                 <div className="thought-content">
                     <div className="thought-tool">
@@ -90,72 +85,76 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false }: ThoughtI
                             <span className="thought-args"> {formattedArgs}</span>
                         ) : null}
                     </div>
-                    {/* Show diff view for edit operations */}
-                    {isEditOp && (
-                        <ThoughtDiffView
-                            oldText={thought.toolArgs.old_string}
-                            newText={thought.toolArgs.new_string}
-                            filePath={thought.toolArgs.file_path}
-                        />
-                    )}
-                    {/* Show content preview for write operations */}
-                    {isWriteOp && (
-                        <ThoughtWriteView
-                            content={thought.toolArgs.content}
-                            filePath={thought.toolArgs.file_path}
-                        />
-                    )}
-                    {/* Show formatted grep results */}
-                    {isGrepOp && thought.toolResult && (
-                        <GrepResultView result={thought.toolResult} />
-                    )}
-                    {/* Show formatted list results */}
-                    {isListOp && thought.toolResult && (
-                        <ListResultView result={thought.toolResult} />
-                    )}
-                    {/* Show bash command view */}
-                    {isShellOp && (
-                        <BashCommandView
-                            command={thought.toolArgs.command}
-                            justification={thought.toolArgs.justification}
-                            cwd={thought.toolArgs.cwd}
-                            result={thought.toolResult}
-                        />
-                    )}
-                    {/* Show formatted read file results */}
-                    {isReadOp && thought.toolResult && (
-                        <ReadFileView
-                            result={thought.toolResult}
-                            filePath={thought.toolArgs?.path}
-                        />
-                    )}
-                    {/* Show formatted web search results */}
-                    {isWebSearchOp && thought.toolResult && (
-                        <WebSearchView
-                            result={thought.toolResult}
-                            query={thought.toolArgs?.query}
-                        />
-                    )}
-                    {/* Show formatted webpage content */}
-                    {isWebpageOp && thought.toolResult && (
-                        <WebpageView
-                            result={thought.toolResult}
-                            url={thought.toolArgs?.url}
-                        />
-                    )}
-                    {/* Always show interrupted tool output in a generic view */}
-                    {isInterrupted && thought.toolResult && (
-                        <ToolResultView
-                            result={thought.toolResult}
-                            toolName={friendlyToolName}
-                        />
-                    )}
-                    {/* Show regular result for other tools */}
-                    {!isInterrupted && !isEditOp && !isWriteOp && !isGrepOp && !isListOp && !isShellOp && !isReadOp && !isWebSearchOp && !isWebpageOp && thought.toolResult && (
-                        <ToolResultView
-                            result={thought.toolResult}
-                            toolName={friendlyToolName}
-                        />
+                    {showResult && (
+                        <>
+                            {/* Show diff view for edit operations */}
+                            {toolName === 'edit_file' && thought.toolArgs?.old_string && thought.toolArgs?.new_string && (
+                                <ThoughtDiffView
+                                    oldText={thought.toolArgs.old_string}
+                                    newText={thought.toolArgs.new_string}
+                                    filePath={thought.toolArgs.file_path}
+                                />
+                            )}
+                            {/* Show content preview for write operations */}
+                            {toolName === 'write_file' && thought.toolArgs?.content && (
+                                <ThoughtWriteView
+                                    content={thought.toolArgs.content}
+                                    filePath={thought.toolArgs.file_path}
+                                />
+                            )}
+                            {/* Show formatted grep results */}
+                            {toolName === 'grep_files' && thought.toolResult && !isInterrupted && (
+                                <GrepResultView result={thought.toolResult} />
+                            )}
+                            {/* Show formatted list results */}
+                            {toolName === 'list_files' && thought.toolResult && !isInterrupted && (
+                                <ListResultView result={thought.toolResult} />
+                            )}
+                            {/* Show bash command view */}
+                            {toolName === 'shell_command' && thought.toolArgs?.command && (
+                                <BashCommandView
+                                    command={thought.toolArgs.command}
+                                    justification={thought.toolArgs.justification}
+                                    cwd={thought.toolArgs.cwd}
+                                    result={thought.toolResult}
+                                />
+                            )}
+                            {/* Show formatted read file results */}
+                            {toolName === 'view_file' && thought.toolResult && !isInterrupted && (
+                                <ReadFileView
+                                    result={thought.toolResult}
+                                    filePath={thought.toolArgs?.path}
+                                />
+                            )}
+                            {/* Show formatted web search results */}
+                            {toolName === 'search_web' && thought.toolResult && !isInterrupted && (
+                                <WebSearchView
+                                    result={thought.toolResult}
+                                    query={thought.toolArgs?.query}
+                                />
+                            )}
+                            {/* Show formatted webpage content */}
+                            {toolName === 'read_webpage' && thought.toolResult && !isInterrupted && (
+                                <WebpageView
+                                    result={thought.toolResult}
+                                    url={thought.toolArgs?.url}
+                                />
+                            )}
+                            {/* Show interrupted tool output */}
+                            {isInterrupted && thought.toolResult && (
+                                <ToolResultView
+                                    result={thought.toolResult}
+                                    toolName={friendlyToolName}
+                                />
+                            )}
+                            {/* Show regular result for other tools */}
+                            {!isInterrupted && !['edit_file', 'write_file', 'grep_files', 'list_files', 'shell_command', 'view_file', 'search_web', 'read_webpage'].includes(toolName) && thought.toolResult && (
+                                <ToolResultView
+                                    result={thought.toolResult}
+                                    toolName={friendlyToolName}
+                                />
+                            )}
+                        </>
                     )}
                 </div>
             </div>

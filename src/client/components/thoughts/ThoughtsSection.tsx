@@ -1,7 +1,8 @@
 // Expandable thoughts section showing AI reasoning and tool calls
+// Uses org-mode S-TAB style 3-level cycling: Collapsed → Outline → Full → Collapsed
 
 import React, { useState } from 'react';
-import { ChevronDown, Globe, FileSearch, Pencil, Terminal, Wrench } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Globe, FileSearch, Pencil, Terminal, Wrench } from 'lucide-react';
 import type { Thought } from '../../types';
 import { ThoughtItem } from './ThoughtItem';
 import { getToolCategory, type ToolCategory } from '../../utils/formatting';
@@ -16,13 +17,22 @@ const CATEGORY_ICONS: Record<ToolCategory, React.ComponentType<{ size?: number }
 
 const CATEGORY_ORDER: ToolCategory[] = ['web', 'read', 'write', 'execute', 'other'];
 
+// 0 = collapsed, 1 = outline (titles only), 2 = full (titles + results)
+type ExpandLevel = 0 | 1 | 2;
+
+const CHEVRON_ICONS: Record<ExpandLevel, React.ComponentType<{ size?: number; className?: string }>> = {
+    0: ChevronRight,
+    1: ChevronDown,
+    2: ChevronUp,
+};
+
 interface ThoughtsSectionProps {
     thoughts: Thought[];
     isStreaming?: boolean;
 }
 
 export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [expandLevel, setExpandLevel] = useState<ExpandLevel>(0);
 
     if (thoughts.length === 0) return null;
 
@@ -36,6 +46,9 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
     const getStepNumber = (idx: number): number => {
         return thoughts.slice(0, idx).filter(t => t.type === 'tool_call').length + 1;
     };
+
+    // Cycle: 0 → 1 → 2 → 0
+    const cycleExpand = () => setExpandLevel(prev => ((prev + 1) % 3) as ExpandLevel);
 
     // Render grouped category icons with counts for the toggle button
     const renderSummary = () => {
@@ -80,38 +93,24 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
         );
     };
 
+    const Chevron = CHEVRON_ICONS[expandLevel];
+
     return (
         <div className="thoughts-section">
             <div className="thoughts-header">
                 <button
                     className="thoughts-toggle"
-                    onClick={() => setIsExpanded(!isExpanded)}
+                    onClick={cycleExpand}
                 >
                     <span className="thoughts-summary">
                         {renderSummary()}
                     </span>
-                    <ChevronDown
-                        size={14}
-                        className={`thoughts-chevron ${isExpanded ? 'expanded' : ''}`}
-                    />
+                    <Chevron size={14} className="thoughts-chevron" />
                 </button>
-                {toolCalls.length > 0 && (
-                    <span className="thoughts-dots">
-                        {toolCalls.map(tc => {
-                            const category = getToolCategory(tc.toolName || '');
-                            return (
-                                <span
-                                    key={tc.id}
-                                    className={`thoughts-dot thoughts-dot--${category}${tc.isPending ? ' thoughts-dot--pending' : ''}`}
-                                />
-                            );
-                        })}
-                    </span>
-                )}
             </div>
 
-            {/* Show streaming preview of latest thought when not expanded */}
-            {isStreaming && !isExpanded && latestThought && (
+            {/* Show streaming preview of latest thought when collapsed */}
+            {isStreaming && expandLevel === 0 && latestThought && (
                 <div className="thoughts-preview">
                     <ThoughtItem
                         thought={latestThought}
@@ -121,7 +120,9 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
                 </div>
             )}
 
-            {isExpanded && (
+            {/* Level 1: Outline - titles with category dots, no results */}
+            {/* Level 2: Full - titles with category dots + tool results */}
+            {expandLevel > 0 && (
                 <div className="thoughts-list">
                     {thoughts.map((thought, idx) => (
                         <ThoughtItem
@@ -129,6 +130,7 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
                             thought={thought}
                             stepNumber={getStepNumber(idx)}
                             isPreview={false}
+                            showResult={expandLevel === 2}
                         />
                     ))}
                 </div>

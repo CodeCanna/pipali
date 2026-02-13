@@ -86,11 +86,65 @@ test.describe('Train of Thought Section', () => {
         }
     });
 
-    test('should show step numbers for tool calls', async ({ page }) => {
+    test('should show category dots and tool titles at outline level', async ({ page }) => {
+        await chatPage.sendMessage('list all files');
+        await chatPage.waitForAssistantResponse();
+
+        // First click expands to outline level (level 1)
+        await chatPage.expandThoughts();
+
+        // Should show category dots (not step numbers) at outline level
+        const categoryDots = page.locator('.thought-category-dot');
+        const dotCount = await categoryDots.count();
+        expect(dotCount).toBeGreaterThan(0);
+
+        // Step indicators should NOT have status classes at outline level
+        const statusSteps = page.locator('.thought-step.success, .thought-step.error, .thought-step.pending');
+        await expect(statusSteps).toHaveCount(0);
+
+        // Tool titles should still be visible
+        const toolTitles = page.locator('.thought-tool');
+        const titleCount = await toolTitles.count();
+        expect(titleCount).toBeGreaterThan(0);
+
+        // Tool results should NOT be visible at outline level
+        const toolResults = page.locator('.thought-tool-result, .thought-diff, .thought-grep, .thought-list, .thought-bash, .thought-read, .thought-web-search, .thought-webpage');
+        await expect(toolResults).toHaveCount(0);
+    });
+
+    test('should cycle through three expand levels', async ({ page }) => {
+        await chatPage.sendMessage('list all files');
+        await chatPage.waitForAssistantResponse();
+
+        // Level 0: collapsed
+        expect(await chatPage.isThoughtsExpanded()).toBe(false);
+
+        // Click 1: level 0 → 1 (outline)
+        await chatPage.thoughtsToggle.click();
+        expect(await chatPage.isThoughtsExpanded()).toBe(true);
+        // Outline shows category dots, not step numbers
+        await expect(page.locator('.thought-category-dot').first()).toBeVisible();
+
+        // Click 2: level 1 → 2 (full)
+        await chatPage.thoughtsToggle.click();
+        expect(await chatPage.isThoughtsExpanded()).toBe(true);
+        // Full level shows step numbers for tool_call items (not reasoning items)
+        const stepEl = page.locator('.thought-item:not(.reasoning) .thought-step').first();
+        const stepText = await stepEl.textContent();
+        expect(stepText).toMatch(/\d/);
+
+        // Click 3: level 2 → 0 (collapsed)
+        await chatPage.thoughtsToggle.click();
+        expect(await chatPage.isThoughtsExpanded()).toBe(false);
+    });
+
+    test('should show step numbers for tool calls at full expand level', async ({ page }) => {
         await chatPage.sendMessage('analyze my codebase slowly');
         await chatPage.waitForAssistantResponse();
 
-        await chatPage.expandThoughts();
+        // Click twice to reach level 2 (full) where step numbers are shown
+        await chatPage.expandThoughts(); // level 0 → 1 (outline with category dots)
+        await chatPage.thoughtsToggle.click(); // level 1 → 2 (full with step numbers)
 
         // Look for step indicators in thought items
         const thoughtItems = page.locator(Selectors.thoughtItem);
@@ -100,8 +154,8 @@ test.describe('Train of Thought Section', () => {
         let foundStepNumber = false;
         for (let i = 0; i < count; i++) {
             const item = thoughtItems.nth(i);
-            const text = await item.textContent();
-            // Step numbers might be shown as "1", "2", etc. or "Step 1", etc.
+            const stepEl = item.locator('.thought-step');
+            const text = await stepEl.textContent();
             if (text && /\d/.test(text)) {
                 foundStepNumber = true;
                 break;

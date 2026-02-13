@@ -41,52 +41,11 @@
     font-weight: 500;
 }
 
-/* Header row: toggle button + dots bar */
+/* Header row: toggle button */
 .thoughts-header {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-/* Colored dots progress bar - one dot per tool call */
-.thoughts-dots {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px;
-    flex: 1;
-    min-width: 0;
-}
-
-.thoughts-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.thoughts-dot--web {
-    background: var(--color-info);
-}
-
-.thoughts-dot--read {
-    background: var(--color-success);
-}
-
-.thoughts-dot--write {
-    background: var(--color-warning);
-}
-
-.thoughts-dot--execute {
-    background: var(--color-execute-text);
-}
-
-.thoughts-dot--other {
-    background: var(--color-text-muted);
-}
-
-.thoughts-dot--pending {
-    animation: pulse-pending 1s ease-in-out infinite;
 }
 
 /* Grouped category icons with counts inside toggle */
@@ -149,11 +108,7 @@
 }
 
 .thoughts-chevron {
-    transition: transform var(--transition);
-}
-
-.thoughts-chevron.expanded {
-    transform: rotate(180deg);
+    flex-shrink: 0;
 }
 
 /* Streaming preview - shows latest thought while streaming */
@@ -212,6 +167,47 @@
     color: var(--color-text-secondary);
 }
 
+/* Reasoning dot - neutral dot for thought/reasoning items */
+.thought-reasoning-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: block;
+    background: var(--color-text-secondary);
+}
+
+/* Category dot inside step indicator (outline level) */
+.thought-category-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: block;
+}
+
+.thought-category-dot--web {
+    background: var(--color-info);
+}
+
+.thought-category-dot--read {
+    background: var(--color-success);
+}
+
+.thought-category-dot--write {
+    background: var(--color-write);
+}
+
+.thought-category-dot--execute {
+    background: var(--color-execute-text);
+}
+
+.thought-category-dot--other {
+    background: var(--color-text-muted);
+}
+
+.thought-category-dot--pending {
+    animation: pulse-pending 1s ease-in-out infinite;
+}
+
 .thought-content {
     flex: 1;
     min-width: 0;
@@ -251,6 +247,12 @@
 
 .thought-reasoning.italic {
     font-style: italic;
+}
+
+.thought-reasoning.outline {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Generic tool result view */
