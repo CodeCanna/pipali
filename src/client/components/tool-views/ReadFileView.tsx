@@ -38,19 +38,11 @@ export function ReadFileView({ result, filePath }: ReadFileViewProps) {
     const multimodal = parseMultimodalContent(result);
 
     if (multimodal) {
-        const textContent = multimodal.find(c => c.type === 'text');
         const imageContent = multimodal.find(c => c.type === 'image');
 
         return (
             <div className="thought-read">
                 <div className="read-file-header"><Image size={12} /> {filename}</div>
-                {textContent?.text && (
-                    <div className="read-file-meta">
-                        {textContent.text.split('\n').map((line, idx) => (
-                            <div key={idx}>{line}</div>
-                        ))}
-                    </div>
-                )}
                 {imageContent?.data && imageContent.mime_type && (
                     <div className="read-file-image">
                         <img

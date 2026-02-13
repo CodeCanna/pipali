@@ -226,6 +226,14 @@
     font-size: 12px;
 }
 
+.thought-args-primary {
+    color: var(--color-text-secondary);
+}
+
+.thought-args-secondary {
+    color: var(--color-text-muted);
+}
+
 .thought-args-link {
     color: var(--color-text-secondary);
     text-decoration: underline;

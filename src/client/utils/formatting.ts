@@ -18,53 +18,20 @@ export function formatToolName(name: string): string {
 }
 
 /**
- * Format tool arguments for display based on tool type
+ * Format tool arguments as plain text. Used as fallback for tools
+ * not handled by formatToolArgsRich (shell_command, search_web, unknown tools).
  */
 export function formatToolArgs(toolName: string, args: any): string {
     if (!args || typeof args !== 'object') return '';
 
-    // Tool-specific formatting for readability
     switch (toolName) {
-        case 'view_file':
-            if (args.offset || args.limit) {
-                const offsetStr = args.offset ? `${args.offset}` : '1';
-                const limitStr = args.limit ? `${args.offset + args.limit}` : '';
-                const params = [offsetStr, limitStr].filter(Boolean).join('-');
-                return `${args.path} (lines ${params})`;
-            }
-            return args.path || '';
-
-        case 'list_files':
-            if (args.path && args.pattern) {
-                return `${args.path}/${args.pattern}`;
-            }
-            return args.path || args.pattern || '';
-
-        case 'grep_files':
-            const parts = [];
-            if (args.pattern) parts.push(`"${args.pattern}"`);
-            if (args.path) parts.push(`in ${args.path}`);
-            if (args.include) parts.push(`(${args.include})`);
-            return parts.join(' ');
-
-        case 'edit_file':
-        case 'write_file':
-            return args.file_path || '';
-
         case 'shell_command':
             return args.justification || '';
 
         case 'search_web':
             return args.query ? `${args.query}` : '';
 
-        case 'read_webpage': {
-            const parts = [];
-            if (args.url) parts.push(args.url);
-            return parts.join(' ');
-        }
-
         default:
-            // Generic formatting: show key values in a readable way
             return Object.entries(args)
                 .filter(([_, v]) => v !== undefined && v !== null && v !== '')
                 .map(([k, v]) => {
@@ -187,20 +154,71 @@ export function getFriendlyToolName(toolName: string): string {
     return friendlyNames[toolName] || formatToolName(toolName);
 }
 
-/** Rich tool args with optional link and hover text */
+/** Rich tool args with optional link, hover text, and secondary context */
 export interface RichToolArgs {
     text: string;
+    secondary?: string; // De-emphasized context like "in folder/path"
     url?: string;
     hoverText?: string;
 }
 
 /**
- * Format tool arguments with rich data for interactive display
+ * Split a path into basename and folder with home dir stripped.
+ * Returns [basename, folder] where folder has ~/ prefix removed.
  */
-export function formatToolArgsRich(toolName: string, args: any): RichToolArgs | null {
+function splitPath(fullPath: string): [string, string] {
+    const shortened = shortenHomePath(fullPath);
+    const lastSlash = shortened.lastIndexOf('/');
+    if (lastSlash <= 0) return [shortened, ''];
+    const basename = shortened.slice(lastSlash + 1);
+    let folder = shortened.slice(0, lastSlash);
+    if (folder.startsWith('~/')) folder = folder.slice(2);
+    else if (folder === '~') folder = '';
+    return [basename, folder];
+}
+
+/**
+ * Format tool arguments with rich data for interactive display.
+ * File tools return structured primary/secondary text at all detail levels.
+ * In outline mode, primary is basename; in full mode, primary includes more context.
+ */
+export function formatToolArgsRich(toolName: string, args: any, outline = false): RichToolArgs | null {
     if (!args || typeof args !== 'object') return null;
 
     switch (toolName) {
+        case 'view_file': {
+            if (!args.path) return null;
+            const [basename, folder] = splitPath(args.path);
+            let text = basename;
+            if (!outline && (args.offset || args.limit)) {
+                const offsetStr = args.offset ? `${args.offset}` : '1';
+                const limitStr = args.limit ? `${args.offset + args.limit}` : '';
+                text += ` (lines ${[offsetStr, limitStr].filter(Boolean).join('-')})`;
+            }
+            return { text, secondary: folder ? `in ${folder}` : undefined, hoverText: args.path };
+        }
+        case 'edit_file':
+        case 'write_file': {
+            if (!args.file_path) return null;
+            const [basename, folder] = splitPath(args.file_path);
+            return { text: basename, secondary: folder ? `in ${folder}` : undefined, hoverText: args.file_path };
+        }
+        case 'list_files': {
+            if (!args.path) return null;
+            const dir = shortenHomePath(args.path).replace(/^~\/?/, '');
+            const primary = args.pattern || getFileName(args.path);
+            return { text: primary, secondary: dir ? `in ${dir}` : undefined, hoverText: args.path };
+        }
+        case 'grep_files': {
+            const primary = args.pattern ? `"${args.pattern}"` : '';
+            if (!primary) return null;
+            const dir = args.path ? shortenHomePath(args.path).replace(/^~\/?/, '') : '';
+            const hoverText = [args.pattern, args.path, args.include].filter(Boolean).join(' ');
+            let secondary = dir ? `in ${dir}` : undefined;
+            if (!outline && args.include && secondary) secondary += ` (${args.include})`;
+            else if (!outline && args.include) secondary = `(${args.include})`;
+            return { text: primary, secondary, hoverText };
+        }
         case 'read_webpage': {
             if (!args.url) return null;
             let displayUrl = args.url;

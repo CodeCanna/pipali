@@ -31,6 +31,37 @@ interface ThoughtsSectionProps {
     isStreaming?: boolean;
 }
 
+// Split a thought with multiple **heading** sections into separate thoughts for display.
+// e.g. "**Doing X**\nbody\n**Doing Y**\nbody2" → two thought items.
+function splitMultiHeadingThoughts(thoughts: Thought[]): Thought[] {
+    const result: Thought[] = [];
+    for (const thought of thoughts) {
+        if (thought.type !== 'thought' || !thought.content) {
+            result.push(thought);
+            continue;
+        }
+
+        const text = thought.content.trim();
+        // Split on lines that start with **heading** (bold markdown)
+        const sections = text.split(/(?=^\*\*[^*]+\*\*)/m);
+        if (sections.length <= 1) {
+            result.push(thought);
+            continue;
+        }
+
+        for (let i = 0; i < sections.length; i++) {
+            const section = sections[i]!.trim();
+            if (!section) continue;
+            result.push({
+                ...thought,
+                id: `${thought.id}-${i}`,
+                content: section,
+            });
+        }
+    }
+    return result;
+}
+
 export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps) {
     const [expandLevel, setExpandLevel] = useState<ExpandLevel>(0);
 
@@ -122,19 +153,26 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
 
             {/* Level 1: Outline - titles with category dots, no results */}
             {/* Level 2: Full - titles with category dots + tool results */}
-            {expandLevel > 0 && (
-                <div className="thoughts-list">
-                    {thoughts.map((thought, idx) => (
-                        <ThoughtItem
-                            key={thought.id}
-                            thought={thought}
-                            stepNumber={getStepNumber(idx)}
-                            isPreview={false}
-                            showResult={expandLevel === 2}
-                        />
-                    ))}
-                </div>
-            )}
+            {expandLevel > 0 && (() => {
+                const displayThoughts = splitMultiHeadingThoughts(thoughts);
+                let toolCallIndex = 0;
+                return (
+                    <div className="thoughts-list">
+                        {displayThoughts.map((thought) => {
+                            const stepNumber = thought.type === 'tool_call' ? ++toolCallIndex : 0;
+                            return (
+                                <ThoughtItem
+                                    key={thought.id}
+                                    thought={thought}
+                                    stepNumber={stepNumber}
+                                    isPreview={false}
+                                    showResult={expandLevel === 2}
+                                />
+                            );
+                        })}
+                    </div>
+                );
+            })()}
         </div>
     );
 }

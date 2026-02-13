@@ -51,8 +51,8 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false, showResult
 
     if (thought.type === 'tool_call') {
         const toolName = thought.toolName || '';
-        const formattedArgs = formatToolArgs(toolName, thought.toolArgs);
-        const richArgs = formatToolArgsRich(toolName, thought.toolArgs);
+        const richArgs = formatToolArgsRich(toolName, thought.toolArgs, !showResult);
+        const formattedArgs = richArgs ? '' : formatToolArgs(toolName, thought.toolArgs);
         const friendlyToolName = getFriendlyToolName(toolName);
         const isInterrupted = thought.toolResult?.trim() === '[interrupted]';
         const category = getToolCategory(toolName);
@@ -78,7 +78,10 @@ export function ThoughtItem({ thought, stepNumber, isPreview = false, showResult
                                         {richArgs.text}
                                     </ExternalLink>
                                 ) : (
-                                    richArgs.text
+                                    <span className="thought-args-primary">{richArgs.text}</span>
+                                )}
+                                {richArgs.secondary && (
+                                    <span className="thought-args-secondary"> {richArgs.secondary}</span>
                                 )}
                             </span>
                         ) : formattedArgs ? (
