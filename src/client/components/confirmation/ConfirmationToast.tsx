@@ -194,14 +194,13 @@ export function ConfirmationToast({
 
             {/* Action buttons */}
             <div className="toast-actions">
-                {displayOptions.map((option, idx) => (
+                {displayOptions.map((option) => (
                     <button
                         key={option.id}
                         className={getButtonClass(option.style)}
                         onClick={() => onRespond(key, option.id)}
                         title={option.description}
                     >
-                        <span className="btn-shortcut">{idx + 1}</span>
                         {option.label}
                     </button>
                 ))}

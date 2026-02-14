@@ -38,6 +38,8 @@ interface InputAreaProps {
 
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 const SHORTCUT_KEY = IS_MAC ? 'Cmd' : 'Ctrl';
+const ALT_KEY = IS_MAC ? '⌥' : 'Alt+';
+
 
 const HOME_HINTS = [
     `Tip: Use ${SHORTCUT_KEY}+Enter to start task in background`,
@@ -198,9 +200,11 @@ export function InputArea({
                         }}
                         placeholder={
                             pendingConfirmation
-                                ? (pendingConfirmation.operation === 'ask_user'
-                                    ? "Type a custom response…"
-                                    : "Type alternative instructions…")
+                                ? (showHint && pendingConfirmation.options[0]
+                                    ? `Tip: ${ALT_KEY}1 to "${pendingConfirmation.options[0].label}"`
+                                    : pendingConfirmation.operation === 'ask_user'
+                                        ? "Type a custom response…"
+                                        : "Type alternative instructions…")
                                 : isStopped
                                     ? "Stopped. Type a new message..."
                                     : isProcessing

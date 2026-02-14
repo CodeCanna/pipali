@@ -9,6 +9,8 @@ import { DiffView } from '../tool-views/DiffView';
 import { shortenHomePath, parseMcpToolName, cleanOperationType } from '../../utils/formatting';
 import { getOperationTypePillClass, HIDDEN_MCP_ARGS, formatArgValue } from './utils';
 
+const ALT_KEY = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌥' : 'Alt+';
+
 interface ConfirmationDialogProps {
     request: ConfirmationRequest;
     onRespond: (optionId: string, guidance?: string) => void;
@@ -17,15 +19,14 @@ interface ConfirmationDialogProps {
 export function ConfirmationDialog({ request, onRespond }: ConfirmationDialogProps) {
     const isAgentQuestion = request.operation === 'ask_user';
 
-    // Handle keyboard shortcuts
+    // Handle keyboard shortcuts (Alt+1, Alt+2, etc. to select options)
+    // Use e.code (physical key) since Option+number on Mac produces special characters in e.key
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Don't capture keyboard if typing in an input/textarea
-            const tag = document.activeElement?.tagName;
-            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-            // Number keys 1, 2, 3 for quick selection
-            const keyNum = parseInt(e.key);
+            if (!e.altKey) return;
+            const match = e.code.match(/^Digit(\d)$/);
+            if (!match?.[1]) return;
+            const keyNum = parseInt(match[1]);
             if (keyNum >= 1 && keyNum <= request.options.length) {
                 e.preventDefault();
                 const option = request.options[keyNum - 1];
@@ -158,7 +159,7 @@ export function ConfirmationDialog({ request, onRespond }: ConfirmationDialogPro
                             key={option.id}
                             className={getButtonClass(option)}
                             onClick={() => onRespond(option.id)}
-                            title={`${option.description || option.label} (Press ${index + 1})`}
+                            title={`${option.description || option.label} (${ALT_KEY}${index + 1})`}
                         >
                             <span className="btn-shortcut">{index + 1}</span>
                             {option.label}
