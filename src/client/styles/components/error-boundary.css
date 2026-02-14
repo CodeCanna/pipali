@@ -1,0 +1,118 @@
+/* Error Boundary fallback UI */
+
+.error-boundary-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 2rem;
+    background: var(--color-bg);
+    color: var(--color-text);
+    overflow: hidden;
+}
+
+.error-boundary-content {
+    max-width: 600px;
+    max-height: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.error-boundary-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: var(--color-text);
+}
+
+.error-boundary-message {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+    margin: 0 0 1.5rem 0;
+    line-height: 1.5;
+}
+
+.error-boundary-details {
+    margin: 1.5rem 0 0 0;
+    text-align: left;
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.error-boundary-summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    user-select: none;
+    margin-bottom: 0.5rem;
+}
+
+.error-boundary-summary:hover {
+    color: var(--color-text);
+}
+
+.error-boundary-stack {
+    margin: 0.5rem 0 0 0;
+    padding: 1rem;
+    background: var(--color-code-bg);
+    color: var(--color-code-text);
+    border-radius: 4px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.error-boundary-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+}
+
+.error-boundary-copy {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text);
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    min-width: 10rem;
+}
+
+.error-boundary-copy:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-text-secondary);
+}
+
+.error-boundary-copy:active {
+    transform: scale(0.98);
+}
+
+.error-boundary-reload {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-bg);
+    background: var(--color-accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.error-boundary-reload:hover {
+    background: var(--color-accent-hover);
+}
+
+.error-boundary-reload:active {
+    transform: scale(0.98);
+}

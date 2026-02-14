@@ -41,6 +41,7 @@ import { LoginPage } from "./components/auth";
 import { FindInPage } from "./components/FindInPage";
 import { getRandomBillingMessage } from "./components/billing";
 import type { AutomationPendingConfirmation } from "./types/automations";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Page types
 type PageType = 'home' | 'chat' | 'skills' | 'automations' | 'mcp-tools' | 'settings';
@@ -1277,119 +1278,123 @@ const App = () => {
     }
 
     return (
-        <div className="app-wrapper">
-            <Sidebar
-                isOpen={sidebarOpen}
-                conversations={conversations}
-                conversationStates={conversationStates}
-                pendingConfirmations={sidebarPendingConfirmations}
-                currentConversationId={conversationId}
-                exportingConversationId={exportingConversationId}
-                currentPage={currentPage}
-                authStatus={authStatus}
-                billingAlerts={billingAlerts}
-                platformFrontendUrl={platformFrontendUrl}
-                onNewChat={startNewConversation}
-                onSelectConversation={selectConversation}
-                onDeleteConversation={deleteConversation}
-                onExportConversation={exportConversationAsATIF}
-                onGoToSkills={goToSkillsPage}
-                onGoToAutomations={goToAutomationsPage}
-                onGoToMcpTools={goToMcpToolsPage}
-                onGoToSettings={goToSettingsPage}
-                onLogout={handleLogout}
-                onClose={() => setSidebarOpen(false)}
-                onDismissAllBillingAlerts={() => setBillingAlerts([])}
-            />
-
-            <div className="app-container">
-                <Header
-                    sidebarOpen={sidebarOpen}
-                    onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-                    onGoHome={goToHomePage}
+        <ErrorBoundary>
+            <div className="app-wrapper">
+                <Sidebar
+                    isOpen={sidebarOpen}
+                    conversations={conversations}
+                    conversationStates={conversationStates}
+                    pendingConfirmations={sidebarPendingConfirmations}
+                    currentConversationId={conversationId}
+                    exportingConversationId={exportingConversationId}
+                    currentPage={currentPage}
+                    authStatus={authStatus}
+                    billingAlerts={billingAlerts}
+                    platformFrontendUrl={platformFrontendUrl}
+                    onNewChat={startNewConversation}
+                    onSelectConversation={selectConversation}
+                    onDeleteConversation={deleteConversation}
+                    onExportConversation={exportConversationAsATIF}
+                    onGoToSkills={goToSkillsPage}
+                    onGoToAutomations={goToAutomationsPage}
+                    onGoToMcpTools={goToMcpToolsPage}
+                    onGoToSettings={goToSettingsPage}
+                    onLogout={handleLogout}
+                    onClose={() => setSidebarOpen(false)}
+                    onDismissAllBillingAlerts={() => setBillingAlerts([])}
                 />
 
-                {currentPage === 'home' && (
-                    <HomePage
-                        activeTasks={getActiveTasks()}
-                        onSelectTask={selectConversation}
-                        userName={userName ?? authStatus?.user?.name?.split(' ')[0]}
-                        hasInput={input.trim().length > 0}
+                <div className="app-container">
+                    <Header
+                        sidebarOpen={sidebarOpen}
+                        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                        onGoHome={goToHomePage}
                     />
-                )}
-                {currentPage === 'skills' && (
-                    <SkillsPage />
-                )}
-                {currentPage === 'automations' && (
-                    <AutomationsPage
-                        pendingConfirmations={automationConfirmations}
-                        onConfirmationRespond={respondToAutomationConfirmation}
-                        onConfirmationDismiss={dismissAutomationConfirmation}
-                        onViewConversation={selectConversation}
-                    />
-                )}
-                {currentPage === 'mcp-tools' && (
-                    <McpToolsPage />
-                )}
-                {currentPage === 'settings' && (
-                    <SettingsPage />
-                )}
-                {currentPage === 'chat' && (
-                    <MessageList messages={messages} conversationId={conversationId} platformFrontendUrl={platformFrontendUrl} onDeleteMessage={deleteMessage} userName={userName ?? authStatus?.user?.name?.split(' ')[0]} />
-                )}
 
-                <InputArea
-                    input={input}
-                    onInputChange={setInput}
-                    onSubmit={sendMessage}
-                    onKeyDown={handleKeyDown}
-                    isConnected={isConnected}
-                    isProcessing={isProcessing}
-                    isStopped={isStopped}
-                    conversationId={conversationId}
-                    onStop={stopResearch}
-                    pendingConfirmation={conversationId ? pendingConfirmations.get(conversationId)?.[0]?.request : undefined}
-                    onConfirmationRespond={sendCurrentConfirmationResponse}
-                    textareaRef={textareaRef}
-                    onBackgroundSend={sendAsBackgroundTask}
-                    stagedFiles={stagedFiles}
-                    isDragging={isDragging}
-                    onRemoveFile={removeFile}
-                    onPasteFiles={uploadFiles}
-                    onPickFiles={pickAndStageFiles}
-                    models={models}
-                    selectedModel={selectedModel}
-                    showModelDropdown={showModelDropdown}
-                    setShowModelDropdown={setShowModelDropdown}
-                    onSelectModel={(model) => {
-                        selectModel(model);
-                        if (conversationId) {
-                            conversationModelIds.current.set(conversationId, model.id);
-                            apiFetch(`/api/conversations/${conversationId}/model`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ chatModelId: model.id }),
-                            });
-                        }
-                    }}
+                    {currentPage === 'home' && (
+                        <HomePage
+                            activeTasks={getActiveTasks()}
+                            onSelectTask={selectConversation}
+                            userName={userName ?? authStatus?.user?.name?.split(' ')[0]}
+                            hasInput={input.trim().length > 0}
+                        />
+                    )}
+                    {currentPage === 'skills' && (
+                        <SkillsPage />
+                    )}
+                    {currentPage === 'automations' && (
+                        <AutomationsPage
+                            pendingConfirmations={automationConfirmations}
+                            onConfirmationRespond={respondToAutomationConfirmation}
+                            onConfirmationDismiss={dismissAutomationConfirmation}
+                            onViewConversation={selectConversation}
+                        />
+                    )}
+                    {currentPage === 'mcp-tools' && (
+                        <McpToolsPage />
+                    )}
+                    {currentPage === 'settings' && (
+                        <SettingsPage />
+                    )}
+                    {currentPage === 'chat' && (
+                        <ErrorBoundary>
+                            <MessageList messages={messages} conversationId={conversationId} platformFrontendUrl={platformFrontendUrl} onDeleteMessage={deleteMessage} userName={userName ?? authStatus?.user?.name?.split(' ')[0]} />
+                        </ErrorBoundary>
+                    )}
+
+                    <InputArea
+                        input={input}
+                        onInputChange={setInput}
+                        onSubmit={sendMessage}
+                        onKeyDown={handleKeyDown}
+                        isConnected={isConnected}
+                        isProcessing={isProcessing}
+                        isStopped={isStopped}
+                        conversationId={conversationId}
+                        onStop={stopResearch}
+                        pendingConfirmation={conversationId ? pendingConfirmations.get(conversationId)?.[0]?.request : undefined}
+                        onConfirmationRespond={sendCurrentConfirmationResponse}
+                        textareaRef={textareaRef}
+                        onBackgroundSend={sendAsBackgroundTask}
+                        stagedFiles={stagedFiles}
+                        isDragging={isDragging}
+                        onRemoveFile={removeFile}
+                        onPasteFiles={uploadFiles}
+                        onPickFiles={pickAndStageFiles}
+                        models={models}
+                        selectedModel={selectedModel}
+                        showModelDropdown={showModelDropdown}
+                        setShowModelDropdown={setShowModelDropdown}
+                        onSelectModel={(model) => {
+                            selectModel(model);
+                            if (conversationId) {
+                                conversationModelIds.current.set(conversationId, model.id);
+                                apiFetch(`/api/conversations/${conversationId}/model`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ chatModelId: model.id }),
+                                });
+                            }
+                        }}
+                    />
+                </div>
+
+                <ToastContainer
+                    confirmations={allConfirmations}
+                    currentConversationId={conversationId}
+                    onRespond={handleConfirmationResponse}
+                    onDismiss={handleConfirmationDismiss}
+                    onNavigateToConversation={selectConversation}
+                    onNavigateToAutomations={goToAutomationsPage}
+                />
+
+
+                <FindInPage
+                    isOpen={showFindInPage}
+                    onClose={() => setShowFindInPage(false)}
                 />
             </div>
-
-            <ToastContainer
-                confirmations={allConfirmations}
-                currentConversationId={conversationId}
-                onRespond={handleConfirmationResponse}
-                onDismiss={handleConfirmationDismiss}
-                onNavigateToConversation={selectConversation}
-                onNavigateToAutomations={goToAutomationsPage}
-            />
-
-
-            <FindInPage
-                isOpen={showFindInPage}
-                onClose={() => setShowFindInPage(false)}
-            />
-        </div>
+        </ErrorBoundary>
     );
 };
 

@@ -28,6 +28,7 @@
 @import './components/confirmations.css';
 @import './components/find-in-page.css';
 @import './components/billing.css';
+@import './components/error-boundary.css';
 
 /* Pages */
 @import './pages/home.css';
