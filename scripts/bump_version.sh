@@ -22,15 +22,17 @@ do
                 await Bun.write('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
             "
 
-            # Bump Cargo.toml version
+            # Bump Cargo.toml version and regenerate Cargo.lock
             sed -i.bak "s/^version = \".*\"/version = \"$current_version\"/" src-tauri/Cargo.toml
             rm -f src-tauri/Cargo.toml.bak
+            cargo update --workspace --manifest-path src-tauri/Cargo.toml
 
             # Commit changes and tag
             git add \
                 $project_root/package.json \
                 $project_root/src-tauri/tauri.conf.json \
-                $project_root/src-tauri/Cargo.toml
+                $project_root/src-tauri/Cargo.toml \
+                $project_root/src-tauri/Cargo.lock
             git commit -m "Release Pipali version $current_version"
             git tag $current_version
             ;;
@@ -47,13 +49,16 @@ do
                 await Bun.write('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
             "
 
+            # Bump Cargo.toml version and regenerate Cargo.lock
             sed -i.bak "s/^version = \".*\"/version = \"$current_version\"/" src-tauri/Cargo.toml
             rm -f src-tauri/Cargo.toml.bak
+            cargo update --workspace --manifest-path src-tauri/Cargo.toml
 
             git add \
                 $project_root/package.json \
                 $project_root/src-tauri/tauri.conf.json \
-                $project_root/src-tauri/Cargo.toml
+                $project_root/src-tauri/Cargo.toml \
+                $project_root/src-tauri/Cargo.lock
             git commit -m "Release Pipali version $current_version"
             git tag $current_version
             ;;
