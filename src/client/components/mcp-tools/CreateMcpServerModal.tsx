@@ -252,9 +252,9 @@ export function CreateMcpServerModal({ onClose, onCreated }: CreateMcpServerModa
                             <option value="never">Never require confirmation</option>
                         </select>
                         <span className="form-hint">
-                            {confirmationMode === 'always' && 'User must approve every tool call from this server'}
-                            {confirmationMode === 'unsafe_only' && 'User approves only unsafe operations (safe operations are auto-approved)'}
-                            {confirmationMode === 'never' && 'All tool calls run without confirmation (use with trusted servers only)'}
+                            {confirmationMode === 'always' && 'Every action requires your approval'}
+                            {confirmationMode === 'unsafe_only' && 'Require approval for only unsafe actions (safe actions are auto-approved)'}
+                            {confirmationMode === 'never' && 'All actions are auto-approved'}
                         </span>
                     </div>
 

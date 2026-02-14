@@ -371,9 +371,9 @@ export function McpServerDetailModal({ server, onClose, onUpdated, onDeleted }: 
                                 </button>
                             </div>
                             <span className="form-hint">
-                                {confirmationMode === 'always' && 'User must approve every tool call'}
-                                {confirmationMode === 'unsafe_only' && 'Only operations with lasting side effects need approval. E.g., submit, send, delete, not search or read.'}
-                                {confirmationMode === 'never' && 'All tool calls run without confirmation'}
+                                {confirmationMode === 'always' && 'Every action requires your approval'}
+                                {confirmationMode === 'unsafe_only' && 'Only actions with lasting side effects need your approval. E.g., submit, send, delete, not search or read.'}
+                                {confirmationMode === 'never' && 'All actions are auto approved'}
                             </span>
                         </div>
 
