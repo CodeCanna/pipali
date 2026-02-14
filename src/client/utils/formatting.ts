@@ -1,5 +1,7 @@
 // Formatting utilities for tool names, arguments, and display
 
+import { resolveUidLabel } from './snapshotParser';
+
 /** Format bytes to a human-readable file size string. */
 export function formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -11,7 +13,7 @@ export function formatFileSize(bytes: number): string {
 /**
  * Convert snake_case tool name to Title Case
  */
-export function formatToolName(name: string): string {
+export function convertSnakeToTitleCase(name: string): string {
     return name
         .replace(/_/g, ' ')
         .replace(/\b\w/g, c => c.toUpperCase());
@@ -33,7 +35,7 @@ export function formatToolArgs(toolName: string, args: any): string {
 
         default:
             return Object.entries(args)
-                .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+                .filter(([k, v]) => v !== undefined && v !== null && v !== '' && k !== 'operation_type')
                 .map(([k, v]) => {
                     if (typeof v === 'string' && v.length > 50) {
                         return `${k}: "${v.slice(0, 47)}..."`;
@@ -107,6 +109,30 @@ export function formatToolCallsForSidebar(toolCalls: any[]): string {
                     }
                 }
                 break;
+            case 'chrome-browser__navigate_page':
+            case 'chrome-browser__new_page':
+                if (args.url) {
+                    try {
+                        const url = new URL(args.url);
+                        detail = ` ${url.hostname}`;
+                    } catch {
+                        detail = ` ${args.url}`;
+                    }
+                }
+                break;
+            case 'chrome-browser__click':
+            case 'chrome-browser__hover':
+                detail = args.uid ? ` ${args.uid}` : '';
+                break;
+            case 'chrome-browser__fill':
+                detail = args.value ? ` "${args.value.length > 20 ? args.value.slice(0, 17) + '\u2026' : args.value}"` : '';
+                break;
+            case 'chrome-browser__press_key':
+                detail = args.key ? ` ${args.key}` : '';
+                break;
+            case 'chrome-browser__wait_for':
+                detail = args.text ? ` "${args.text}"` : '';
+                break;
         }
 
         return `${friendly}${detail}`;
@@ -146,7 +172,8 @@ export function getToolCategory(toolName: string): ToolCategory {
 }
 
 /**
- * Get friendly display name for a tool
+ * Get friendly display name for a tool.
+ * MCP tools (server__tool_name) get "Server Tool Name" format automatically.
  */
 export function getFriendlyToolName(toolName: string): string {
     const friendlyNames: Record<string, string> = {
@@ -160,7 +187,17 @@ export function getFriendlyToolName(toolName: string): string {
         "read_webpage": "Read",
         "generate_image": "Generate",
     };
-    return friendlyNames[toolName] || formatToolName(toolName);
+    if (friendlyNames[toolName]) return friendlyNames[toolName];
+
+    // MCP tools: "server-name__tool_name" → "Server Name: Tool Name"
+    const sep = toolName.indexOf('__');
+    if (sep !== -1) {
+        const serverPart = toolName.slice(0, sep).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const toolPart = convertSnakeToTitleCase(toolName.slice(sep + 2));
+        return `${serverPart}: ${toolPart}`;
+    }
+
+    return convertSnakeToTitleCase(toolName);
 }
 
 /** Rich tool args with optional link, hover text, and secondary context */
@@ -191,7 +228,7 @@ function splitPath(fullPath: string): [string, string] {
  * File tools return structured primary/secondary text at all detail levels.
  * In outline mode, primary is basename; in full mode, primary includes more context.
  */
-export function formatToolArgsRich(toolName: string, args: any, outline = false): RichToolArgs | null {
+export function formatToolArgsRich(toolName: string, args: any, outline = false, uidMap?: Map<string, { role: string; label: string }>): RichToolArgs | null {
     if (!args || typeof args !== 'object') return null;
 
     switch (toolName) {
@@ -259,6 +296,83 @@ export function formatToolArgsRich(toolName: string, args: any, outline = false)
             }
             const secondary = args.aspect_ratio ? `Aspect Ratio: ${args.aspect_ratio}` : undefined;
             return { text, secondary, hoverText: args.prompt };
+        }
+
+        // Chrome browser MCP tools
+        case 'chrome-browser__navigate_page': {
+            if (!args.url) return args.type === 'reload' ? { text: 'Reload' } : null;
+            let displayUrl = args.url;
+            try {
+                const url = new URL(args.url);
+                displayUrl = url.hostname + (url.pathname !== '/' ? url.pathname : '');
+            } catch { /* use full url */ }
+            return { text: displayUrl, url: args.url, hoverText: args.url };
+        }
+        case 'chrome-browser__new_page': {
+            if (!args.url) return null;
+            let displayUrl = args.url;
+            try {
+                const url = new URL(args.url);
+                displayUrl = url.hostname + (url.pathname !== '/' ? url.pathname : '');
+            } catch { /* use full url */ }
+            return { text: displayUrl, url: args.url, hoverText: args.url };
+        }
+        case 'chrome-browser__take_screenshot': {
+            const label = args.uid ? resolveUidLabel(args.uid, uidMap) : 'Page';
+            const secondary = args.format && args.format !== 'png' ? args.format : undefined;
+            return { text: `of ${label}`, secondary };
+        }
+        case 'chrome-browser__take_snapshot': {
+            const label = args.uid ? resolveUidLabel(args.uid, uidMap) : 'Page';
+            return { text: `of ${label}` };
+        }
+        case 'chrome-browser__click': {
+            if (!args.uid) return null;
+            return { text: `on ${resolveUidLabel(args.uid, uidMap)}`, hoverText: `uid=${args.uid}` };
+        }
+        case 'chrome-browser__hover': {
+            if (!args.uid) return null;
+            return { text: `on ${resolveUidLabel(args.uid, uidMap)}`, hoverText: `uid=${args.uid}` };
+        }
+        case 'chrome-browser__drag': {
+            if (!args.from_uid || !args.to_uid) return null;
+            return { text: `${resolveUidLabel(args.from_uid, uidMap)} → ${resolveUidLabel(args.to_uid, uidMap)}` };
+        }
+        case 'chrome-browser__fill': {
+            if (!args.value) return null;
+            const val = args.value.length > 30 ? args.value.slice(0, 27) + '\u2026' : args.value;
+            const target = args.uid ? resolveUidLabel(args.uid, uidMap) : undefined;
+            return { text: `"${val}"`, secondary: target ? `in ${target}` : undefined, hoverText: args.value };
+        }
+        case 'chrome-browser__fill_form': {
+            const count = args.elements?.length || 0;
+            return { text: `${count} field${count !== 1 ? 's' : ''}` };
+        }
+        case 'chrome-browser__press_key': {
+            return args.key ? { text: args.key } : null;
+        }
+        case 'chrome-browser__evaluate_script': {
+            if (!args.function) return null;
+            const firstLine = args.function.split('\n')[0] || '';
+            const text = firstLine.length > 50 ? firstLine.slice(0, 47) + '\u2026' : firstLine;
+            return { text, hoverText: args.function };
+        }
+        case 'chrome-browser__wait_for': {
+            return args.text ? { text: `"${args.text}"` } : null;
+        }
+        case 'chrome-browser__select_page': {
+            return args.pageId != null ? { text: `page ${args.pageId}` } : null;
+        }
+        case 'chrome-browser__close_page': {
+            return args.pageId != null ? { text: `page ${args.pageId}` } : null;
+        }
+        case 'chrome-browser__handle_dialog': {
+            return args.action ? { text: args.action === 'accept' ? 'Accept' : 'Dismiss' } : null;
+        }
+        case 'chrome-browser__upload_file': {
+            if (!args.filePath) return null;
+            const fileName = args.filePath.split('/').pop() || args.filePath;
+            return { text: fileName, hoverText: args.filePath };
         }
 
         default:

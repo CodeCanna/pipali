@@ -71,5 +71,13 @@ export function getToolResultStatus(toolResult: string | undefined, toolName: st
         }
     }
 
+    // Chrome browser MCP tools: content without error prefix means success
+    if (toolName?.startsWith('chrome-browser__')) {
+        if (toolResult.length > 0 && !lowerResult.startsWith('error') && !lowerResult.startsWith('failed')) {
+            return 'success';
+        }
+        return 'error';
+    }
+
     return 'neutral';
 }

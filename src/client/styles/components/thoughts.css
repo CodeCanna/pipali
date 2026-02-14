@@ -220,6 +220,24 @@
     margin-bottom: 4px;
 }
 
+/* Operation type badge for MCP tool calls */
+.thought-op-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.thought-op-badge--unsafe {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+}
+
 .thought-args {
     font-weight: 400;
     color: var(--color-text-secondary);
@@ -989,5 +1007,190 @@
 
 .thought-webpage.error .webpage-content {
     color: #ef4444;
+}
+
+/* Chrome snapshot view */
+.thought-snapshot {
+    margin-top: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-size: 12px;
+    background: var(--color-bg-elevated);
+}
+
+.snapshot-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--color-text);
+    background: var(--color-bg-muted);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.snapshot-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.snapshot-url {
+    font-weight: 400;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+}
+
+.snapshot-tree {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.snapshot-node {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 1px 4px;
+    line-height: 1.6;
+    font-size: 11px;
+}
+
+.snapshot-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 0 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+
+.snapshot-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.snapshot-value {
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-style: italic;
+}
+
+.snapshot-value::before {
+    content: "= ";
+}
+
+.snapshot-attr {
+    color: var(--color-text-muted);
+    font-size: 9px;
+}
+
+/* Role-based styling */
+.snapshot-role-interactive .snapshot-badge {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.snapshot-role-link .snapshot-label {
+    color: var(--color-accent);
+}
+
+.snapshot-role-button .snapshot-badge {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.snapshot-role-structure .snapshot-badge {
+    background: transparent;
+    color: var(--color-text-muted);
+    font-weight: 700;
+}
+
+.snapshot-role-heading .snapshot-label {
+    font-weight: 600;
+}
+
+.snapshot-role-text {
+    color: var(--color-text-muted);
+}
+
+.snapshot-role-text .snapshot-label {
+    font-style: italic;
+}
+
+.snapshot-role-image .snapshot-badge {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+}
+
+.snapshot-more {
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.snapshot-footer {
+    padding: 2px 8px;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-muted);
+}
+
+/* Chrome page list (list_pages, navigate_page, etc.) */
+.chrome-page-list {
+    padding: 4px 0;
+}
+
+.chrome-page-entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.chrome-page-id {
+    flex-shrink: 0;
+    width: 16px;
+    text-align: right;
+    color: var(--color-text-muted);
+    font-size: 10px;
+}
+
+.chrome-page-url {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+}
+
+.chrome-page-entry.selected .chrome-page-url {
+    color: var(--color-text);
+}
+
+.chrome-page-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 0 4px;
+    border-radius: 2px;
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 

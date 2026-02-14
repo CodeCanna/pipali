@@ -1,11 +1,12 @@
 // Expandable thoughts section showing AI reasoning and tool calls
 // Uses org-mode S-TAB style 3-level cycling: Collapsed → Outline → Full → Collapsed
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Globe, FileSearch, Pencil, Terminal, Wrench } from 'lucide-react';
 import type { Thought } from '../../types';
 import { ThoughtItem } from './ThoughtItem';
 import { getToolCategory, type ToolCategory } from '../../utils/formatting';
+import { parseSnapshotUids } from '../../utils/snapshotParser';
 
 const CATEGORY_ICONS: Record<ToolCategory, React.ComponentType<{ size?: number }>> = {
     web: Globe,
@@ -69,6 +70,19 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
 
     const toolCalls = thoughts.filter(t => t.type === 'tool_call');
     const thoughtCount = thoughts.filter(t => t.type === 'thought').length;
+
+    // Build uid→label map from chrome snapshot results for resolving interaction tool args
+    const uidMap = useMemo(() => {
+        const map = new Map<string, { role: string; label: string }>();
+        for (const t of thoughts) {
+            if (t.type === 'tool_call' && t.toolName === 'chrome-browser__take_snapshot' && t.toolResult) {
+                for (const [uid, info] of parseSnapshotUids(t.toolResult)) {
+                    map.set(uid, info); // Later snapshots overwrite earlier ones (uid numbers change)
+                }
+            }
+        }
+        return map.size > 0 ? map : undefined;
+    }, [thoughts]);
 
     // Get the most recent thought/tool_call for streaming preview
     const latestThought = thoughts.length > 0 ? thoughts[thoughts.length - 1] : null;
@@ -147,6 +161,7 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
                         thought={latestThought}
                         stepNumber={getStepNumber(thoughts.length - 1)}
                         isPreview={true}
+                        uidMap={uidMap}
                     />
                 </div>
             )}
@@ -167,6 +182,7 @@ export function ThoughtsSection({ thoughts, isStreaming }: ThoughtsSectionProps)
                                     stepNumber={stepNumber}
                                     isPreview={false}
                                     showResult={expandLevel === 2}
+                                    uidMap={uidMap}
                                 />
                             );
                         })}
