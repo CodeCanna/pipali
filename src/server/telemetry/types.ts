@@ -16,6 +16,7 @@ export type ErrorCategory =
     | 'mcp_tool'          // MCP tool failures
     | 'auth'              // Authentication failures
     | 'network'           // Network/connectivity issues
+    | 'client'            // Client-side rendering/runtime errors
     | 'internal';         // Internal server errors
 
 /** Information about the AI model involved in an error */

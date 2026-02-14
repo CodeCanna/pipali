@@ -1,4 +1,5 @@
 import React from 'react';
+import { apiFetch } from '../utils/api';
 
 interface ErrorBoundaryProps {
     children: React.ReactNode;
@@ -24,6 +25,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
     override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         console.error('ErrorBoundary caught an error:', error, errorInfo);
+
+        // Report to server telemetry
+        apiFetch('/api/telemetry/client-error', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: error.toString(),
+                stack: error.stack,
+                url: window.location.href,
+                componentStack: errorInfo.componentStack,
+            }),
+        }).catch(() => {});
     }
 
     getErrorReport = (): string => {

@@ -710,6 +710,22 @@ api.get('/files', async (c) => {
     }
 });
 
+// Client-side error telemetry
+const clientErrorSchema = z.object({
+    message: z.string(),
+    stack: z.string().optional(),
+    url: z.string().optional(),
+    componentStack: z.string().optional(),
+});
+api.post('/telemetry/client-error', zValidator('json', clientErrorSchema), async (c) => {
+    const { message, stack, url, componentStack } = c.req.valid('json');
+    log.error(
+        { err: { message, stack }, component: 'client', url, componentStack },
+        `Client error: ${message}`,
+    );
+    return c.json({ received: true });
+});
+
 // Mount the automations router
 api.route('/automations', automations);
 
