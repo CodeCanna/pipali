@@ -309,6 +309,20 @@ export async function pickFiles(): Promise<string[]> {
     }
 }
 
+/** Open a native path picker dialog. Picks folders by default, or files if directory=false. */
+export async function pickPath(options?: { directory?: boolean }): Promise<string | null> {
+    if (!isTauri()) return null;
+    try {
+        const { open } = await import('@tauri-apps/plugin-dialog');
+        const selected = await open({ directory: options?.directory ?? true });
+        if (!selected) return null;
+        return Array.isArray(selected) ? selected[0] : selected;
+    } catch (err) {
+        console.error('[pickPath] Failed:', err);
+        return null;
+    }
+}
+
 /** Get metadata for dropped files via Tauri command. */
 export async function getDroppedFileMetadata(paths: string[]): Promise<AttachedFileInfo[]> {
     if (!isTauri()) return [];

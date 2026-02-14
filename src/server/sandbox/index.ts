@@ -371,6 +371,18 @@ export function getSandboxEnvOverrides(): Record<string, string> {
     };
 }
 
+/**
+ * Get the set of default paths managed by the system.
+ * Used by the settings UI to hide system paths and only show user-added ones.
+ */
+export function getDefaultPaths() {
+    const defaults = getDefaultConfig();
+    return {
+        allowedWritePaths: defaults.allowedWritePaths,
+        deniedReadPaths: defaults.deniedReadPaths,
+    };
+}
+
 // Re-export types and settings functions
 export type { SandboxConfig };
 export { getDefaultConfig } from './config';

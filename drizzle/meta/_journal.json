@@ -99,6 +99,13 @@
       "when": 1769740594584,
       "tag": "0013_fantastic_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1771027200000,
+      "tag": "0014_strip_sandbox_defaults",
+      "breakpoints": true
     }
   ]
 }

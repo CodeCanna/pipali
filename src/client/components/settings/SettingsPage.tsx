@@ -1,7 +1,7 @@
 // Settings page component
 
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Check, AlertCircle, Shield, User } from 'lucide-react';
+import { Save, Loader2, Check, AlertCircle, Shield, User, FolderLock } from 'lucide-react';
 import { apiFetch } from '../../utils/api';
 import { PathListEditor } from './PathListEditor';
 
@@ -22,10 +22,26 @@ interface SandboxConfig {
     allowLocalBinding: boolean;
 }
 
+interface DefaultPaths {
+    allowedWritePaths: string[];
+    deniedReadPaths: string[];
+}
+
 interface SandboxStatus {
     enabled: boolean;
     supported: boolean;
     platform: string;
+}
+
+/** Filter out system-managed default paths for display */
+function getUserPaths(paths: string[], defaultPaths: string[]): string[] {
+    const defaults = new Set(defaultPaths);
+    return paths.filter(p => !defaults.has(p));
+}
+
+/** Merge user-edited paths back with defaults for saving */
+function mergeWithDefaults(userPaths: string[], defaultPaths: string[]): string[] {
+    return [...defaultPaths, ...userPaths.filter(p => !defaultPaths.includes(p))];
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -42,8 +58,7 @@ export function SettingsPage() {
     // Sandbox state
     const [sandboxStatus, setSandboxStatus] = useState<SandboxStatus | null>(null);
     const [sandboxConfig, setSandboxConfig] = useState<SandboxConfig | null>(null);
-    const [originalSandboxConfig, setOriginalSandboxConfig] = useState<SandboxConfig | null>(null);
-    const [sandboxSaveStatus, setSandboxSaveStatus] = useState<SaveStatus>('idle');
+    const [defaultPaths, setDefaultPaths] = useState<DefaultPaths | null>(null);
     const [sandboxError, setSandboxError] = useState<string | null>(null);
 
     // Track if form has unsaved changes
@@ -52,11 +67,6 @@ export function SettingsPage() {
         name !== (originalValues.name || '') ||
         location !== (originalValues.location || '') ||
         instructions !== (originalValues.instructions || '');
-
-    // Track sandbox changes
-    const hasSandboxChanges = sandboxConfig && originalSandboxConfig
-        ? JSON.stringify(sandboxConfig) !== JSON.stringify(originalSandboxConfig)
-        : false;
 
     useEffect(() => {
         fetchUserContext();
@@ -95,9 +105,10 @@ export function SettingsPage() {
             }
 
             if (configRes.ok) {
-                const config: SandboxConfig = await configRes.json();
+                const data = await configRes.json();
+                const { defaults, ...config } = data as SandboxConfig & { defaults: DefaultPaths };
                 setSandboxConfig(config);
-                setOriginalSandboxConfig(config);
+                setDefaultPaths(defaults);
             }
         } catch (e) {
             console.error('Failed to fetch sandbox data', e);
@@ -136,42 +147,55 @@ export function SettingsPage() {
         }
     };
 
-    const handleSaveSandbox = async () => {
+    /** Toggle sandbox on/off — saves immediately without requiring the Save button. */
+    const handleToggleSandbox = async (enabled: boolean) => {
         if (!sandboxConfig) return;
-
-        setSandboxSaveStatus('saving');
+        setSandboxConfig({ ...sandboxConfig, enabled });
         setSandboxError(null);
-
         try {
             const res = await apiFetch('/api/user/sandbox', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(sandboxConfig),
+                body: JSON.stringify({ enabled }),
             });
-
             if (res.ok) {
-                setSandboxSaveStatus('saved');
-                setOriginalSandboxConfig({ ...sandboxConfig });
-                // Refresh status to get updated enabled state
                 const statusRes = await apiFetch('/api/sandbox/status');
-                if (statusRes.ok) {
-                    setSandboxStatus(await statusRes.json());
-                }
-                setTimeout(() => setSandboxSaveStatus('idle'), 2000);
+                if (statusRes.ok) setSandboxStatus(await statusRes.json());
             } else {
+                // Revert on failure
+                setSandboxConfig(prev => prev ? { ...prev, enabled: !enabled } : prev);
                 const data = await res.json();
                 throw new Error(data.error || 'Failed to save');
             }
         } catch (e) {
-            console.error('Failed to save sandbox settings', e);
-            setSandboxSaveStatus('error');
-            setSandboxError(e instanceof Error ? e.message : 'Failed to save sandbox settings');
+            console.error('Failed to toggle sandbox', e);
+            setSandboxError(e instanceof Error ? e.message : 'Failed to toggle sandbox');
         }
     };
 
-    const updateSandboxConfig = (updates: Partial<SandboxConfig>) => {
-        if (sandboxConfig) {
-            setSandboxConfig({ ...sandboxConfig, ...updates });
+    /** Update paths and save immediately. */
+    const savePaths = async (updates: Partial<SandboxConfig>) => {
+        if (!sandboxConfig) return;
+        const updated = { ...sandboxConfig, ...updates };
+        setSandboxConfig(updated);
+        setSandboxError(null);
+        try {
+            const res = await apiFetch('/api/user/sandbox', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    allowedWritePaths: updated.allowedWritePaths,
+                    deniedReadPaths: updated.deniedReadPaths,
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to save');
+            }
+        } catch (e) {
+            console.error('Failed to save file permissions', e);
+            setSandboxConfig(sandboxConfig); // revert
+            setSandboxError(e instanceof Error ? e.message : 'Failed to save file permissions');
         }
     };
 
@@ -193,26 +217,25 @@ export function SettingsPage() {
                 <div className="settings-page">
                     <div className="settings-header">
                         <h2>Settings</h2>
+                        {sandboxStatus?.supported && (
+                            <div className="settings-tabs">
+                                <button
+                                    className={`settings-tab ${activeTab === 'profile' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('profile')}
+                                >
+                                    <User size={16} />
+                                    <span>Profile</span>
+                                </button>
+                                <button
+                                    className={`settings-tab ${activeTab === 'permissions' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('permissions')}
+                                >
+                                    <Shield size={16} />
+                                    <span>Permissions</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
-
-                    {sandboxStatus?.supported && (
-                        <div className="settings-tabs">
-                            <button
-                                className={`settings-tab ${activeTab === 'profile' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('profile')}
-                            >
-                                <User size={16} />
-                                <span>Profile</span>
-                            </button>
-                            <button
-                                className={`settings-tab ${activeTab === 'permissions' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('permissions')}
-                            >
-                                <Shield size={16} />
-                                <span>Permissions</span>
-                            </button>
-                        </div>
-                    )}
 
                     {error && (
                         <div className="settings-error">
@@ -296,18 +319,8 @@ export function SettingsPage() {
                         </div>
                     )}
 
-                    {/* Security & Sandbox Section */}
                     {activeTab === 'permissions' && (
-                    <div className="settings-section">
-                        <h3 className="settings-section-title">
-                            <Shield size={18} />
-                            Security & Sandbox
-                        </h3>
-                        <p className="settings-section-description">
-                            Configure sandbox restrictions for shell commands and file operations.
-                            When enabled, shell commands run in an OS-enforced sandbox for increased security.
-                        </p>
-
+                    <>
                         {sandboxError && (
                             <div className="settings-error">
                                 <AlertCircle size={14} />
@@ -315,91 +328,73 @@ export function SettingsPage() {
                             </div>
                         )}
 
-                        {sandboxConfig && (
-                            <div className="settings-form">
-                                {/* Enable toggle */}
-                                <div className="settings-field settings-field-toggle">
-                                    <label htmlFor="sandbox-enabled">Enable Sandbox</label>
-                                    <p className="settings-field-hint">
+                        {/* Sandbox toggle */}
+                        <div className="settings-section">
+                            <div className="settings-section-header">
+                                <div>
+                                    <h3 className="settings-section-title">
+                                        <Shield size={18} />
+                                        Sandbox
+                                    </h3>
+                                    <p className="settings-section-description">
                                         When enabled, shell commands run in an OS-enforced sandbox without requiring confirmation.
                                     </p>
+                                </div>
+                                {sandboxConfig && (
                                     <label className="toggle-switch">
                                         <input
                                             id="sandbox-enabled"
                                             type="checkbox"
                                             checked={sandboxConfig.enabled}
-                                            onChange={(e) => updateSandboxConfig({ enabled: e.target.checked })}
+                                            onChange={(e) => handleToggleSandbox(e.target.checked)}
                                         />
                                         <span className="toggle-slider"></span>
                                     </label>
-                                </div>
+                                )}
+                            </div>
+                        </div>
 
-                                {/* Allowed write paths */}
+                        {/* File permissions */}
+                        {sandboxConfig && (
+                        <div className="settings-section">
+                            <h3 className="settings-section-title">
+                                <FolderLock size={18} />
+                                File Permissions
+                            </h3>
+                            <p className="settings-section-description">
+                                Control which files and folders Pipali can read or write without asking.
+                            </p>
+
+                            <div className="settings-form">
                                 <div className="settings-field">
                                     <label>Allowed Write Directories</label>
                                     <p className="settings-field-hint">
-                                        File writes to these directories won't require confirmation.
+                                        Never require your confirmation to manage files in these folders.
                                     </p>
                                     <PathListEditor
-                                        paths={sandboxConfig.allowedWritePaths}
-                                        onChange={(paths) => updateSandboxConfig({ allowedWritePaths: paths })}
-                                        placeholder="e.g., ~/Documents or /tmp"
+                                        paths={getUserPaths(sandboxConfig.allowedWritePaths, defaultPaths?.allowedWritePaths ?? [])}
+                                        onChange={(paths) => savePaths({ allowedWritePaths: mergeWithDefaults(paths, defaultPaths?.allowedWritePaths ?? []) })}
+                                        placeholder="e.g., Documents/pipali"
                                     />
                                 </div>
 
-                                {/* Denied write paths */}
-                                <div className="settings-field">
-                                    <label>Protected Write Paths</label>
-                                    <p className="settings-field-hint">
-                                        Never allow writes to these paths, even in allowed directories.
-                                    </p>
-                                    <PathListEditor
-                                        paths={sandboxConfig.deniedWritePaths}
-                                        onChange={(paths) => updateSandboxConfig({ deniedWritePaths: paths })}
-                                        placeholder="e.g., ~/.ssh or ~/.aws"
-                                    />
-                                </div>
-
-                                {/* Denied read paths */}
                                 <div className="settings-field">
                                     <label>Protected Read Paths</label>
                                     <p className="settings-field-hint">
-                                        Always require confirmation before reading these paths (SSH keys, credentials, etc.)
+                                        Always require your confirmation to view these files or folders.
                                     </p>
                                     <PathListEditor
-                                        paths={sandboxConfig.deniedReadPaths}
-                                        onChange={(paths) => updateSandboxConfig({ deniedReadPaths: paths })}
-                                        placeholder="e.g., ~/.ssh or .env"
+                                        paths={getUserPaths(sandboxConfig.deniedReadPaths, defaultPaths?.deniedReadPaths ?? [])}
+                                        onChange={(paths) => savePaths({ deniedReadPaths: mergeWithDefaults(paths, defaultPaths?.deniedReadPaths ?? []) })}
+                                        placeholder="e.g., Documents/passwords.docx"
+                                        mode="any"
                                     />
                                 </div>
 
-                                <div className="settings-actions">
-                                    <button
-                                        onClick={handleSaveSandbox}
-                                        disabled={sandboxSaveStatus === 'saving' || !hasSandboxChanges}
-                                        className={`settings-save-btn ${sandboxSaveStatus === 'saved' ? 'saved' : ''}`}
-                                    >
-                                        {sandboxSaveStatus === 'saving' ? (
-                                            <>
-                                                <Loader2 size={16} className="spinning" />
-                                                <span>Saving...</span>
-                                            </>
-                                        ) : sandboxSaveStatus === 'saved' ? (
-                                            <>
-                                                <Check size={16} />
-                                                <span>Saved</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save size={16} />
-                                                <span>Save Security Settings</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
                             </div>
+                        </div>
                         )}
-                    </div>
+                    </>
                     )}
                 </div>
             </div>

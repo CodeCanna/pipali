@@ -24,6 +24,7 @@ import { syncPlatformModels, syncPlatformWebTools } from '../auth';
 import { createChildLogger } from '../logger';
 import {
     getSandboxConfig,
+    getDefaultPaths,
     updateSandboxConfig,
     isSandboxEnabled,
     isSandboxSupported,
@@ -591,11 +592,12 @@ api.get('/sandbox/status', async (c) => {
     });
 });
 
-// Get sandbox settings
+// Get sandbox settings (includes default paths so the UI can filter them out)
 api.get('/user/sandbox', async (c) => {
     try {
         const config = getSandboxConfig();
-        return c.json(config);
+        const defaults = getDefaultPaths();
+        return c.json({ ...config, defaults });
     } catch (err) {
         log.error({ err }, 'Failed to load sandbox settings');
         return c.json({ error: 'Failed to load sandbox settings' }, 500);

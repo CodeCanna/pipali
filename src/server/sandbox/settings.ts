@@ -1,14 +1,52 @@
 /**
  * Database operations for sandbox settings.
+ *
+ * The DB only stores user-added paths/domains, not defaults.
+ * Defaults are merged at load time from config.ts, so code updates
+ * to defaults take effect immediately without DB migrations.
  */
 
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { SandboxSettings } from '../db/schema';
-import { type SandboxConfig, getDefaultConfig, getPlatformTempDirs, DEFAULT_ALLOWED_WRITE_PATHS, DEFAULT_ALLOWED_DOMAINS } from './config';
+import { type SandboxConfig, getDefaultConfig } from './config';
+
+/** Remove default entries from a list, returning only user-added items. */
+function stripDefaults(paths: string[], defaults: string[]): string[] {
+    const defaultSet = new Set(defaults);
+    return paths.filter(p => !defaultSet.has(p));
+}
+
+/** Merge user-added items with current defaults (defaults first, then user additions). */
+function mergeWithDefaults(userPaths: string[], defaults: string[]): string[] {
+    return [...defaults, ...userPaths.filter(p => !defaults.includes(p))];
+}
+
+/**
+ * Strip all default paths/domains from a config, returning only user-added values.
+ * Used before writing to DB so we never persist defaults.
+ */
+function toUserOnly(config: Partial<SandboxConfig>): Partial<SandboxConfig> {
+    const defaults = getDefaultConfig();
+    const result: Partial<SandboxConfig> = { ...config };
+    if (result.allowedWritePaths) {
+        result.allowedWritePaths = stripDefaults(result.allowedWritePaths, defaults.allowedWritePaths);
+    }
+    if (result.deniedWritePaths) {
+        result.deniedWritePaths = stripDefaults(result.deniedWritePaths, defaults.deniedWritePaths);
+    }
+    if (result.deniedReadPaths) {
+        result.deniedReadPaths = stripDefaults(result.deniedReadPaths, defaults.deniedReadPaths);
+    }
+    if (result.allowedDomains) {
+        result.allowedDomains = stripDefaults(result.allowedDomains, defaults.allowedDomains);
+    }
+    return result;
+}
 
 /**
  * Load sandbox settings for a user from the database.
+ * DB stores only user-added paths; this merges them with current defaults.
  * Returns default config if no settings exist.
  */
 export async function loadSandboxSettings(userId: number): Promise<SandboxConfig> {
@@ -18,46 +56,32 @@ export async function loadSandboxSettings(userId: number): Promise<SandboxConfig
         .where(eq(SandboxSettings.userId, userId))
         .limit(1);
 
+    const defaults = getDefaultConfig();
     const settings = rows[0];
     if (!settings) {
-        return getDefaultConfig();
+        return defaults;
     }
-
-    // Merge stored settings with required defaults that may have been added after
-    // the user's settings were saved. This ensures new paths/domains are available.
-
-    // 1. Merge allowed write paths (includes platform-specific temp dirs)
-    const platformTempDirs = getPlatformTempDirs();
-    const requiredWritePaths = [...DEFAULT_ALLOWED_WRITE_PATHS, ...platformTempDirs];
-    const allowedWritePaths = [
-        ...settings.allowedWritePaths,
-        ...requiredWritePaths.filter(p => !settings.allowedWritePaths.includes(p)),
-    ];
-
-    // 2. Merge allowed domains (ensures new package registries are available)
-    const allowedDomains = [
-        ...settings.allowedDomains,
-        ...DEFAULT_ALLOWED_DOMAINS.filter(d => !settings.allowedDomains.includes(d)),
-    ];
 
     return {
         enabled: settings.enabled,
-        allowedWritePaths,
-        deniedWritePaths: settings.deniedWritePaths,
-        deniedReadPaths: settings.deniedReadPaths,
-        allowedDomains,
+        allowedWritePaths: mergeWithDefaults(settings.allowedWritePaths, defaults.allowedWritePaths),
+        deniedWritePaths: mergeWithDefaults(settings.deniedWritePaths, defaults.deniedWritePaths),
+        deniedReadPaths: mergeWithDefaults(settings.deniedReadPaths, defaults.deniedReadPaths),
+        allowedDomains: mergeWithDefaults(settings.allowedDomains, defaults.allowedDomains),
         allowLocalBinding: settings.allowLocalBinding,
     };
 }
 
 /**
  * Save sandbox settings for a user to the database.
- * Creates new record if none exists, otherwise updates existing.
+ * Strips defaults before writing so only user-added paths are persisted.
  */
 export async function saveSandboxSettings(
     userId: number,
     config: Partial<SandboxConfig>
 ): Promise<void> {
+    const userOnly = toUserOnly(config);
+
     const existing = await db
         .select({ id: SandboxSettings.id })
         .from(SandboxSettings)
@@ -67,25 +91,24 @@ export async function saveSandboxSettings(
     const now = new Date();
 
     if (existing.length === 0) {
-        // Insert new record with defaults merged with provided config
-        const defaults = getDefaultConfig();
         await db.insert(SandboxSettings).values({
             userId,
-            enabled: config.enabled ?? defaults.enabled,
-            allowedWritePaths: config.allowedWritePaths ?? defaults.allowedWritePaths,
-            deniedWritePaths: config.deniedWritePaths ?? defaults.deniedWritePaths,
-            deniedReadPaths: config.deniedReadPaths ?? defaults.deniedReadPaths,
-            allowedDomains: config.allowedDomains ?? defaults.allowedDomains,
-            allowLocalBinding: config.allowLocalBinding ?? defaults.allowLocalBinding,
+            enabled: config.enabled ?? true,
+            allowedWritePaths: userOnly.allowedWritePaths ?? [],
+            deniedWritePaths: userOnly.deniedWritePaths ?? [],
+            deniedReadPaths: userOnly.deniedReadPaths ?? [],
+            allowedDomains: userOnly.allowedDomains ?? [],
+            allowLocalBinding: config.allowLocalBinding ?? true,
             createdAt: now,
             updatedAt: now,
         });
     } else {
-        // Update existing record
         await db
             .update(SandboxSettings)
             .set({
-                ...config,
+                ...userOnly,
+                enabled: config.enabled,
+                allowLocalBinding: config.allowLocalBinding,
                 updatedAt: now,
             })
             .where(eq(SandboxSettings.userId, userId));
@@ -94,12 +117,9 @@ export async function saveSandboxSettings(
 
 /**
  * Ensure sandbox settings exist for a user, creating defaults if needed.
- * Returns the settings (existing or newly created).
+ * Returns the full merged settings.
  */
 export async function ensureSandboxSettings(userId: number): Promise<SandboxConfig> {
-    const existing = await loadSandboxSettings(userId);
-
-    // Check if we actually have a record in the database
     const rows = await db
         .select({ id: SandboxSettings.id })
         .from(SandboxSettings)
@@ -107,9 +127,9 @@ export async function ensureSandboxSettings(userId: number): Promise<SandboxConf
         .limit(1);
 
     if (rows.length === 0) {
-        // Create default settings
-        await saveSandboxSettings(userId, existing);
+        // Create empty user record (defaults merge at load time)
+        await saveSandboxSettings(userId, { enabled: true, allowLocalBinding: true });
     }
 
-    return existing;
+    return loadSandboxSettings(userId);
 }
