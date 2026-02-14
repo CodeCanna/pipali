@@ -180,6 +180,13 @@ export function InputArea({
                             }
                         }}
                         onKeyDown={(e) => {
+                            // When confirmation is pending, Enter sends guidance
+                            if (pendingConfirmation && e.key === 'Enter' && !e.shiftKey && input.trim()) {
+                                e.preventDefault();
+                                onConfirmationRespond('guidance', input.trim());
+                                onInputChange('');
+                                return;
+                            }
                             // Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux): background task
                             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
                                 e.preventDefault();
@@ -190,11 +197,15 @@ export function InputArea({
                             onKeyDown(e);
                         }}
                         placeholder={
-                            isStopped
-                                ? "Stopped. Type a new message..."
-                                : isProcessing
-                                    ? "Type to interrupt with a message..."
-                                    : placeholder
+                            pendingConfirmation
+                                ? (pendingConfirmation.operation === 'ask_user'
+                                    ? "Type a custom response…"
+                                    : "Type alternative instructions…")
+                                : isStopped
+                                    ? "Stopped. Type a new message..."
+                                    : isProcessing
+                                        ? "Type to interrupt with a message..."
+                                        : placeholder
                         }
                         rows={1}
                         disabled={!isConnected}

@@ -114,7 +114,7 @@ export function createFileOperationConfirmation(
         write_file: 'Confirm File Write',
         delete_file: 'Confirm File Deletion',
         execute_command: 'Confirm Command Execution',
-        mcp_tool_call: 'Confirm MCP Tool Call',
+        mcp_tool_call: 'Confirm Tool Call',
         read_sensitive_file: 'Confirm Sensitive File Access',
         grep_sensitive_path: 'Confirm Sensitive Path Search',
         fetch_internal_url: 'Confirm Internal Network Access',
@@ -129,7 +129,8 @@ export function createFileOperationConfirmation(
         context: {
             toolName: details.toolName,
             toolArgs: details.toolArgs,
-            affectedFiles: [filePath],
+            // Only include affectedFiles for actual file operations, not MCP tool calls
+            affectedFiles: operation === 'mcp_tool_call' ? [] : [filePath],
             riskLevel: getRiskLevel(operation, details.operationSubType),
             operationType: details.operationSubType,
             commandInfo: details.commandInfo,

@@ -20,6 +20,33 @@ export function convertSnakeToTitleCase(name: string): string {
 }
 
 /**
+ * Parse MCP tool name ("server-name__tool_name") into parts with friendly display name.
+ * Returns null for non-MCP tool names.
+ */
+export function parseMcpToolName(toolName: string): { serverName: string; toolName: string; friendlyName: string } | null {
+    const sep = toolName.indexOf('__');
+    if (sep === -1) return null;
+    const serverName = toolName.slice(0, sep);
+    const tool = toolName.slice(sep + 2);
+    const friendlyServer = serverName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const friendlyTool = convertSnakeToTitleCase(tool);
+    return { serverName, toolName: tool, friendlyName: `${friendlyServer}: ${friendlyTool}` };
+}
+
+/**
+ * Strip server prefix from MCP operation type for display.
+ * "chrome-browser:safe" → "safe", "read-only" → "read-only"
+ */
+export function cleanOperationType(opType: string): string {
+    const colonIdx = opType.lastIndexOf(':');
+    if (colonIdx === -1) return opType;
+    const suffix = opType.slice(colonIdx + 1);
+    // Only strip if suffix is a known MCP safety level
+    if (suffix === 'safe' || suffix === 'unsafe') return suffix;
+    return opType;
+}
+
+/**
  * Format tool arguments as plain text. Used as fallback for tools
  * not handled by formatToolArgsRich (shell_command, search_web, unknown tools).
  */
@@ -189,13 +216,8 @@ export function getFriendlyToolName(toolName: string): string {
     };
     if (friendlyNames[toolName]) return friendlyNames[toolName];
 
-    // MCP tools: "server-name__tool_name" → "Server Name: Tool Name"
-    const sep = toolName.indexOf('__');
-    if (sep !== -1) {
-        const serverPart = toolName.slice(0, sep).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        const toolPart = convertSnakeToTitleCase(toolName.slice(sep + 2));
-        return `${serverPart}: ${toolPart}`;
-    }
+    const mcp = parseMcpToolName(toolName);
+    if (mcp) return mcp.friendlyName;
 
     return convertSnakeToTitleCase(toolName);
 }

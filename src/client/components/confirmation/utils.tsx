@@ -42,7 +42,9 @@ export function formatTimeRemaining(expiresAt: string): string {
  */
 export function hasExpandableContent(request: ConfirmationRequest): boolean {
     const commandInfo = request.context?.commandInfo;
-    return !!(commandInfo?.command || request.diff || (request.message && request.message.length > 120));
+    const hasMcpArgs = request.operation === 'mcp_tool_call' && request.context?.toolArgs
+        && Object.keys(request.context.toolArgs).filter(k => !HIDDEN_MCP_ARGS.has(k)).length > 0;
+    return !!(commandInfo?.command || request.diff || hasMcpArgs || (request.message && request.message.length > 120));
 }
 
 /**
@@ -51,11 +53,13 @@ export function hasExpandableContent(request: ConfirmationRequest): boolean {
 export function getOperationTypePillClass(opType?: string): string {
     switch (opType) {
         case 'read-only':
-            return 'operation-type-pill read-only';
+        case 'safe':
+            return 'operation-type-pill safe';
         case 'write-only':
             return 'operation-type-pill write-only';
         case 'read-write':
-            return 'operation-type-pill read-write';
+        case 'unsafe':
+            return 'operation-type-pill unsafe';
         default:
             return 'operation-type-pill';
     }
@@ -79,9 +83,47 @@ export function getMessagePreview(request: ConfirmationRequest): string {
             : request.message;
     }
 
-    else if (request.context?.toolName) {
-        return `${request.context.toolName}: ${JSON.stringify(request.context.toolArgs || {}).slice(0, 80)}...`;
+    else if (request.operation === 'mcp_tool_call' && request.context?.toolArgs) {
+        // Show MCP tool args compactly (not raw JSON)
+        const args = Object.entries(request.context.toolArgs)
+            .filter(([k]) => !HIDDEN_MCP_ARGS.has(k))
+            .map(([k, v]) => {
+                const val = typeof v === 'string'
+                    ? (v.length > 40 ? v.slice(0, 37) + '\u2026' : v)
+                    : JSON.stringify(v);
+                return `${k}: ${val}`;
+            })
+            .join(', ');
+        return args || '';
     }
 
     return '';
+}
+
+/** MCP args to hide from the user (noise) */
+export const HIDDEN_MCP_ARGS = new Set(['operation_type', 'includeSnapshot']);
+
+/**
+ * Format a tool argument value for compact inline display
+ */
+export function formatArgValue(value: unknown): React.ReactNode {
+    if (value === null || value === undefined) {
+        return <span className="arg-value null">null</span>;
+    }
+    if (typeof value === 'boolean') {
+        return <span className={`arg-value boolean ${value ? 'true' : 'false'}`}>{String(value)}</span>;
+    }
+    if (typeof value === 'number') {
+        return <span className="arg-value number">{value}</span>;
+    }
+    if (typeof value === 'string') {
+        const displayValue = value.length > 120 ? value.slice(0, 120) + '\u2026' : value;
+        return <code className="arg-value string">{displayValue}</code>;
+    }
+    if (typeof value === 'object') {
+        const jsonStr = JSON.stringify(value, null, 2);
+        const displayValue = jsonStr.length > 150 ? jsonStr.slice(0, 150) + '\u2026' : jsonStr;
+        return <pre className="arg-value object"><code>{displayValue}</code></pre>;
+    }
+    return <span className="arg-value">{String(value)}</span>;
 }

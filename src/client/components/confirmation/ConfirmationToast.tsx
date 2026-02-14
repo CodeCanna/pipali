@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, X, Bot, Clock, Send, MessageCircleQuestion } from 'lucide-react';
 import type { PendingConfirmation } from '../../types/confirmation';
 import { DiffView } from '../tool-views/DiffView';
-import { shortenHomePath } from '../../utils/formatting';
-import { getButtonClass, formatTimeRemaining, hasExpandableContent, getMessagePreview, getOperationTypePillClass } from './utils';
+import { shortenHomePath, parseMcpToolName, cleanOperationType } from '../../utils/formatting';
+import { getButtonClass, formatTimeRemaining, hasExpandableContent, getMessagePreview, getOperationTypePillClass, HIDDEN_MCP_ARGS, formatArgValue } from './utils';
 
 interface ConfirmationToastProps {
     confirmation: PendingConfirmation;
@@ -31,6 +31,13 @@ export function ConfirmationToast({
 
     // Get structured command info from context (for shell_command operations)
     const commandInfo = request.context?.commandInfo;
+    const isMcpToolCall = request.operation === 'mcp_tool_call';
+    const mcpToolInfo = isMcpToolCall && request.context?.toolName
+        ? parseMcpToolName(request.context.toolName)
+        : null;
+    const displayOpType = request.context?.operationType && !isAgentQuestion
+        ? cleanOperationType(request.context.operationType)
+        : null;
     const expandable = hasExpandableContent(request);
     const messagePreview = getMessagePreview(request);
 
@@ -90,17 +97,17 @@ export function ConfirmationToast({
                     <div className="toast-title-row">
                         <span className={`toast-title ${isAgentQuestion ? 'agent-question-title' : ''}`}>
                             {isAgentQuestion && <MessageCircleQuestion size={12} className="question-icon" />}
-                            {request.title}
+                            {mcpToolInfo?.friendlyName || request.title}
                         </span>
                         {isAgentQuestion && <span className="question-badge">Question</span>}
-                        {request.context?.operationType && !isAgentQuestion && (
-                            <span className={getOperationTypePillClass(request.context.operationType)}>
-                                {request.context.operationType}
+                        {displayOpType && (
+                            <span className={getOperationTypePillClass(displayOpType)}>
+                                {displayOpType}
                             </span>
                         )}
                     </div>
 
-                    {/* Command reason or message preview */}
+                    {/* Command reason or message preview (not for MCP — args shown in body) */}
                     {messagePreview && (
                         <span className="toast-preview">{messagePreview}</span>
                     )}
@@ -158,9 +165,27 @@ export function ConfirmationToast({
                     )}
 
                     {/* Full message for non-commands */}
-                    {!commandInfo && request.message && request.message.length > 120 && (
+                    {!commandInfo && !isMcpToolCall && request.message && request.message.length > 120 && (
                         <div className="toast-message">{request.message}</div>
                     )}
+
+                    {/* MCP tool args */}
+                    {isMcpToolCall && request.context?.toolArgs && (() => {
+                        const args = Object.entries(request.context!.toolArgs!)
+                            .filter(([k]) => !HIDDEN_MCP_ARGS.has(k));
+                        if (args.length === 0) return null;
+                        return (
+                            <div className="mcp-args-list">
+                                {args.map(([key, value]) => (
+                                    <div key={key} className="mcp-arg-row">
+                                        <span className="mcp-arg-key">{key}</span>
+                                        <span className="mcp-arg-separator">:</span>
+                                        {formatArgValue(value)}
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })()}
 
                     {/* Diff view */}
                     {request.diff && <DiffView diff={request.diff} />}
