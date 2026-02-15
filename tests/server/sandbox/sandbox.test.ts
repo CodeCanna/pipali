@@ -167,6 +167,9 @@ describe('Sandbox Config', () => {
             // Should set TMPDIR to sandbox temp directory
             expect(env.TMPDIR).toBe(SANDBOX_TEMP_DIR);
 
+            // Should skip system git config (blocked by /etc deny rule)
+            expect(env.GIT_CONFIG_NOSYSTEM).toBe('1');
+
             // Should redirect uv/pip caches to /tmp/pipali
             expect(env.UV_CACHE_DIR).toContain(SANDBOX_TEMP_DIR);
             expect(env.PIP_CACHE_DIR).toContain(SANDBOX_TEMP_DIR);

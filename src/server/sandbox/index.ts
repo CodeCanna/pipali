@@ -358,6 +358,9 @@ export function getSandboxEnvOverrides(): Record<string, string> {
         // General temp directory
         TMPDIR: SANDBOX_TEMP_DIR,
 
+        // Git - skip /etc/gitconfig which is denied by sandbox read restrictions
+        GIT_CONFIG_NOSYSTEM: '1',
+
         // Python/Uv - redirect cache, tool installs, and data to /tmp/pipali instead of ~/
         UV_CACHE_DIR: `${SANDBOX_TEMP_DIR}/uv-cache`,
         UV_TOOL_DIR: `${SANDBOX_TEMP_DIR}/uv-tools`,
