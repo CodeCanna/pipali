@@ -355,6 +355,23 @@ jobs:
           $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) -replace "`r|`n", ""
           bun run ${{ inputs.debug_build && 'tauri:build:debug' || 'tauri:build' }}
 
+      - name: ⚡ Sign Windows Installers with Azure Artifact Signing
+        if: github.event_name != 'pull_request' && !inputs.debug_build
+        uses: azure/artifact-signing-action@v1
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: https://eus.codesigning.azure.net/
+          signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE }}
+          files-folder: ${{ github.workspace }}\src-tauri\target\release\bundle
+          files-folder-filter: exe,msi
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
       - name: 📁 List Build Artifacts
         shell: bash
         run: |
