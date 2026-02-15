@@ -124,7 +124,7 @@ jobs:
 
       # Release, Main build
       - name: 🔨 Build Desktop App (macOS)
-        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -277,7 +277,7 @@ jobs:
         run: bun run ${{ inputs.debug_build && 'tauri:build:debug' || 'tauri:build' }} -- --no-updater-artifacts
 
       - name: 🔨 Build Desktop App (Linux)
-        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
+        if: github.event_name != 'pull_request'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

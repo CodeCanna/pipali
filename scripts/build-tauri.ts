@@ -512,6 +512,21 @@ async function buildTauri(debug: boolean, platform: Platform, disableUpdaterArti
         bundles = ["appimage"];
     }
 
+    // On Linux, pre-place a patched GTK plugin in Tauri's cache so it uses ours
+    // instead of downloading the upstream version. The patch moves statically-linked
+    // binaries (like bun) out of AppDir/usr/bin/ before linuxdeploy scans them,
+    // avoiding a crash caused by `ldd` failing on static binaries.
+    // See: scripts/linux/linuxdeploy-plugin-gtk.sh for details.
+    if (platform.startsWith("linux")) {
+        const cacheDir = path.join(process.env.HOME || "/root", ".cache", "tauri");
+        await fs.mkdir(cacheDir, { recursive: true });
+        const src = path.join(ROOT_DIR, "scripts", "linux", "linuxdeploy-plugin-gtk.sh");
+        const dest = path.join(cacheDir, "linuxdeploy-plugin-gtk.sh");
+        await fs.copyFile(src, dest);
+        await fs.chmod(dest, 0o755);
+        console.log("✅ Installed patched GTK plugin to handle static binaries");
+    }
+
     const args = ["tauri", "build", "--bundles", bundles.join(",")];
     if (debug) {
         args.push("--debug");
