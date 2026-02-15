@@ -8,7 +8,7 @@ An AI co-worker on your computer that can safely interact with files + the web t
 - **Create** docs, spreadsheets, email, events and personal apps
 - **Automate** routine workflows
 
-<img width="1012" height="648" alt="product_hero" src="https://github.com/user-attachments/assets/e1b0872a-9297-4aa2-9394-4755c6313536" />
+<img width="1287" height="825" alt="product_hero" src="https://github.com/user-attachments/assets/85e90271-95a5-4f87-9011-c9a375719f8f" />
 
 ## Features
 
