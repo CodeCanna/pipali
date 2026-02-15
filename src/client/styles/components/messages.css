@@ -173,8 +173,16 @@
 
 .message-content .task-list-item {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 8px;
+}
+
+.message-content .task-list-item > ul,
+.message-content .task-list-item > ol {
+    width: 100%;
+    margin: 0;
+    margin-left: 24px;
 }
 
 .message-content .task-list-item > input[type="checkbox"] {
