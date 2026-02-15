@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { getDbName, getPGliteConfig } from './utils';
 import { AiModelApi, ChatModel, User, UserChatModel, type ChatModelWithApi } from './schema';
@@ -47,7 +47,7 @@ export async function getDefaultChatModel(user?: typeof User.$inferSelect, fallb
     }
     // Else fallback to first chat model defined in the database
     log.info(`Falling back to first available model`);
-    const [result] = await db.select({ chatModel: ChatModel, aiModelApi: AiModelApi }).from(ChatModel).leftJoin(AiModelApi, eq(ChatModel.aiModelApiId, AiModelApi.id)).limit(1);
+    const [result] = await db.select({ chatModel: ChatModel, aiModelApi: AiModelApi }).from(ChatModel).leftJoin(AiModelApi, eq(ChatModel.aiModelApiId, AiModelApi.id)).orderBy(asc(ChatModel.id)).limit(1);
     if (result) {
         log.info(`Using fallback model: ${result.chatModel.name}`);
     }

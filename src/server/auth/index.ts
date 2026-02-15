@@ -7,8 +7,8 @@
  */
 
 import { db } from '../db';
-import { PlatformAuth, User, AiModelApi, ChatModel, Conversation, WebSearchProvider, WebScraper } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { PlatformAuth, User, AiModelApi, ChatModel, UserChatModel, Conversation, WebSearchProvider, WebScraper } from '../db/schema';
+import { and, eq, desc } from 'drizzle-orm';
 import type { AuthTokens, PlatformUserInfo, PlatformAuthCapabilities } from './types';
 import { createChildLogger } from '../logger';
 
@@ -407,6 +407,7 @@ export async function syncPlatformModels(): Promise<void> {
             use_responses_api?: boolean;
             input_cost_per_million?: number;
             output_cost_per_million?: number;
+            is_default?: boolean;
         }>;
 
         // Check if Pipali provider already exists
@@ -528,6 +529,22 @@ export async function syncPlatformModels(): Promise<void> {
             log.info({ added: addedCount, updated: updatedCount, removed: removedCount }, 'Platform models synced');
         } else {
             log.debug('Platform models already up to date');
+        }
+
+        // Set platform's default model as the user's default if they haven't chosen one yet
+        const platformDefault = platformModels.find(m => m.is_default);
+        if (platformDefault) {
+            const [user] = await db.select().from(User).limit(1);
+            if (user) {
+                const [existingUserModel] = await db.select().from(UserChatModel).where(eq(UserChatModel.userId, user.id)).limit(1);
+                if (!existingUserModel) {
+                    const [defaultChatModel] = await db.select().from(ChatModel).where(and(eq(ChatModel.name, platformDefault.id), eq(ChatModel.aiModelApiId, providerId)));
+                    if (defaultChatModel) {
+                        await db.insert(UserChatModel).values({ userId: user.id, modelId: defaultChatModel.id });
+                        log.info({ model: platformDefault.id }, 'Set platform default as user default model');
+                    }
+                }
+            }
         }
 
         // Update the provider's API key with current access token
