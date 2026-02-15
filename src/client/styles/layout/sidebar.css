@@ -375,12 +375,6 @@
     opacity: 0.8;
 }
 
-/* Active task indicator */
-.conversation-item.has-active-task {
-    border-left: 2px solid var(--color-accent);
-    padding-left: 10px;
-}
-
 .conversation-menu-container {
     position: relative;
     display: flex;
