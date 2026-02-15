@@ -16,6 +16,7 @@ interface MessageListProps {
 export function MessageList({ messages, conversationId, platformFrontendUrl, onDeleteMessage, userName }: MessageListProps) {
     const lastUserMessageRef = useRef<HTMLDivElement>(null);
     const mainContentRef = useRef<HTMLElement>(null);
+    const messagesRef = useRef<HTMLDivElement>(null);
     const previousConversationIdRef = useRef<string | undefined>(undefined);
     const previousMessagesLengthRef = useRef<number>(0);
     const previousThoughtsLengthRef = useRef<number>(0);
@@ -96,13 +97,30 @@ export function MessageList({ messages, conversationId, platformFrontendUrl, onD
         }
     }, [currentThoughtsLength]);
 
+    // Auto-scroll when content height grows during streaming.
+    // Tool call results and expanded thoughts change DOM height without changing
+    // messages.length or currentThoughtsLength, so the above effects miss them.
+    useEffect(() => {
+        const container = mainContentRef.current;
+        const messagesEl = messagesRef.current;
+        if (!container || !messagesEl) return;
+
+        const observer = new ResizeObserver(() => {
+            if (isNearBottomRef.current) {
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+        observer.observe(messagesEl);
+        return () => observer.disconnect();
+    }, []);
+
     return (
         <main className="main-content" ref={mainContentRef}>
             <div className="messages-container">
                 {messages.length === 0 ? (
                     <EmptyHomeState userName={userName} />
                 ) : (
-                    <div className="messages">
+                    <div className="messages" ref={messagesRef}>
                         {messages.map((msg, index) => (
                             <div key={msg.stableId} ref={index === lastUserMessageIndex ? lastUserMessageRef : undefined}>
                                 <MessageItem message={msg} platformFrontendUrl={platformFrontendUrl} onDelete={onDeleteMessage} />
