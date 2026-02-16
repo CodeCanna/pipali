@@ -9,7 +9,7 @@ import { DiffView } from '../tool-views/DiffView';
 import { shortenHomePath, parseMcpToolName, cleanOperationType } from '../../utils/formatting';
 import { getOperationTypePillClass, HIDDEN_MCP_ARGS, formatArgValue } from './utils';
 
-const ALT_KEY = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌥' : 'Alt+';
+import { ALT_KEY } from '../../utils/platform';
 
 interface ConfirmationDialogProps {
     request: ConfirmationRequest;

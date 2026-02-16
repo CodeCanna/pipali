@@ -3,3 +3,4 @@
 export * from './diff';
 export * from './formatting';
 export * from './toolStatus';
+export * from './platform';

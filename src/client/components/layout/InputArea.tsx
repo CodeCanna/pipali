@@ -36,16 +36,14 @@ interface InputAreaProps {
     onSelectModel: (model: ChatModelInfo) => void;
 }
 
-const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-const SHORTCUT_KEY = IS_MAC ? 'Cmd' : 'Ctrl';
-const ALT_KEY = IS_MAC ? '⌥' : 'Alt+';
+import { MOD_KEY, ALT_KEY } from '../../utils/platform';
 
 
 const HOME_HINTS = [
-    `Tip: Use ${SHORTCUT_KEY}+Enter to start task in background`,
+    `Tip: Use ${MOD_KEY}Enter to start task in background`,
 ];
 const CHAT_HINTS = [
-    `Tip: Use ${SHORTCUT_KEY}+Enter to fork this conversation`,
+    `Tip: Use ${MOD_KEY}Enter to fork this conversation`,
 ];
 
 function pickRandom(arr: string[]): string {
