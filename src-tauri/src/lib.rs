@@ -473,6 +473,20 @@ pub fn run() {
             let host = state.host.clone();
             let port = state.port;
 
+            // Resolve the data directory (same logic as start_sidecar)
+            let app_data_dir = normalize_windows_path(get_app_data_dir(&handle)?);
+            let legacy_data_dir = get_legacy_data_dir();
+            let data_dir = legacy_data_dir
+                .as_ref()
+                .filter(|dir| has_existing_data_dir(dir))
+                .cloned()
+                .unwrap_or(app_data_dir);
+            let data_dir = normalize_windows_path(data_dir);
+
+            // Initialize wake lock state with data directory so preference persists across restarts
+            let wake_state: State<wake_lock::WakeLockState> = app.state();
+            wake_state.init(&data_dir);
+
             // Show app in dock immediately
             show_in_dock(&handle);
 
@@ -524,7 +538,7 @@ pub fn run() {
             // Setup system tray menu
             let show_item = MenuItemBuilder::with_id("show", "Show Pipali").build(app)?;
             let keep_awake_item = CheckMenuItemBuilder::with_id("keep_awake", "Keep Device Awake")
-                .checked(false)
+                .checked(wake_state.is_user_enabled())
                 .build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let tray_menu = MenuBuilder::new(app)

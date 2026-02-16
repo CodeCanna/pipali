@@ -1,10 +1,14 @@
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::State;
+
+const SETTINGS_FILE: &str = "settings.json";
 
 pub struct WakeLockState {
     count: Mutex<u32>,
     guard: Mutex<Option<keepawake::KeepAwake>>,
     user_enabled: Mutex<bool>,
+    data_dir: Mutex<Option<PathBuf>>,
 }
 
 impl Default for WakeLockState {
@@ -13,11 +17,50 @@ impl Default for WakeLockState {
             count: Mutex::new(0),
             guard: Mutex::new(None),
             user_enabled: Mutex::new(false),
+            data_dir: Mutex::new(None),
         }
     }
 }
 
+fn load_keep_awake(data_dir: &Path) -> bool {
+    let path = data_dir.join(SETTINGS_FILE);
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| v.get("keep_awake")?.as_bool())
+        .unwrap_or(false)
+}
+
+fn save_keep_awake(data_dir: &Path, enabled: bool) {
+    let path = data_dir.join(SETTINGS_FILE);
+    // Read existing settings to preserve other fields
+    let mut settings = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    settings["keep_awake"] = serde_json::json!(enabled);
+    if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&settings).unwrap()) {
+        log::warn!("[WakeLock] Failed to save preference: {}", e);
+    }
+}
+
 impl WakeLockState {
+    /// Initialize with a data directory. Restores saved preference and acquires wake lock if needed.
+    pub fn init(&self, data_dir: &Path) {
+        *self.data_dir.lock().unwrap() = Some(data_dir.to_path_buf());
+        let saved = load_keep_awake(data_dir);
+        if saved {
+            *self.user_enabled.lock().unwrap() = true;
+            self.increment();
+            log::info!("[WakeLock] Restored keep-awake preference from previous session");
+        }
+    }
+
+    /// Whether the user has manually enabled keep-awake.
+    pub fn is_user_enabled(&self) -> bool {
+        *self.user_enabled.lock().unwrap()
+    }
+
     pub fn release_all(&self) {
         *self.count.lock().unwrap() = 0;
         *self.user_enabled.lock().unwrap() = false;
@@ -34,7 +77,12 @@ impl WakeLockState {
             *enabled = true;
             self.increment();
         }
-        *enabled
+        let new_state = *enabled;
+        drop(enabled);
+        if let Some(dir) = self.data_dir.lock().unwrap().as_ref() {
+            save_keep_awake(dir, new_state);
+        }
+        new_state
     }
 
     fn increment(&self) {
