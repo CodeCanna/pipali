@@ -136,7 +136,17 @@ export function InputArea({
             )}
 
             <div className="input-container">
-                <form onSubmit={onSubmit} className="input-form">
+                <form onSubmit={(e) => {
+                    // When confirmation is pending, send as guidance instead of new message
+                    // This handles mobile where users tap the send button instead of pressing Enter
+                    if (pendingConfirmation && input.trim()) {
+                        e.preventDefault();
+                        onConfirmationRespond('guidance', input.trim());
+                        onInputChange('');
+                        return;
+                    }
+                    onSubmit(e);
+                }} className="input-form">
                     {/* Staged file chips */}
                     {hasFiles && (
                         <div className="staged-files">
