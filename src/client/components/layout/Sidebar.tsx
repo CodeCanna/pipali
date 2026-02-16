@@ -6,6 +6,8 @@ import type { ConversationSummary, ConversationState, ConfirmationRequest, AuthS
 import { useTheme } from '../../hooks';
 import { BillingAlertBanner } from '../billing';
 
+import { MOD_KEY } from '../../utils/platform';
+
 const MAX_VISIBLE_CHATS = 5;
 
 /**
@@ -142,12 +144,22 @@ export function Sidebar({
         selectedItem?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }, [selectedIndex, showAllChatsModal]);
 
-    // Global Escape key handler for modal (captures before app's global handler)
+    // Global keyboard shortcut: Cmd/Ctrl+O to toggle all chats modal
     useEffect(() => {
-        if (!showAllChatsModal) return;
-
-        const handleGlobalEscape = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAllChatsModal(prev => {
+                    if (prev) {
+                        setSearchQuery('');
+                        setSelectedIndex(0);
+                    }
+                    return !prev;
+                });
+            }
+            // Close modal on Escape (capture phase to intercept before other handlers)
+            if (e.key === 'Escape' && showAllChatsModal) {
                 e.preventDefault();
                 e.stopPropagation();
                 setShowAllChatsModal(false);
@@ -156,9 +168,8 @@ export function Sidebar({
             }
         };
 
-        // Use capture phase to intercept before other handlers
-        document.addEventListener('keydown', handleGlobalEscape, true);
-        return () => document.removeEventListener('keydown', handleGlobalEscape, true);
+        document.addEventListener('keydown', handleGlobalKeyDown, true);
+        return () => document.removeEventListener('keydown', handleGlobalKeyDown, true);
     }, [showAllChatsModal]);
 
     // Filter conversations based on search query
@@ -331,9 +342,6 @@ export function Sidebar({
                                     setOpenConversationMenuId(null);
                                     setOpenMenuContext(null);
                                     onDeleteConversation(conv.id, e);
-                                    if (inModal) {
-                                        closeModal();
-                                    }
                                 }}
                                 role="menuitem"
                             >
@@ -598,7 +606,7 @@ export function Sidebar({
                                 {searchQuery && ` matching "${searchQuery}"`}
                             </span>
                             <span className="keyboard-hint">
-                                <kbd>↑</kbd><kbd>↓</kbd> to navigate · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close
+                                <kbd>↑</kbd><kbd>↓</kbd> navigate · <kbd>Enter</kbd> open · <kbd>{MOD_KEY}O</kbd> toggle · <kbd>Esc</kbd> close
                             </span>
                         </div>
                     </div>
