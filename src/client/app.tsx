@@ -1036,6 +1036,23 @@ const App = () => {
         clearConversation();
     };
 
+    const renameConversation = async (id: string, title: string): Promise<boolean> => {
+        try {
+            const res = await apiFetch(`/api/conversations/${id}/title`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title }),
+            });
+            if (res.ok) {
+                setConversations(prev => prev.map(c => c.id === id ? { ...c, title } : c));
+                return true;
+            }
+        } catch (e) {
+            console.error("Failed to rename conversation", e);
+        }
+        return false;
+    };
+
     const deleteConversation = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
@@ -1314,6 +1331,7 @@ const App = () => {
                     onSelectConversation={selectConversation}
                     onDeleteConversation={deleteConversation}
                     onExportConversation={exportConversationAsATIF}
+                    onRenameConversation={renameConversation}
                     onGoToSkills={goToSkillsPage}
                     onGoToAutomations={goToAutomationsPage}
                     onGoToMcpTools={goToMcpToolsPage}

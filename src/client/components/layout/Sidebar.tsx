@@ -1,7 +1,7 @@
 // Sidebar with conversation list
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, MessageSquare, AlertCircle, CheckCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Hammer, Settings, User, LogOut, Shield, Sun, Moon, Monitor } from 'lucide-react';
+import { Loader2, MessageSquare, AlertCircle, CheckCircle, Plus, MoreVertical, Download, Trash2, ChevronRight, Search, X, Zap, Clock, Hammer, Settings, User, LogOut, Shield, Sun, Moon, Monitor, Pencil } from 'lucide-react';
 import type { ConversationSummary, ConversationState, ConfirmationRequest, AuthStatus, BillingAlert } from '../../types';
 import { useTheme } from '../../hooks';
 import { BillingAlertBanner } from '../billing';
@@ -54,6 +54,7 @@ interface SidebarProps {
     onSelectConversation: (id: string, highlightTerm?: string) => void;
     onDeleteConversation: (id: string, e: React.MouseEvent) => void;
     onExportConversation: (id: string) => void;
+    onRenameConversation: (id: string, title: string) => Promise<boolean>;
     onGoToSkills?: () => void;
     onGoToAutomations?: () => void;
     onGoToMcpTools?: () => void;
@@ -78,6 +79,7 @@ export function Sidebar({
     onSelectConversation,
     onDeleteConversation,
     onExportConversation,
+    onRenameConversation,
     onGoToSkills,
     onGoToAutomations,
     onGoToMcpTools,
@@ -94,6 +96,10 @@ export function Sidebar({
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [searchResults, setSearchResults] = useState<ConversationSummary[] | null>(null);
     const [isSearching, setIsSearching] = useState(false);
+    const [renamingConversationId, setRenamingConversationId] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState('');
+    const renameInputRef = useRef<HTMLInputElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const [gravatarUrl, setGravatarUrl] = useState<string | null>(null);
     const [gravatarFailed, setGravatarFailed] = useState(false);
     const listRef = useRef<HTMLDivElement>(null);
@@ -162,7 +168,8 @@ export function Sidebar({
                 });
             }
             // Close modal on Escape (capture phase to intercept before other handlers)
-            if (e.key === 'Escape' && showAllChatsModal) {
+            // But not while renaming — Escape should cancel rename first
+            if (e.key === 'Escape' && showAllChatsModal && !renamingConversationId) {
                 e.preventDefault();
                 e.stopPropagation();
                 setShowAllChatsModal(false);
@@ -173,7 +180,7 @@ export function Sidebar({
 
         document.addEventListener('keydown', handleGlobalKeyDown, true);
         return () => document.removeEventListener('keydown', handleGlobalKeyDown, true);
-    }, [showAllChatsModal]);
+    }, [showAllChatsModal, renamingConversationId]);
 
     // Debounced server-side full-text search across message content
     useEffect(() => {
@@ -271,6 +278,7 @@ export function Sidebar({
         setSelectedIndex(0);
         setSearchResults(null);
         setIsSearching(false);
+        setRenamingConversationId(null);
     };
 
     // Handle keyboard navigation in modal
@@ -302,6 +310,49 @@ export function Sidebar({
                 }
                 break;
         }
+    };
+
+    const startRename = (conv: ConversationSummary) => {
+        setRenamingConversationId(conv.id);
+        setRenameValue(conv.title);
+        setOpenConversationMenuId(null);
+        setOpenMenuContext(null);
+    };
+
+    // Focus the rename input after it mounts
+    useEffect(() => {
+        if (renamingConversationId) {
+            // Use rAF to wait for the DOM to settle after React commit
+            requestAnimationFrame(() => renameInputRef.current?.focus());
+        }
+    }, [renamingConversationId]);
+
+    const finishRename = () => {
+        setRenamingConversationId(null);
+        // Return focus to the modal search input if it exists
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+    };
+
+    const submitRename = async (id: string) => {
+        // Guard against double-submit (Enter triggers onBlur when input unmounts)
+        if (!renamingConversationId) return;
+        const trimmed = renameValue.trim();
+        if (!trimmed) {
+            finishRename();
+            return;
+        }
+        // Skip API call if title unchanged
+        const conv = conversations.find(c => c.id === id);
+        if (conv && conv.title === trimmed) {
+            finishRename();
+            return;
+        }
+        const ok = await onRenameConversation(id, trimmed);
+        if (ok) finishRename();
+    };
+
+    const cancelRename = () => {
+        finishRename();
     };
 
     // Render a conversation item (reused in both sidebar and modal)
@@ -342,20 +393,38 @@ export function Sidebar({
                 )}
 
                 <div className="conversation-info">
-                    <span className="conversation-title">{conv.title}</span>
-                    {/* Match snippet from full-text search */}
-                    {conv.matchSnippet ? (
-                        <span className="conversation-match-snippet">{conv.matchSnippet}</span>
-                    ) : (isActive || isCompleted || hasPendingConfirmation) && latestReasoning ? (
-                        <span className="conversation-subtitle">
-                            {(() => {
-                                const firstLine = latestReasoning.split('\n')[0] ?? '';
-                                return firstLine.length > 60
-                                    ? firstLine.slice(0, 60) + '...'
-                                    : firstLine;
-                            })()}
-                        </span>
-                    ) : null}
+                    {renamingConversationId === conv.id ? (
+                        <input
+                            ref={renameInputRef}
+                            className="conversation-rename-input"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === 'Enter') submitRename(conv.id);
+                                if (e.key === 'Escape') cancelRename();
+                            }}
+                            onBlur={() => submitRename(conv.id)}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    ) : (
+                        <>
+                            <span className="conversation-title">{conv.title}</span>
+                            {/* Match snippet from full-text search */}
+                            {conv.matchSnippet ? (
+                                <span className="conversation-match-snippet">{conv.matchSnippet}</span>
+                            ) : (isActive || isCompleted || hasPendingConfirmation) && latestReasoning ? (
+                                <span className="conversation-subtitle">
+                                    {(() => {
+                                        const firstLine = latestReasoning.split('\n')[0] ?? '';
+                                        return firstLine.length > 60
+                                            ? firstLine.slice(0, 60) + '...'
+                                            : firstLine;
+                                    })()}
+                                </span>
+                            ) : null}
+                        </>
+                    )}
                 </div>
 
                 <div className="conversation-menu-container">
@@ -369,6 +438,18 @@ export function Sidebar({
 
                     {openConversationMenuId === conv.id && openMenuContext === (inModal ? 'modal' : 'sidebar') && (
                         <div className="conversation-menu" role="menu">
+                            <button
+                                className="conversation-menu-item"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    startRename(conv);
+                                }}
+                                role="menuitem"
+                            >
+                                <Pencil size={14} />
+                                <span>Rename</span>
+                            </button>
+
                             <button
                                 className="conversation-menu-item"
                                 onClick={(e) => {
@@ -624,6 +705,7 @@ export function Sidebar({
                         <div className="chat-modal-search">
                             <Search size={16} className="search-icon" />
                             <input
+                                ref={searchInputRef}
                                 type="text"
                                 placeholder="Search chats..."
                                 value={searchQuery}

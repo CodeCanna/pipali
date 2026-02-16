@@ -277,6 +277,23 @@ api.put('/conversations/:conversationId/model', async (c) => {
     return c.json({ success: true });
 });
 
+// Rename a conversation
+api.put('/conversations/:conversationId/title', async (c) => {
+    const conversationId = c.req.param('conversationId');
+    try {
+        z.uuid().parse(conversationId);
+    } catch (e) {
+        return c.json({ error: 'Invalid conversation ID' }, 400);
+    }
+    const body = await c.req.json();
+    const title = body.title;
+    if (typeof title !== 'string' || !title.trim()) {
+        return c.json({ error: 'title must be a non-empty string' }, 400);
+    }
+    await db.update(Conversation).set({ title: title.trim() }).where(eq(Conversation.id, conversationId));
+    return c.json({ success: true });
+});
+
 // Delete a conversation
 api.delete('/conversations/:conversationId', async (c) => {
     const conversationId = c.req.param('conversationId');
