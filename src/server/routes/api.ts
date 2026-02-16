@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { db, getDefaultChatModel } from '../db';
 import { Conversation } from '../db/schema';
-import { eq, desc, isNull, and } from 'drizzle-orm';
+import { eq, desc, isNull, and, sql } from 'drizzle-orm';
 import { AiModelApi, ChatModel, User, UserChatModel } from '../db/schema';
 import openapi from './openapi';
 import automations from './automations';
@@ -151,14 +151,35 @@ api.get('/chat/:conversationId/history', async (c) => {
     return c.json({ history, chatModelId: conversation.chatModelId });
 });
 
-// Get all conversations for the user
+// Get all conversations for the user (with optional full-text search via ?q=)
 api.get('/conversations', async (c) => {
     const [adminUser] = await db.select().from(User).where(eq(User.email, getDefaultUser().email));
     if (!adminUser) {
         return c.json({ error: 'User not found' }, 404);
     }
 
-    // Filter out automation conversations (those with automationId set)
+    const q = c.req.query('q')?.trim();
+
+    // Base filter: user's non-automation conversations
+    const baseWhere = and(
+        eq(Conversation.userId, adminUser.id),
+        isNull(Conversation.automationId)
+    );
+
+    // When searching, add JSONB full-text search across user messages and agent final responses
+    const searchPattern = q ? `%${q.replace(/%/g, '\\%').replace(/_/g, '\\_')}%` : '';
+    const whereClause = q
+        ? and(baseWhere, sql`(
+            ${Conversation.title} ILIKE ${searchPattern}
+            OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements(${Conversation.trajectory}->'steps') AS step
+                WHERE step->>'message' ILIKE ${searchPattern}
+                  AND (step->>'source' = 'user' OR (step->>'source' = 'agent' AND NOT step ? 'tool_calls'))
+                  AND NOT coalesce(step->'extra' ? 'is_compaction', false)
+            )
+          )`)
+        : baseWhere;
+
     const conversations = await db.select({
         id: Conversation.id,
         title: Conversation.title,
@@ -167,10 +188,7 @@ api.get('/conversations', async (c) => {
         trajectory: Conversation.trajectory,
     })
     .from(Conversation)
-    .where(and(
-        eq(Conversation.userId, adminUser.id),
-        isNull(Conversation.automationId)
-    ))
+    .where(whereClause)
     .orderBy(desc(Conversation.updatedAt));
 
     // Map to include a preview, active status, and latest reasoning
@@ -198,6 +216,35 @@ api.get('/conversations', async (c) => {
                 ?.slice(0, 80);               // Truncate
         }
 
+        // Extract a match snippet when searching (for matches in message content, not title)
+        let matchSnippet: string | undefined;
+        if (q) {
+            const lowerQ = q.toLowerCase();
+            const title = conv.title || preview || '';
+            if (!title.toLowerCase().includes(lowerQ)) {
+                // Search through user messages and agent final responses for the match
+                for (const step of conv.trajectory?.steps || []) {
+                    if (!step.message) continue;
+                    // Skip non-user/agent steps, tool-call steps, and compaction steps
+                    const isUserMsg = step.source === 'user';
+                    const isAgentFinal = step.source === 'agent' && !step.tool_calls;
+                    const isCompaction = step.extra?.is_compaction;
+                    if ((!isUserMsg && !isAgentFinal) || isCompaction) continue;
+
+                    const matchIndex = step.message.toLowerCase().indexOf(lowerQ);
+                    if (matchIndex !== -1) {
+                        const contextRadius = 50;
+                        const start = Math.max(0, matchIndex - contextRadius);
+                        const end = Math.min(step.message.length, matchIndex + q.length + contextRadius);
+                        const prefix = start > 0 ? '...' : '';
+                        const suffix = end < step.message.length ? '...' : '';
+                        matchSnippet = `${prefix}${step.message.slice(start, end)}${suffix}`;
+                        break;
+                    }
+                }
+            }
+        }
+
         return {
             id: conv.id,
             title: conv.title || preview || 'New conversation',
@@ -206,6 +253,7 @@ api.get('/conversations', async (c) => {
             updatedAt: conv.updatedAt,
             isActive,
             latestReasoning,
+            ...(matchSnippet !== undefined && { matchSnippet }),
         };
     });
 

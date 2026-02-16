@@ -7,6 +7,7 @@ interface FindInPageProps {
     isOpen: boolean;
     onClose: () => void;
     containerSelector?: string; // CSS selector for the container to search in
+    initialQuery?: string; // Pre-fill the search query (e.g. from chat switcher search)
 }
 
 interface MatchInfo {
@@ -15,7 +16,7 @@ interface MatchInfo {
     endIndex: number;
 }
 
-export function FindInPage({ isOpen, onClose, containerSelector = '.main-content' }: FindInPageProps) {
+export function FindInPage({ isOpen, onClose, containerSelector = '.main-content', initialQuery }: FindInPageProps) {
     const [query, setQuery] = useState('');
     const [matches, setMatches] = useState<MatchInfo[]>([]);
     const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -190,9 +191,12 @@ export function FindInPage({ isOpen, onClose, containerSelector = '.main-content
         }
     }, [currentMatchIndex, matches.length, updateActiveHighlight]);
 
-    // Focus input when opened
+    // Focus input when opened, pre-fill with initialQuery if provided
     useEffect(() => {
         if (isOpen) {
+            if (initialQuery) {
+                setQuery(initialQuery);
+            }
             inputRef.current?.focus();
             inputRef.current?.select();
         } else {
@@ -201,7 +205,7 @@ export function FindInPage({ isOpen, onClose, containerSelector = '.main-content
             setMatches([]);
             setCurrentMatchIndex(0);
         }
-    }, [isOpen, clearHighlights]);
+    }, [isOpen, clearHighlights, initialQuery]);
 
     // Handle keyboard shortcuts within the find bar
     const handleKeyDown = (e: React.KeyboardEvent) => {

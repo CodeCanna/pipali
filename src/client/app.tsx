@@ -99,6 +99,8 @@ const App = () => {
     const [automationConfirmations, setAutomationConfirmations] = useState<AutomationPendingConfirmation[]>([]);
     // Find in page state
     const [showFindInPage, setShowFindInPage] = useState(false);
+    const [findInPageQuery, setFindInPageQuery] = useState<string | undefined>(undefined);
+    const pendingHighlightRef = useRef<{ term: string; conversationId: string } | undefined>(undefined);
     // Billing alerts state
     const [billingAlerts, setBillingAlerts] = useState<BillingAlert[]>([]);
     const [platformFrontendUrl, setPlatformFrontendUrl] = useState<string>('https://pipali.ai');
@@ -500,6 +502,19 @@ const App = () => {
         window.addEventListener('keydown', handleFindShortcut);
         return () => window.removeEventListener('keydown', handleFindShortcut);
     }, []);
+
+    // Open FindInPage with highlight term after conversation messages render
+    useEffect(() => {
+        const pending = pendingHighlightRef.current;
+        if (pending && pending.conversationId === conversationId && messages.length > 0) {
+            pendingHighlightRef.current = undefined;
+            // Wait for DOM to render messages before triggering search
+            requestAnimationFrame(() => {
+                setFindInPageQuery(pending.term);
+                setShowFindInPage(true);
+            });
+        }
+    }, [messages.length, conversationId]);
 
     // Global Cmd/Ctrl+R listener for page reload in desktop app
     useEffect(() => {
@@ -986,7 +1001,7 @@ const App = () => {
         window.history.pushState({}, '', '/settings');
     };
 
-    const selectConversation = (id: string) => {
+    const selectConversation = (id: string, highlightTerm?: string) => {
         setCurrentPage('chat');
         if (conversationId) {
             syncConversationState(conversationId, messages);
@@ -995,6 +1010,10 @@ const App = () => {
         clearCompleted(id);
         conversationIdRef.current = id;
         setChatConversationId(id);
+        // Store highlight term to open FindInPage once messages render
+        if (highlightTerm) {
+            pendingHighlightRef.current = { term: highlightTerm, conversationId: id };
+        }
         const convState = conversationStates.get(id);
         if (convState?.messages && convState.messages.length > 0) {
             setChatMessages(convState.messages);
@@ -1391,7 +1410,8 @@ const App = () => {
 
                 <FindInPage
                     isOpen={showFindInPage}
-                    onClose={() => setShowFindInPage(false)}
+                    onClose={() => { setShowFindInPage(false); setFindInPageQuery(undefined); textareaRef.current?.focus(); }}
+                    initialQuery={findInPageQuery}
                 />
             </div>
         </ErrorBoundary>

@@ -5,6 +5,7 @@ import { Loader2, MessageSquare, AlertCircle, CheckCircle, Plus, MoreVertical, D
 import type { ConversationSummary, ConversationState, ConfirmationRequest, AuthStatus, BillingAlert } from '../../types';
 import { useTheme } from '../../hooks';
 import { BillingAlertBanner } from '../billing';
+import { apiFetch } from '../../utils/api';
 
 import { MOD_KEY } from '../../utils/platform';
 
@@ -50,7 +51,7 @@ interface SidebarProps {
     billingAlerts?: BillingAlert[];
     platformFrontendUrl?: string;
     onNewChat: () => void;
-    onSelectConversation: (id: string) => void;
+    onSelectConversation: (id: string, highlightTerm?: string) => void;
     onDeleteConversation: (id: string, e: React.MouseEvent) => void;
     onExportConversation: (id: string) => void;
     onGoToSkills?: () => void;
@@ -91,6 +92,8 @@ export function Sidebar({
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [searchResults, setSearchResults] = useState<ConversationSummary[] | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
     const [gravatarUrl, setGravatarUrl] = useState<string | null>(null);
     const [gravatarFailed, setGravatarFailed] = useState(false);
     const listRef = useRef<HTMLDivElement>(null);
@@ -172,13 +175,52 @@ export function Sidebar({
         return () => document.removeEventListener('keydown', handleGlobalKeyDown, true);
     }, [showAllChatsModal]);
 
-    // Filter conversations based on search query
-    const filteredConversations = searchQuery.trim()
-        ? conversations.filter(conv =>
-            conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            conv.preview?.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        : conversations;
+    // Debounced server-side full-text search across message content
+    useEffect(() => {
+        const trimmed = searchQuery.trim();
+        if (!trimmed || trimmed.length < 2) {
+            setSearchResults(null);
+            setIsSearching(false);
+            return;
+        }
+
+        setIsSearching(true);
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            try {
+                const res = await apiFetch(
+                    `/api/conversations?q=${encodeURIComponent(trimmed)}`,
+                    { signal: controller.signal },
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setSearchResults(data.conversations);
+                }
+            } catch (e) {
+                if (e instanceof DOMException && e.name === 'AbortError') return;
+                console.error('Search failed', e);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [searchQuery]);
+
+    // Filter conversations: use server results when available, else client-side filter
+    const filteredConversations = (() => {
+        const trimmed = searchQuery.trim();
+        if (!trimmed) return conversations;
+        if (searchResults) return searchResults;
+        // Instant client-side filter while waiting for server results
+        return conversations.filter(conv =>
+            conv.title.toLowerCase().includes(trimmed.toLowerCase()) ||
+            conv.preview?.toLowerCase().includes(trimmed.toLowerCase())
+        );
+    })();
 
     // Split conversations into visible (first 5) and hidden (rest)
     const visibleConversations = conversations.slice(0, MAX_VISIBLE_CHATS);
@@ -210,10 +252,16 @@ export function Sidebar({
     };
 
     const handleModalSelectConversation = (id: string) => {
-        onSelectConversation(id);
+        // Pass search query as highlight term if full-text search matched in message content
+        const term = searchQuery.trim();
+        const conv = (searchResults ?? conversations).find(c => c.id === id);
+        const hasMessageMatch = conv?.matchSnippet;
+        onSelectConversation(id, hasMessageMatch ? term : undefined);
         setShowAllChatsModal(false);
         setSearchQuery('');
         setSelectedIndex(0);
+        setSearchResults(null);
+        setIsSearching(false);
     };
 
     // Close modal helper
@@ -221,6 +269,8 @@ export function Sidebar({
         setShowAllChatsModal(false);
         setSearchQuery('');
         setSelectedIndex(0);
+        setSearchResults(null);
+        setIsSearching(false);
     };
 
     // Handle keyboard navigation in modal
@@ -293,8 +343,10 @@ export function Sidebar({
 
                 <div className="conversation-info">
                     <span className="conversation-title">{conv.title}</span>
-                    {/* Subtitle with train of thought */}
-                    {(isActive || isCompleted || hasPendingConfirmation) && latestReasoning && (
+                    {/* Match snippet from full-text search */}
+                    {conv.matchSnippet ? (
+                        <span className="conversation-match-snippet">{conv.matchSnippet}</span>
+                    ) : (isActive || isCompleted || hasPendingConfirmation) && latestReasoning ? (
                         <span className="conversation-subtitle">
                             {(() => {
                                 const firstLine = latestReasoning.split('\n')[0] ?? '';
@@ -303,7 +355,7 @@ export function Sidebar({
                                     : firstLine;
                             })()}
                         </span>
-                    )}
+                    ) : null}
                 </div>
 
                 <div className="conversation-menu-container">
@@ -579,10 +631,11 @@ export function Sidebar({
                                 onKeyDown={handleModalKeyDown}
                                 autoFocus
                             />
-                            {searchQuery && (
+                            {isSearching && <Loader2 size={14} className="search-spinner spinning" />}
+                            {searchQuery && !isSearching && (
                                 <button
                                     className="search-clear"
-                                    onClick={() => setSearchQuery('')}
+                                    onClick={() => { setSearchQuery(''); setSearchResults(null); }}
                                     aria-label="Clear search"
                                 >
                                     <X size={14} />
@@ -603,7 +656,7 @@ export function Sidebar({
                         <div className="chat-modal-footer">
                             <span className="chat-count">
                                 {filteredConversations.length} {filteredConversations.length === 1 ? 'chat' : 'chats'}
-                                {searchQuery && ` matching "${searchQuery}"`}
+                                {searchQuery && searchResults ? ' found' : searchQuery ? ` matching "${searchQuery}"` : ''}
                             </span>
                             <span className="keyboard-hint">
                                 <kbd>↑</kbd><kbd>↓</kbd> navigate · <kbd>Enter</kbd> open · <kbd>{MOD_KEY}O</kbd> toggle · <kbd>Esc</kbd> close

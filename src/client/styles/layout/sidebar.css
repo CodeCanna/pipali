@@ -375,6 +375,14 @@
     opacity: 0.8;
 }
 
+.conversation-match-snippet {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .conversation-menu-container {
     position: relative;
     display: flex;
@@ -607,6 +615,11 @@
 .search-clear:hover {
     background: var(--color-text-muted);
     color: var(--color-bg-elevated);
+}
+
+.search-spinner {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
 }
 
 /* Chat Modal List */

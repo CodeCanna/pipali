@@ -10,6 +10,7 @@ export type ConversationSummary = {
     updatedAt: string;
     isActive?: boolean;
     latestReasoning?: string;
+    matchSnippet?: string;
 };
 
 // Per-conversation state for tracking active tasks
