@@ -797,6 +797,9 @@ export class ResearchPausedError extends Error {
     }
 }
 
+/** Maximum retries per task run when the model returns no tool calls and no message */
+const MAX_EMPTY_RESPONSE_RETRIES = 2;
+
 /**
  * Main research function - iterates through tool calls until completion
  * Supports pause via abortSignal. Resume is handled by reloading chat history from DB.
@@ -804,6 +807,7 @@ export class ResearchPausedError extends Error {
 export async function* research(config: ResearchConfig): AsyncGenerator<ResearchIteration> {
     const iterationThreshold = Math.floor(config.maxIterations * 0.9) - 1;
     let thresholdStepCount: number | undefined = config.thresholdStepCount;
+    let emptyResponseRetries = 0;
 
     for (let i = 0; i < config.maxIterations; i++) {
         // Check if paused before starting new iteration
@@ -845,9 +849,43 @@ export async function* research(config: ResearchConfig): AsyncGenerator<Research
             continue;
         }
 
+        // Retry if model returned no message or tool call (only reasoning/thought)
+        // This handles cases where the LLM produces malformed output with no parseable response
+        if (iteration.toolCalls.length === 0 && !iteration.message && emptyResponseRetries < MAX_EMPTY_RESPONSE_RETRIES) {
+            emptyResponseRetries++;
+            log.warn(
+                { attempt: emptyResponseRetries, maxRetries: MAX_EMPTY_RESPONSE_RETRIES, hasThought: !!iteration.thought, rawOutputTypes: iteration.raw?.map((item: any) => item.type) },
+                'Model returned no tool calls and no message, retrying'
+            );
+
+            // Feed a warning back to the model asking it to produce a valid response
+            const syntheticCallId = `empty-response-retry-${Date.now()}`;
+            iteration.toolCalls = [{
+                function_name: '_system_warning',
+                arguments: {},
+                tool_call_id: syntheticCallId,
+            }];
+            iteration.toolResults = [{
+                source_call_id: syntheticCallId,
+                content: 'Your previous response did not contain a message or parsable tool calls.',
+            }];
+            iteration.raw = [...(iteration.raw || []), {
+                type: 'function_call',
+                id: syntheticCallId,
+                call_id: syntheticCallId,
+                name: '_system_warning',
+                arguments: '{}',
+                status: 'completed',
+            }];
+            yield iteration;
+            continue;
+        }
+
         // Stop research if no tool calls (model wants to respond directly)
         if (iteration.toolCalls.length === 0) {
             yield iteration;
+            // Reset retry counter on successful response
+            emptyResponseRetries = 0;
             // Check if paused after yielding final response
             // This prevents sending 'complete' if interrupt arrived during model generation
             if (config.abortSignal?.aborted) {

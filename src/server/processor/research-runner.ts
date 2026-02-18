@@ -296,10 +296,10 @@ export async function* runResearchWithConversation(
         }
     }
 
-    // If no final response was generated, create a fallback
+    // If no final response was generated after retries, return an empty response
     if (!finalResponse) {
-        log.warn({ conversationId, iterationCount, hasThought: !!finalThought, rawOutputTypes: finalRaw?.map((item: any) => item.type) }, 'Model returned no message, using fallback response');
-        finalResponse = 'Failed to generate response.';
+        log.warn({ conversationId, iterationCount, rawOutputTypes: finalRaw?.map((item: any) => item.type) }, 'Model returned no message after retries, return empty response');
+        finalResponse = '';
     }
 
     // Add final response as the last agent step
